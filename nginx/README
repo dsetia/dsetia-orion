@@ -1,0 +1,27 @@
+# create docker network
+sudo docker network create securite-net
+# inspect
+sudo docker network inspect securite-net
+
+# stop/remove existing containers
+sudo docker stop apis-container minio
+sudo docker rm apis-container minio
+
+sudo docker run -d \
+  -p 80:80 \
+  --name nginx \
+  --network securite-net \
+  -v /home/dsetia/securite/nginx/nginx.conf:/etc/nginx/nginx.conf:ro \
+  nginx:latest
+
+# reload nginx config (without container restart); -t to test it first
+sudo docker exec nginx nginx -t
+sudo docker exec nginx nginx -s reload
+# or restart the container
+start docker restart nginx
+
+# lua with http support for nginx
+sudo apt install luarocks
+sudo docker build -t openresty-with-http .
+sudo docker run -d -p 80:80 --name nginx --network securite-net -v /home/dsetia/securite/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro openresty-with-http
+sudo docker exec nginx /usr/local/openresty/bin/openresty -t

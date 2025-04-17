@@ -1,0 +1,77 @@
+sudo docker pull minio/minio
+sudo docker pull minio/mc
+
+# minio
+sudo docker run -d \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  --name minio \
+  -e "MINIO_ROOT_USER=minioadmin" \
+  -e "MINIO_ROOT_PASSWORD=minioadmin" \
+  -v /home/dsetia/securite/minio/data:/data \
+  minio/minio server /data --console-address ":9001"
+
+# mc
+sudo docker run -it --entrypoint=/bin/sh --rm -v /home/dsetia/securite/minio:/data minio/mc
+# alias for mc
+mc alias set myminio http://localhost:9000 minioadmin minioadmin
+mc mb myminio/testbucket
+
+# upload a file
+echo "Hello from MinIO!" > ~/securite/minio/testfile.txt
+mc cp /data/testfile.txt myminio/testbucket/
+# downlaod
+mc cp myminio/testbucket/testfile.txt /data/downloaded.txt
+# list 
+mc ls myminio/testbucket
+
+
+# mc client instead of container
+wget https://dl.min.io/client/mc/release/linux-amd64/mc
+chmod +x mc
+sudo mv mc /usr/local/bin/
+mc alias set myminio http://localhost:9000 minioadmin minioadmin
+# seed minio
+mc mb myminio/images
+mc mb myminio/rules/1
+mc cp hndr-sw-v1.2.3.tar.gz myminio/images/
+mc cp hndr-rules-2025.04.01.tar.gz myminio/rules/1
+
+# ui access to minio
+http://34.145.60.54:9001/browser
+
+# test (go) to add to minio
+go mod init minio-test
+go get github.com/minio/minio-go/v7
+echo "Dynamic test file" > ~/securite/minio/sample.txt
+go run test.go -bucket mybucket -file sample.txt
+go run test.go -bucket threatintel -file threatintel-2025.04.10.1523.tar.gz
+# above gave some iter/slices related mismatches. Grok recommended to update go.mod:
+go get github.com/minio/minio-go/v7@v7.0.69
+go mod tidy
+# create file
+go run test.go -bucket threatintel -file threatintel-2025.04.10.1523.tar.gz
+
+# integrate with nginx (network)
+sudo docker run -d \
+  -p 9000:9000 \
+  -p 9001:9001 \
+  --name minio \
+  --network securite-net \
+  -e "MINIO_ROOT_USER=minioadmin" \
+  -e "MINIO_ROOT_PASSWORD=minioadmin" \
+  -v /home/dsetia/securite/minio/data:/data \
+  minio/minio server /data --console-address ":9001"
+
+# set custom public policy for bucket images (via http://localhost:9001) UI
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {"AWS": "*"},
+      "Action": ["s3:GetObject"],
+      "Resource": ["arn:aws:s3:::images/*"]
+    }
+  ]
+}

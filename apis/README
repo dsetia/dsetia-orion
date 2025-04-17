@@ -1,0 +1,43 @@
+# install dependencies
+go get github.com/stretchr/testify/assert
+go get github.com/gorilla/mux
+go get github.com/mattn/go-sqlite3
+
+go mod init apis
+go mod tidy
+go build apis
+./apis -help
+
+# run UT
+go test apis
+go test -v
+
+Extending UT:
+No Global Manifest: Insert no rows into global_manifest and expect a 500 error.
+Multiple Global Manifest Rows: Test with multiple rows to ensure the latest updated_at is picked (or tweak to use is_active).
+Edge Cases: Test empty version strings, malformed version formats, or concurrent updates.
+
+# docker
+cd ~/securite/apis
+sudo docker build -t apis-server .
+sudo docker run -d -p 8080:8080 --name apis-container apis-server
+sudo docker run -d -p 8080:8080 -v /home/dsetia/securite/apis/updater.db:/app/updater.db --name apis-container apis-server
+sudo docker logs apis-container
+sudo docker ps -a
+sudo docker stop apis-container
+sudo docker rm apis-container
+sudo docker rmi 991dc5358921 c6366e7b9c42 74cc54e27dc4
+
+# cd ~/secureite/apis
+~/securite/db/dbutil -operation add-api-key -device-id dev1 -tenant-id 1
+curl -H "X-API-KEY: a04cfb37-b7f5-4039-8538-a1cd961b298a" -H "X-DEVICE-ID: dev1" http://localhost:8080/v1/authenticate/1
+curl -X POST -H "X-API-KEY: a04cfb37-b7f5-4039-8538-a1cd961b298a" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' http://localhost:8080/v1/updates/1
+curl -X POST -H "X-API-KEY: key1" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' http://localhost:8080/v1/updates/1
+
+# integrate with nginx (network)
+docker run -d \
+  -p 8080:8080 \
+  --name apis-container \
+  --network securite-net \
+  -v /home/dsetia/securite/apis/updater.db:/app/updater.db \
+  apis-server

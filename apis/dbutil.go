@@ -1,0 +1,443 @@
+package main
+
+import (
+    "database/sql"
+    "errors"
+    "fmt"
+    "time"
+
+    _ "github.com/mattn/go-sqlite3"
+)
+
+// DB is the SQLite database handle
+type DB struct {
+    *sql.DB
+}
+
+// Tenant represents the tenants table
+type Tenant struct {
+    ID        int64
+    Name      string
+    CreatedAt time.Time
+    UpdatedAt time.Time
+}
+
+// Device represents the devices table
+type Device struct {
+    ID            string
+    TenantID      int64
+    Name          string
+    HndrSwVersion string
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+}
+
+// APIKey represents the api_keys table
+type APIKey struct {
+    Key       string
+    TenantID  int64
+    DeviceID  string
+    IsActive  bool
+    CreatedAt time.Time
+}
+
+// HndrSw represents the hndr_sw table
+type HndrSw struct {
+    ID        int64
+    Version   string
+    Size      int64
+    Sha256    string
+    UpdatedAt time.Time
+}
+
+// HndrRules represents the hndr_rules table
+type HndrRules struct {
+    ID        int64
+    TenantID  int64
+    Version   string
+    Size      int64
+    Sha256    string
+    UpdatedAt time.Time
+}
+
+// ThreatIntel represents the threatintel table
+type ThreatIntel struct {
+    ID        int64
+    Version   string
+    Size      int64
+    Sha256    string
+    UpdatedAt time.Time
+}
+
+// NewDB initializes a new SQLite database connection
+func NewDB(dbPath string) (*DB, error) {
+    db, err := sql.Open("sqlite3", dbPath)
+    if err != nil {
+        return nil, fmt.Errorf("failed to open database: %w", err)
+    }
+    // Enable foreign keys
+    _, err = db.Exec("PRAGMA foreign_keys = ON;")
+    if err != nil {
+        return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+    }
+    return &DB{db}, nil
+}
+
+// GetOrInsertTenant retrieves an existing tenant by name or inserts a new one
+func (db *DB) GetOrInsertTenant(name string) (int64, error) {
+    if name == "" {
+        return 0, errors.New("tenant name cannot be empty")
+    }
+    var tenantID int64
+    err := db.QueryRow("SELECT tenant_id FROM tenants WHERE tenant_name = ?", name).Scan(&tenantID)
+    if err == nil {
+        return tenantID, nil
+    }
+    if err != sql.ErrNoRows {
+        return 0, fmt.Errorf("failed to check tenant: %w", err)
+    }
+    result, err := db.Exec(`
+        INSERT INTO tenants (tenant_name, created_at, updated_at)
+        VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, name)
+    if err != nil {
+        return 0, fmt.Errorf("failed to insert tenant: %w", err)
+    }
+    id, err := result.LastInsertId()
+    if err != nil {
+        return 0, fmt.Errorf("failed to get tenant ID: %w", err)
+    }
+    return id, nil
+}
+
+// ValidateTenant checks if a tenant exists by ID
+func (db *DB) ValidateTenant(id int64) (bool, error) {
+    var count int
+    err := db.QueryRow("SELECT COUNT(*) FROM tenants WHERE tenant_id = ?", id).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to validate tenant: %w", err)
+    }
+    return count > 0, nil
+}
+
+// ListTenants retrieves all tenants
+func (db *DB) ListTenants() ([]Tenant, error) {
+    rows, err := db.Query("SELECT tenant_id, tenant_name, created_at, updated_at FROM tenants")
+    if err != nil {
+        return nil, fmt.Errorf("failed to list tenants: %w", err)
+    }
+    defer rows.Close()
+
+    var tenants []Tenant
+    for rows.Next() {
+        var t Tenant
+        if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan tenant: %w", err)
+        }
+        tenants = append(tenants, t)
+    }
+    return tenants, nil
+}
+
+// GetOrInsertDevice retrieves an existing device or inserts a new one
+func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hndrSwVersion string) (string, error) {
+    if deviceID == "" {
+        return "", errors.New("device ID cannot be empty")
+    }
+    exists, err := db.ValidateTenant(tenantID)
+    if err != nil {
+        return "", err
+    }
+    if !exists {
+        return "", fmt.Errorf("tenant ID %d does not exist", tenantID)
+    }
+    var existingID string
+    err = db.QueryRow("SELECT device_id FROM devices WHERE device_id = ? AND tenant_id = ?", deviceID, tenantID).Scan(&existingID)
+    if err == nil {
+        return existingID, nil
+    }
+    if err != sql.ErrNoRows {
+        return "", fmt.Errorf("failed to check device: %w", err)
+    }
+    _, err = db.Exec(`
+        INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, deviceID, tenantID, name, hndrSwVersion)
+    if err != nil {
+        return "", fmt.Errorf("failed to insert device: %w", err)
+    }
+    return deviceID, nil
+}
+
+// ValidateDevice checks if a device exists and belongs to the tenant
+func (db *DB) ValidateDevice(deviceID string, tenantID int64) (bool, error) {
+    var count int
+    err := db.QueryRow("SELECT COUNT(*) FROM devices WHERE device_id = ? AND tenant_id = ?", deviceID, tenantID).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to validate device: %w", err)
+    }
+    return count > 0, nil
+}
+
+// ListDevices retrieves all devices, optionally filtered by tenant_id
+func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
+    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at FROM devices"
+    args := []interface{}{}
+    if tenantID > 0 {
+        query += " WHERE tenant_id = ?"
+        args = append(args, tenantID)
+    }
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to list devices: %w", err)
+    }
+    defer rows.Close()
+
+    var devices []Device
+    for rows.Next() {
+        var d Device
+        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.CreatedAt, &d.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan device: %w", err)
+        }
+        devices = append(devices, d)
+    }
+    return devices, nil
+}
+
+// GetOrInsertAPIKey retrieves an existing API key or inserts a new one
+func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, isActive bool) (string, error) {
+    if apiKey == "" || deviceID == "" {
+        return "", errors.New("API key and device ID cannot be empty")
+    }
+    exists, err := db.ValidateDevice(deviceID, tenantID)
+    if err != nil {
+        return "", err
+    }
+    if !exists {
+        return "", fmt.Errorf("device %s does not exist for tenant %d", deviceID, tenantID)
+    }
+    var existingKey string
+    err = db.QueryRow("SELECT api_key FROM api_keys WHERE api_key = ?", apiKey).Scan(&existingKey)
+    if err == nil {
+        return existingKey, nil
+    }
+    if err != sql.ErrNoRows {
+        return "", fmt.Errorf("failed to check API key: %w", err)
+    }
+    _, err = db.Exec(`
+        INSERT INTO api_keys (api_key, tenant_id, device_id, is_active, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, apiKey, tenantID, deviceID, isActive)
+    if err != nil {
+        return "", fmt.Errorf("failed to insert API key: %w", err)
+    }
+    return apiKey, nil
+}
+
+// ValidateAPIKey checks if an API key is valid and active
+func (db *DB) ValidateAPIKey(apiKey string) (bool, int64, string, error) {
+    var tenantID int64
+    var deviceID string
+    var isActive bool
+    err := db.QueryRow(`
+        SELECT tenant_id, device_id, is_active
+        FROM api_keys
+        WHERE api_key = ?
+    `, apiKey).Scan(&tenantID, &deviceID, &isActive)
+    if err != nil {
+        return false, 0, "", fmt.Errorf("failed to validate API key: %w", err)
+    }
+    return isActive, tenantID, deviceID, nil
+}
+
+// ListAPIKeys retrieves all API keys, optionally filtered by tenant_id
+func (db *DB) ListAPIKeys(tenantID int64) ([]APIKey, error) {
+    query := "SELECT api_key, tenant_id, device_id, is_active, created_at FROM api_keys"
+    args := []interface{}{}
+    if tenantID > 0 {
+        query += " WHERE tenant_id = ?"
+        args = append(args, tenantID)
+    }
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to list API keys: %w", err)
+    }
+    defer rows.Close()
+
+    var keys []APIKey
+    for rows.Next() {
+        var k APIKey
+        if err := rows.Scan(&k.Key, &k.TenantID, &k.DeviceID, &k.IsActive, &k.CreatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan API key: %w", err)
+        }
+        keys = append(keys, k)
+    }
+    return keys, nil
+}
+
+// InsertHndrSw adds a new software version
+func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, error) {
+    if version == "" || sha256 == "" {
+        return 0, errors.New("version and sha256 cannot be empty")
+    }
+    if size <= 0 {
+        return 0, errors.New("size must be positive")
+    }
+    result, err := db.Exec(`
+        INSERT INTO hndr_sw (version, size, sha256, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `, version, size, sha256)
+    if err != nil {
+        return 0, fmt.Errorf("failed to insert hndr_sw: %w", err)
+    }
+    id, err := result.LastInsertId()
+    if err != nil {
+        return 0, fmt.Errorf("failed to get hndr_sw ID: %w", err)
+    }
+    return id, nil
+}
+
+// ValidateHndrSw checks if a software version exists
+func (db *DB) ValidateHndrSw(version string) (bool, error) {
+    var count int
+    err := db.QueryRow("SELECT COUNT(*) FROM hndr_sw WHERE version = ?", version).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to validate hndr_sw: %w", err)
+    }
+    return count > 0, nil
+}
+
+// ListHndrSw retrieves all software versions
+func (db *DB) ListHndrSw() ([]HndrSw, error) {
+    rows, err := db.Query("SELECT id, version, size, sha256, updated_at FROM hndr_sw")
+    if err != nil {
+        return nil, fmt.Errorf("failed to list hndr_sw: %w", err)
+    }
+    defer rows.Close()
+
+    var sw []HndrSw
+    for rows.Next() {
+        var s HndrSw
+        if err := rows.Scan(&s.ID, &s.Version, &s.Size, &s.Sha256, &s.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan hndr_sw: %w", err)
+        }
+        sw = append(sw, s)
+    }
+    return sw, nil
+}
+
+// InsertHndrRules adds a new rule version for a tenant
+func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256 string) (int64, error) {
+    if version == "" || sha256 == "" {
+        return 0, errors.New("version and sha256 cannot be empty")
+    }
+    if size <= 0 {
+        return 0, errors.New("size must be positive")
+    }
+    exists, err := db.ValidateTenant(tenantID)
+    if err != nil {
+        return 0, err
+    }
+    if !exists {
+        return 0, fmt.Errorf("tenant ID %d does not exist", tenantID)
+    }
+    result, err := db.Exec(`
+        INSERT INTO hndr_rules (tenant_id, version, size, sha256, updated_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `, tenantID, version, size, sha256)
+    if err != nil {
+        return 0, fmt.Errorf("failed to insert hndr_rules: %w", err)
+    }
+    id, err := result.LastInsertId()
+    if err != nil {
+        return 0, fmt.Errorf("failed to get hndr_rules ID: %w", err)
+    }
+    return id, nil
+}
+
+// ValidateHndrRules checks if a rule version exists for a tenant
+func (db *DB) ValidateHndrRules(tenantID int64, version string) (bool, error) {
+    var count int
+    err := db.QueryRow("SELECT COUNT(*) FROM hndr_rules WHERE tenant_id = ? AND version = ?", tenantID, version).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to validate hndr_rules: %w", err)
+    }
+    return count > 0, nil
+}
+
+// ListHndrRules retrieves all rule versions, optionally filtered by tenant_id
+func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
+    query := "SELECT id, tenant_id, version, size, sha256, updated_at FROM hndr_rules"
+    args := []interface{}{}
+    if tenantID > 0 {
+        query += " WHERE tenant_id = ?"
+        args = append(args, tenantID)
+    }
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        return nil, fmt.Errorf("failed to list hndr_rules: %w", err)
+    }
+    defer rows.Close()
+
+    var rules []HndrRules
+    for rows.Next() {
+        var r HndrRules
+        if err := rows.Scan(&r.ID, &r.TenantID, &r.Version, &r.Size, &r.Sha256, &r.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan hndr_rules: %w", err)
+        }
+        rules = append(rules, r)
+    }
+    return rules, nil
+}
+
+// InsertThreatIntel adds a new threat intelligence version
+func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int64, error) {
+    if version == "" || sha256 == "" {
+        return 0, errors.New("version and sha256 cannot be empty")
+    }
+    if size <= 0 {
+        return 0, errors.New("size must be positive")
+    }
+    result, err := db.Exec(`
+        INSERT INTO threatintel (version, size, sha256, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `, version, size, sha256)
+    if err != nil {
+        return 0, fmt.Errorf("failed to insert threatintel: %w", err)
+    }
+    id, err := result.LastInsertId()
+    if err != nil {
+        return 0, fmt.Errorf("failed to get threatintel ID: %w", err)
+    }
+    return id, nil
+}
+
+// ValidateThreatIntel checks if a threat intelligence version exists
+func (db *DB) ValidateThreatIntel(version string) (bool, error) {
+    var count int
+    err := db.QueryRow("SELECT COUNT(*) FROM threatintel WHERE version = ?", version).Scan(&count)
+    if err != nil {
+        return false, fmt.Errorf("failed to validate threatintel: %w", err)
+    }
+    return count > 0, nil
+}
+
+// ListThreatIntel retrieves all threat intelligence versions
+func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
+    rows, err := db.Query("SELECT id, version, size, sha256, updated_at FROM threatintel")
+    if err != nil {
+        return nil, fmt.Errorf("failed to list threatintel: %w", err)
+    }
+    defer rows.Close()
+
+    var ti []ThreatIntel
+    for rows.Next() {
+        var t ThreatIntel
+        if err := rows.Scan(&t.ID, &t.Version, &t.Size, &t.Sha256, &t.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan threatintel: %w", err)
+        }
+        ti = append(ti, t)
+    }
+    return ti, nil
+}
+
