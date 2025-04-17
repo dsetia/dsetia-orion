@@ -41,3 +41,16 @@ docker run -d \
   --network securite-net \
   -v /home/dsetia/securite/apis/updater.db:/app/updater.db \
   apis-server
+
+# Design (and limitations)
+The API server (apis.go) uses a DB struct from dbutil.go to interact directly with a SQLite
+database (updater.db) via the github.com/mattn/go-sqlite3 driver. SQLite is a file-based,
+embedded database, accessed via local file operations (e.g., /app/updater.db in the Docker
+container). The Server struct holds a *DB reference, and methods like ValidateAPIKey,
+GetOrInsertTenant, etc., execute SQL queries directly. This works well for single-node,
+low-to-moderate load scenarios, as SQLite is lightweight, serverless, and supports concurrent
+reads with serialized writes.
+
+1) The API server opens a SQLite connection to updater.db using sql.Open("sqlite3", dbPath).
+2) Queries are executed directly via the DB struct’s methods (e.g., db.QueryRow, db.Exec).
+3) SQLite handles file-level locking for concurrency (WAL mode supports multiple readers and one writer).

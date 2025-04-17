@@ -12,7 +12,9 @@ GLOBAL_IMAGE_VERSION="v1.2.3"
 TENANT_RULES_VERSION="r1.2.3"
 GLOBAL_THREAT_VERSION="2025.04.10.1523"
 
-cd ~/securite/db
+# remember to init the db first (orion/db/init_db.sh
+
+cd ~/orion/db
 ./dbtool -op insert-tenant -tenant-name $TENANT_NAME
 ./dbtool -op insert-device -tenant-id $TENANT_ID -device-id $DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
 ./dbtool -op insert-api-key -tenant-id $TENANT_ID -device-id $DEVICE_ID -api-key $VALID_API_KEY

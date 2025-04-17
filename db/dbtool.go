@@ -461,7 +461,7 @@ func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
 // Command-line interface
 func main() {
     // Common flags
-    dbPath := flag.String("db", "/home/dsetia/securite/apis/updater.db", "Path to SQLite database")
+    dbPath := flag.String("db", "/home/dsetia/orion/apis/updater.db", "Path to SQLite database")
     op := flag.String("op", "", "Operation to perform (e.g., insert-tenant, list-devices)")
 
     // Tenant flags
