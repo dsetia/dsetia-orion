@@ -6,7 +6,7 @@ import (
     "fmt"
     "time"
 
-    _ "github.com/mattn/go-sqlite3"
+    _ "github.com/lib/pq"
 )
 
 // DB is the SQLite database handle
@@ -71,15 +71,15 @@ type ThreatIntel struct {
 
 // NewDB initializes a new SQLite database connection
 func NewDB(dbPath string) (*DB, error) {
-    db, err := sql.Open("sqlite3", dbPath)
+    db, err := sql.Open("postgres", dbPath)
     if err != nil {
         return nil, fmt.Errorf("failed to open database: %w", err)
     }
     // Enable foreign keys
-    _, err = db.Exec("PRAGMA foreign_keys = ON;")
-    if err != nil {
-        return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
-    }
+    //_, err = db.Exec("PRAGMA foreign_keys = ON;")
+    //if err != nil {
+        //return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+    //}
     return &DB{db}, nil
 }
 
@@ -89,31 +89,28 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
         return 0, errors.New("tenant name cannot be empty")
     }
     var tenantID int64
-    err := db.QueryRow("SELECT tenant_id FROM tenants WHERE tenant_name = ?", name).Scan(&tenantID)
+    err := db.QueryRow("SELECT tenant_id FROM tenants WHERE tenant_name = $1", name).Scan(&tenantID)
     if err == nil {
         return tenantID, nil
     }
     if err != sql.ErrNoRows {
         return 0, fmt.Errorf("failed to check tenant: %w", err)
     }
-    result, err := db.Exec(`
+    err = db.QueryRow(`
         INSERT INTO tenants (tenant_name, created_at, updated_at)
-        VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `, name)
+        VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+	RETURNING tenant_id
+    `, name).Scan(&tenantID)
     if err != nil {
         return 0, fmt.Errorf("failed to insert tenant: %w", err)
     }
-    id, err := result.LastInsertId()
-    if err != nil {
-        return 0, fmt.Errorf("failed to get tenant ID: %w", err)
-    }
-    return id, nil
+    return tenantID, nil
 }
 
 // ValidateTenant checks if a tenant exists by ID
 func (db *DB) ValidateTenant(id int64) (bool, error) {
     var count int
-    err := db.QueryRow("SELECT COUNT(*) FROM tenants WHERE tenant_id = ?", id).Scan(&count)
+    err := db.QueryRow("SELECT COUNT(*) FROM tenants WHERE tenant_id = $1", id).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("failed to validate tenant: %w", err)
     }
@@ -152,7 +149,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hn
         return "", fmt.Errorf("tenant ID %d does not exist", tenantID)
     }
     var existingID string
-    err = db.QueryRow("SELECT device_id FROM devices WHERE device_id = ? AND tenant_id = ?", deviceID, tenantID).Scan(&existingID)
+    err = db.QueryRow("SELECT device_id FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID).Scan(&existingID)
     if err == nil {
         return existingID, nil
     }
@@ -161,7 +158,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hn
     }
     _, err = db.Exec(`
         INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, deviceID, tenantID, name, hndrSwVersion)
     if err != nil {
         return "", fmt.Errorf("failed to insert device: %w", err)
@@ -172,7 +169,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hn
 // ValidateDevice checks if a device exists and belongs to the tenant
 func (db *DB) ValidateDevice(deviceID string, tenantID int64) (bool, error) {
     var count int
-    err := db.QueryRow("SELECT COUNT(*) FROM devices WHERE device_id = ? AND tenant_id = ?", deviceID, tenantID).Scan(&count)
+    err := db.QueryRow("SELECT COUNT(*) FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("failed to validate device: %w", err)
     }
@@ -184,7 +181,7 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at FROM devices"
     args := []interface{}{}
     if tenantID > 0 {
-        query += " WHERE tenant_id = ?"
+        query += " WHERE tenant_id = $1"
         args = append(args, tenantID)
     }
     rows, err := db.Query(query, args...)
@@ -217,7 +214,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
         return "", fmt.Errorf("device %s does not exist for tenant %d", deviceID, tenantID)
     }
     var existingKey string
-    err = db.QueryRow("SELECT api_key FROM api_keys WHERE api_key = ?", apiKey).Scan(&existingKey)
+    err = db.QueryRow("SELECT api_key FROM api_keys WHERE api_key = $1", apiKey).Scan(&existingKey)
     if err == nil {
         return existingKey, nil
     }
@@ -226,7 +223,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
     }
     _, err = db.Exec(`
         INSERT INTO api_keys (api_key, tenant_id, device_id, is_active, created_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
     `, apiKey, tenantID, deviceID, isActive)
     if err != nil {
         return "", fmt.Errorf("failed to insert API key: %w", err)
@@ -242,9 +239,10 @@ func (db *DB) ValidateAPIKey(apiKey string) (bool, int64, string, error) {
     err := db.QueryRow(`
         SELECT tenant_id, device_id, is_active
         FROM api_keys
-        WHERE api_key = ?
+        WHERE api_key = $1
     `, apiKey).Scan(&tenantID, &deviceID, &isActive)
     if err != nil {
+	fmt.Printf("Error: %v\n", err)
         return false, 0, "", fmt.Errorf("failed to validate API key: %w", err)
     }
     return isActive, tenantID, deviceID, nil
@@ -255,7 +253,7 @@ func (db *DB) ListAPIKeys(tenantID int64) ([]APIKey, error) {
     query := "SELECT api_key, tenant_id, device_id, is_active, created_at FROM api_keys"
     args := []interface{}{}
     if tenantID > 0 {
-        query += " WHERE tenant_id = ?"
+        query += " WHERE tenant_id = $1"
         args = append(args, tenantID)
     }
     rows, err := db.Query(query, args...)
@@ -283,16 +281,14 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
     if size <= 0 {
         return 0, errors.New("size must be positive")
     }
-    result, err := db.Exec(`
+    var id int64
+    err := db.QueryRow(`
         INSERT INTO hndr_sw (version, size, sha256, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `, version, size, sha256)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+	RETURNING id
+    `, version, size, sha256).Scan(&id)
     if err != nil {
         return 0, fmt.Errorf("failed to insert hndr_sw: %w", err)
-    }
-    id, err := result.LastInsertId()
-    if err != nil {
-        return 0, fmt.Errorf("failed to get hndr_sw ID: %w", err)
     }
     return id, nil
 }
@@ -300,7 +296,7 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
 // ValidateHndrSw checks if a software version exists
 func (db *DB) ValidateHndrSw(version string) (bool, error) {
     var count int
-    err := db.QueryRow("SELECT COUNT(*) FROM hndr_sw WHERE version = ?", version).Scan(&count)
+    err := db.QueryRow("SELECT COUNT(*) FROM hndr_sw WHERE version = $1", version).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("failed to validate hndr_sw: %w", err)
     }
@@ -341,16 +337,14 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
     if !exists {
         return 0, fmt.Errorf("tenant ID %d does not exist", tenantID)
     }
-    result, err := db.Exec(`
+    var id int64
+    err = db.QueryRow(`
         INSERT INTO hndr_rules (tenant_id, version, size, sha256, updated_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `, tenantID, version, size, sha256)
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+	RETURNING id
+    `, tenantID, version, size, sha256).Scan(&id)
     if err != nil {
         return 0, fmt.Errorf("failed to insert hndr_rules: %w", err)
-    }
-    id, err := result.LastInsertId()
-    if err != nil {
-        return 0, fmt.Errorf("failed to get hndr_rules ID: %w", err)
     }
     return id, nil
 }
@@ -358,7 +352,7 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
 // ValidateHndrRules checks if a rule version exists for a tenant
 func (db *DB) ValidateHndrRules(tenantID int64, version string) (bool, error) {
     var count int
-    err := db.QueryRow("SELECT COUNT(*) FROM hndr_rules WHERE tenant_id = ? AND version = ?", tenantID, version).Scan(&count)
+    err := db.QueryRow("SELECT COUNT(*) FROM hndr_rules WHERE tenant_id = $1 AND version = $2", tenantID, version).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("failed to validate hndr_rules: %w", err)
     }
@@ -370,7 +364,7 @@ func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
     query := "SELECT id, tenant_id, version, size, sha256, updated_at FROM hndr_rules"
     args := []interface{}{}
     if tenantID > 0 {
-        query += " WHERE tenant_id = ?"
+        query += " WHERE tenant_id = $1"
         args = append(args, tenantID)
     }
     rows, err := db.Query(query, args...)
@@ -398,16 +392,14 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
     if size <= 0 {
         return 0, errors.New("size must be positive")
     }
-    result, err := db.Exec(`
+    var id int64
+    err := db.QueryRow(`
         INSERT INTO threatintel (version, size, sha256, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `, version, size, sha256)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+	RETURNING id
+    `, version, size, sha256).Scan(&id)
     if err != nil {
         return 0, fmt.Errorf("failed to insert threatintel: %w", err)
-    }
-    id, err := result.LastInsertId()
-    if err != nil {
-        return 0, fmt.Errorf("failed to get threatintel ID: %w", err)
     }
     return id, nil
 }
@@ -415,7 +407,7 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
 // ValidateThreatIntel checks if a threat intelligence version exists
 func (db *DB) ValidateThreatIntel(version string) (bool, error) {
     var count int
-    err := db.QueryRow("SELECT COUNT(*) FROM threatintel WHERE version = ?", version).Scan(&count)
+    err := db.QueryRow("SELECT COUNT(*) FROM threatintel WHERE version = $1", version).Scan(&count)
     if err != nil {
         return false, fmt.Errorf("failed to validate threatintel: %w", err)
     }

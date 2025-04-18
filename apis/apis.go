@@ -151,7 +151,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     err = s.db.QueryRow(`
         SELECT device_id, tenant_id, device_name, hndr_sw_version
         FROM devices
-        WHERE device_id = ? AND tenant_id = ?
+        WHERE device_id = $1 AND tenant_id = $2
     `, deviceID, tenantID).Scan(&device.ID, &device.TenantID, &device.Name, &device.HndrSwVersion)
     if err != nil {
         http.Error(w, "Device not found", http.StatusNotFound)
@@ -168,7 +168,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         err = s.db.QueryRow(`
             SELECT id, version, size, sha256
             FROM hndr_sw
-            WHERE version = ?
+            WHERE version = $1
         `, device.HndrSwVersion).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Sha256)
         if err != nil {
             http.Error(w, "Software version not found", http.StatusNotFound)
@@ -194,7 +194,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     err = s.db.QueryRow(`
         SELECT id, version, size, sha256
         FROM hndr_rules
-        WHERE tenant_id = ?
+        WHERE tenant_id = $1
         ORDER BY id DESC
         LIMIT 1
     `, tenantID).Scan(&rules.ID, &rules.Version, &rules.Size, &rules.Sha256)
@@ -272,7 +272,8 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
 }
 
 func main() {
-    dbPath := "/app/updater.db" // Matches Docker volume
+    dbPath := "postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable"
+    //dbPath := "/app/updater.db" // Matches Docker volume
     server, err := NewServer(dbPath)
     if err != nil {
         log.Fatalf("Failed to start server: %v", err)

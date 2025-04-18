@@ -3,70 +3,49 @@ package main
 import (
     "fmt"
     "bytes"
+    "io/ioutil"
+    "log"
     "net/http"
     "net/http/httptest"
     "testing"
+    _ "github.com/lib/pq"
 )
 
+func cleanupTestDB(t *testing.T) {
+    dbPath := "host=localhost port=5432 user=pguser password=pgpass dbname=pgdb sslmode=disable"
+    db2, err := NewDB(dbPath)
+    if err != nil {
+        t.Fatalf("Failed to cleanup test DB: %v", err)
+    }
+    _, err = db2.Exec("DROP DATABASE testdb")
+    if err != nil {
+        t.Fatalf("Failed to drop testdb: %v", err)
+    }
+    _, err = db2.Exec("CREATE DATABASE testdb")
+    if err != nil {
+        t.Fatalf("Failed to create testdb: %v", err)
+    }
+    db2.Close()
+}
+
 func setupTestDB(t *testing.T) *DB {
-    dbPath := ":memory:" // In-memory SQLite for tests
+    dbPath := "host=localhost port=5432 user=pguser password=pgpass dbname=testdb sslmode=disable"
     db, err := NewDB(dbPath)
     if err != nil {
         t.Fatalf("Failed to create test DB: %v", err)
     }
 
     // Create schema
-    _, err = db.Exec(`
-        CREATE TABLE tenants (
-            tenant_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tenant_name TEXT NOT NULL UNIQUE,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE devices (
-            device_id TEXT PRIMARY KEY,
-            tenant_id INTEGER NOT NULL,
-            device_name TEXT,
-            hndr_sw_version TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
-        );
-        CREATE TABLE api_keys (
-            api_key TEXT PRIMARY KEY,
-            tenant_id INTEGER NOT NULL,
-            device_id TEXT NOT NULL,
-            is_active BOOLEAN DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-            FOREIGN KEY (device_id) REFERENCES devices(device_id) ON DELETE CASCADE
-        );
-        CREATE TABLE hndr_sw (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            version TEXT NOT NULL,
-            size INTEGER NOT NULL,
-            sha256 TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-        CREATE TABLE hndr_rules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tenant_id INTEGER NOT NULL,
-            version TEXT NOT NULL,
-            size INTEGER NOT NULL,
-            sha256 TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
-        );
-        CREATE TABLE threatintel (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            version TEXT NOT NULL,
-            size INTEGER NOT NULL,
-            sha256 TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-    `)
+    schemaFile := "../db/schema_pg.sql"
+    schemaSQL, err := ioutil.ReadFile(schemaFile)
     if err != nil {
         t.Fatalf("Failed to create schema: %v", err)
+    }
+
+    // Initialize schema
+    _, err = db.Exec(string(schemaSQL))
+    if err != nil {
+        log.Fatalf("Failed to apply schema: %v", err)
     }
 
     // Insert test data
@@ -99,8 +78,8 @@ func setupTestDB(t *testing.T) *DB {
 }
 
 func TestAuthenticate(t *testing.T) {
+    cleanupTestDB(t)
     db := setupTestDB(t)
-    defer db.Close()
 
     server := &Server{db: db}
     tests := []struct {
@@ -173,11 +152,12 @@ func TestAuthenticate(t *testing.T) {
             }
         })
     }
+    defer db.Close()
 }
 
 func TestUpdate(t *testing.T) {
+    cleanupTestDB(t)
     db := setupTestDB(t)
-    defer db.Close()
 
     server := &Server{db: db}
     tests := []struct {
@@ -298,4 +278,5 @@ func TestUpdate(t *testing.T) {
             }
         })
     }
+    defer db.Close()
 }

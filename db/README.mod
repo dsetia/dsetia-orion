@@ -74,3 +74,23 @@ Usage of ./dbutil:
 sudo docker cp dbutil apis-container:/app/dbutil
 sudo docker exec apis-container ./dbutil -db /app/updater.db -op insert-tenant -tenant-name tenant2
 
+# postgres
+sudo apt install postgresql-client
+psql -h localhost -U pguser -d pgdb
+ > pgpass
+# init PG db
+./init_pg.sh pgdb schema_pg.sql
+# drop the DB
+psql -h localhost -U pguser -d postgres
+ postgres=# DROP DATABASE pgdb;
+ DROP DATABASE
+ postgres=# CREATE DATABASE pgdb;
+ CREATE DATABASE
+ postgres=# \c testdb
+ postgres=# \dt
+
+# go code
+Just execute a query	db.Exec(...)
+Get a single row result	db.QueryRow(...)
+Insert & get auto ID	db.QueryRow(...).Scan(...) with RETURNING
+Insert multiple rows, no return	db.Exec(...)
