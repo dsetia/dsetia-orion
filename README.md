@@ -5,7 +5,9 @@ orchestrates the containers.
 
 Dependencies
  - docker
-   - Follow the link for details instruction on installing docker in Ubuntu https://docs.docker.com/engine/install/ubuntu/
+   - Follow the link for details instruction on installing docker in Ubuntu 
+     - https://docs.docker.com/engine/install/ubuntu/
+     - https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
  - docker-compose
    - sudo apt install docker-compose # on Ubuntu
 
