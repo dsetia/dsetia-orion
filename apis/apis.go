@@ -175,6 +175,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 
     // Get software version
     var sw HndrSw
+    var source string = "latest"
     if device.HndrSwVersion != "" {
         // Use device-specific version
         err = s.db.QueryRow(`
@@ -186,9 +187,9 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             http.Error(w, "Software version not found", http.StatusNotFound)
             return
         }
+	source = "device";
     } else {
         // Use latest version
-        var sw HndrSw
         err = s.db.QueryRow(`
             SELECT id, version, size, sha256
             FROM hndr_sw
@@ -233,7 +234,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             Version: sw.Version,
             Size:    sw.Size,
             Sha256:  sw.Sha256,
-            Source:  "device",
+            Source:  source,
             DownloadURL: DownloadURLFormat(tenantID, "images", "hndr-sw", sw.Version),
         }
     }

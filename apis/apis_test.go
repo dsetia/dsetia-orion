@@ -74,6 +74,20 @@ func setupTestDB(t *testing.T) *DB {
         t.Fatalf("Failed to insert threatintel: %v", err)
     }
 
+    // 2nd device to use global image
+    _, err = db.GetOrInsertDevice("dev2", tenantID, "Test Device", "")
+    if err != nil {
+        t.Fatalf("Failed to insert device: %v", err)
+    }
+    _, err = db.GetOrInsertAPIKey("valid-key-2", tenantID, "dev2", true)
+    if err != nil {
+        t.Fatalf("Failed to insert API key: %v", err)
+    }
+    _, err = db.InsertHndrSw("v1.2.4", 1234, "sw-sha256")
+    if err != nil {
+        t.Fatalf("Failed to insert hndr_sw: %v", err)
+    }
+
     return db
 }
 
@@ -254,6 +268,18 @@ func TestUpdate(t *testing.T) {
             body:           `{"image_version":"v1.2.2", "rules_version": "invalid json"`,
             expectedStatus: http.StatusBadRequest,
             expectedBody:   "Invalid request body\n",
+        },
+        {
+            name:           "global software image updates needed",
+            apiKey:         "valid-key-2",
+            deviceID:       "dev2",
+            tenantID:       "1",
+            body:           `{"image_version":"v1.2.2","rules_version":"r1.2.3","threatfeed_version":"2025.04.10.153020"}`,
+            expectedStatus: http.StatusOK,
+            expectedBody: fmt.Sprintf(
+	        `{"software":{"version":"v1.2.4","size":1234,"sha256":"sw-sha256","source":"latest","download_url":%q}}` + "\n",
+                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.4"),
+	    ),
         },
 
     }
