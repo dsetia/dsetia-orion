@@ -12,7 +12,9 @@ GLOBAL_IMAGE_VERSION="v1.2.3"
 TENANT_RULES_VERSION="r1.2.3"
 GLOBAL_THREAT_VERSION="2025.04.10.1523"
 
-# remember to init the db first (orion/db/init_db.sh
+# remember to init the db first 
+# - orion/db/init_db.sh - sqliet3 
+# - orion/db/init_pg.sh - postgres
 
 cd ~/orion/db
 ./dbtool -op insert-tenant -tenant-name $TENANT_NAME
