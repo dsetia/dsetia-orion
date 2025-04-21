@@ -242,7 +242,6 @@ func (db *DB) ValidateAPIKey(apiKey string) (bool, int64, string, error) {
         WHERE api_key = $1
     `, apiKey).Scan(&tenantID, &deviceID, &isActive)
     if err != nil {
-	fmt.Printf("Error: %v\n", err)
         return false, 0, "", fmt.Errorf("failed to validate API key: %w", err)
     }
     return isActive, tenantID, deviceID, nil

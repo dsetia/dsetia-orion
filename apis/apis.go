@@ -2,10 +2,13 @@ package main
 
 import (
     "encoding/json"
+    "os"
     "fmt"
     "log"
     "net/http"
+    "flag"
     "path"
+    "io/ioutil"
     "strconv"
     "strings"
     "github.com/hashicorp/go-version"
@@ -39,6 +42,15 @@ type VersionInfo struct {
     Size    int64  `json:"size"`
     Sha256  string `json:"sha256"`
     DownloadURL string `json:"download_url"`
+}
+
+type DBConfig struct {
+    Host     string `json:"host"`
+    Port     int    `json:"port"`
+    User     string `json:"user"`
+    Password string `json:"password"`
+    DBName   string `json:"dbname"`
+    SSLMode  string `json:"sslmode"`
 }
 
 // Server holds the API server state
@@ -272,8 +284,34 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
 }
 
 func main() {
-    dbPath := "postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable"
-    //dbPath := "/app/updater.db" // Matches Docker volume
+
+    // Command line flag for config path
+    configPath := flag.String("config", "config.json", "Path to config file")
+    flag.Parse()
+
+    // Open and read the config file
+    file, err := os.Open(*configPath)
+    if err != nil {
+        log.Fatalf("Error opening config file: %v", err)
+    }
+    defer file.Close()
+
+    bytes, err := ioutil.ReadAll(file)
+    if err != nil {
+        log.Fatalf("Error reading config file: %v", err)
+    }
+
+    var cfg DBConfig
+    if err := json.Unmarshal(bytes, &cfg); err != nil {
+        log.Fatalf("Error parsing config: %v", err)
+    }
+
+    // Construct DB path
+    dbPath := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+        cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode,
+    )
+
+    log.Println("DB path = ", dbPath)
     server, err := NewServer(dbPath)
     if err != nil {
         log.Fatalf("Failed to start server: %v", err)

@@ -38,10 +38,12 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./apis/updater.db:/app/updater.db
+      - ./config/apis_config.json:/app/config.json
     command: ./apis
     networks:
       - securite-net
+    depends_on:
+      - postgres
     restart: unless-stopped
 
   postgres:
