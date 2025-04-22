@@ -284,6 +284,19 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
     return vManifest.GreaterThan(vDevice)
 }
 
+// handleHealthCheck handles /v1/healthcheck
+func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // Return response
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func main() {
 
     // Command line flag for config path
@@ -320,6 +333,7 @@ func main() {
 
     http.HandleFunc("/v1/authenticate/", server.handleAuthenticate)
     http.HandleFunc("/v1/updates/", server.handleUpdates)
+    http.HandleFunc("/v1/healthcheck", server.handleHealthCheck)
 
     log.Println("Starting API server on :8080")
     if err := http.ListenAndServe(":8080", nil); err != nil {

@@ -43,6 +43,16 @@ echo "Testing MinIO health endpoint..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$MINIO_API_PORT/minio/health/live" | grep -q 200
 print_status $? "MinIO health check passed"
 
+# Test API server healthcheck (direct)
+echo "Testing API server health endpoint (direct)..."
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:$API_PORT/v1/healthcheck" | grep -q 200
+print_status $? "API server health check passed"
+
+# Test API server healthcheck (nginx)
+echo "Testing API server health endpoint (nginx)..."
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:$NGINX_PORT/v1/healthcheck" | grep -q 200
+print_status $? "API server health check passed"
+
 # 5. Test API server authentication (valid credentials)
 echo "Testing API server with valid credentials..."
 curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/1" | grep -q 200
