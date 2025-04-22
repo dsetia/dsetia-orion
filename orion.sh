@@ -6,7 +6,7 @@ set -e  # Exit immediately if a command exits with a non-zero status
 
 # Print usage/help
 usage() {
-    echo "Usage: $0 {init|populate|stop|test|launch}"
+    echo "Usage: $0 {init|populate|stop|launch|status|restart|test}"
     exit 1
 }
 
@@ -27,12 +27,22 @@ launch() {
 
 stop() {
     echo "[stop] Stopping services"
-    ./stop.sh
+    sudo docker-compose down
+}
+
+restart() {
+    stop
+    launch
 }
 
 test() {
     echo "[test] Run tests"
     ./run_test.sh
+}
+
+status() {
+    echo "[status] Show status"
+    sudo docker ps
 }
 
 # Main logic: dispatch to function
@@ -46,6 +56,8 @@ case "$1" in
     stop) stop ;;
     test) test ;;
     launch) launch ;;
+    restart) restart ;;
+    status) status ;;
     *) usage ;;
 esac
 

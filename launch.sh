@@ -29,7 +29,7 @@ print_status() {
 
 # 1. Ensure Docker network exists
 echo "Checking for Docker network: $NETWORK_NAME..."
-sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || docker network create "$NETWORK_NAME"
+sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || sudo docker network create "$NETWORK_NAME"
 print_status $? "Docker network $NETWORK_NAME is ready"
 
 # 2. Launch containers
