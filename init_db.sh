@@ -37,7 +37,7 @@ fi
 export PGPASSWORD=$password
 
 echo "Creating database $dbname (if it doesn't exist)..."
-createdb -U $user -h $host -p 5432 $dbname
+createdb -U $user -h $host -p $port $dbname
 
 echo "Applying schema from $SCHEMA_FILE..."
-psql -h $host -U "$user" -d "$dbname" -f "$SCHEMA_FILE"
+psql -p $port -h $host -U "$user" -d "$dbname" -f "$SCHEMA_FILE"

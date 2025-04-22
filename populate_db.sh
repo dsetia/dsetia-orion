@@ -56,7 +56,7 @@ fi
 
 export PGPASSWORD=$password
 
-cd ~/orion/db
+cd db
 ./dbtool -db $dbpath -op insert-tenant -tenant-name $TENANT_NAME
 ./dbtool -db $dbpath -op insert-device -tenant-id $TENANT_ID -device-id $DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
 ./dbtool -db $dbpath -op insert-api-key -tenant-id $TENANT_ID -device-id $DEVICE_ID -api-key $VALID_API_KEY
