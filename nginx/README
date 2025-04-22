@@ -25,3 +25,15 @@ sudo apt install luarocks
 sudo docker build -t openresty-with-http .
 sudo docker run -d -p 80:80 --name nginx --network securite-net -v /home/dsetia/securite/nginx/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf:ro openresty-with-http
 sudo docker exec nginx /usr/local/openresty/bin/openresty -t
+
+# SSL support in nginx
+# note that connections to minio and api server remain HTTP
+
+# generate a self signed cert
+sudo mkdir -p ssl; cd ssl
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout selfsigned.key \
+  -out selfsigned.crt
+
+# changed the permissions for selfsigned.key to allow git commit
+chmod 644 selfsigned.key

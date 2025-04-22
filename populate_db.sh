@@ -33,7 +33,7 @@ password=$(jq -r '.password' "$CONFIG_FILE")
 dbname=$(jq -r '.dbname' "$CONFIG_FILE")
 sslmode=$(jq -r '.sslmode' "$CONFIG_FILE")
 dbpath="postgres://$user:$password@$host:$port/$dbname?sslmode=$sslmode"
-"postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable"
+#"postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable"
 
 # Print config and ask for confirmation
 echo "✅ Loaded configuration:"

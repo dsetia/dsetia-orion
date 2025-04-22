@@ -4,6 +4,7 @@
 COMPOSE_FILE="docker-compose.yml"
 NETWORK_NAME="securite-net"
 NGINX_PORT=80
+NGINX_SSL_PORT=443
 MINIO_API_PORT=9000
 MINIO_CONSOLE_PORT=9001
 API_PORT=8080
@@ -46,12 +47,12 @@ print_status $? "MinIO health check passed"
 # Test API server healthcheck (direct)
 echo "Testing API server health endpoint (direct)..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$API_PORT/v1/healthcheck" | grep -q 200
-print_status $? "API server health check passed"
+print_status $? "API server health check (direct) passed"
 
 # Test API server healthcheck (nginx)
 echo "Testing API server health endpoint (nginx)..."
-curl -s -o /dev/null -w "%{http_code}" "http://localhost:$NGINX_PORT/v1/healthcheck" | grep -q 200
-print_status $? "API server health check passed"
+curl -k -s -o /dev/null -w "%{http_code}" "https://localhost:$NGINX_SSL_PORT/v1/healthcheck" | grep -q 200
+print_status $? "API server health check (nginx) passed"
 
 # 5. Test API server authentication (valid credentials)
 echo "Testing API server with valid credentials..."
@@ -62,24 +63,24 @@ echo "Testing API server with invalid credentials..."
 curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/1" | grep -q 401
 print_status $? "API server invalid authentication rejected"
 # 7. Test API server updates API
-curl -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "http://localhost/v1/updates/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/1" | grep -q 200
 print_status $? "API server updates POST passed"
 
 # 8. Test Nginx proxy to MinIO (invalid credentials)
 echo "Testing Nginx proxy to MinIO with invalid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$NGINX_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 401
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 401
 print_status $? "Nginx proxy to MinIO with invalid credentials rejected"
 # 9. Test Nginx proxy to MinIO (image)
 echo "Testing Nginx proxy to MinIO (images) with valid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$NGINX_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 200
 print_status $? "Nginx download of image passed"
 # 10. Test Nginx proxy to MinIO (threatintel)
 echo "Testing Nginx proxy to MinIO (threatintel) with valid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$NGINX_PORT/v1/download/1/$TEST_FILE_THREATINTEL" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_THREATINTEL" | grep -q 200
 print_status $? "Nginx download of threatintel passed"
 # 11. Test Nginx proxy to MinIO (rules)
 echo "Testing Nginx proxy to MinIO (rules) with valid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$NGINX_PORT/v1/download/1/$TEST_FILE_RULES" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_RULES" | grep -q 200
 print_status $? "Nginx download of rules passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"
