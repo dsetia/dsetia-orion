@@ -21,6 +21,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:14 # Match your production version (e.g., 14, adjust as needed)
+        env:
+          POSTGRES_USER: pguser
+          POSTGRES_PASSWORD: pgpass
+          POSTGRES_DB: pgdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # Check out the repository code
       - name: Checkout code
@@ -36,6 +51,13 @@ jobs:
       - name: Install dependencies
         working-directory: ./apis
         run: go mod download
+
+      # Create test database
+      - name: Create test database
+        env:
+          PGPASSWORD: pgpass
+        run: |
+          psql -h localhost -p 5432 -U pguser -d pgdb -c "CREATE DATABASE testdb;"
 
       # Run tests with coverage
       - name: Run tests with coverage

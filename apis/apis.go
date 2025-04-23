@@ -15,16 +15,23 @@ import (
 )
 
 type DeviceVersions struct {
-    ImageVersion      string `json:"image_version"`
-    RulesVersion      string `json:"rules_version"`
-    ThreatfeedVersion string `json:"threatfeed_version"`
+    Image struct {
+        Version string `json:"version"`
+    } `json:"image"`
+    Rules struct {
+        Version string `json:"version"`
+    } `json:"rules"`
+    Threatfeed struct {
+        Version string `json:"version"`
+    } `json:"threatfeed"`
 }
+
 
 // UpdateResponse represents the /v1/update response
 type UpdateResponse struct {
-    Software      *SoftwareVersion `json:"software,omitempty"`
+    Software      *SoftwareVersion `json:"image,omitempty"`
     Rules         *VersionInfo     `json:"rules,omitempty"`
-    ThreatIntel   *VersionInfo     `json:"threat_intel,omitempty"`
+    ThreatIntel   *VersionInfo     `json:"threatfeed,omitempty"`
 }
 
 // SoftwareVersion includes hndr_sw details
@@ -229,7 +236,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    if isNewerNum(sw.Version, deviceVersions.ImageVersion) {
+    if isNewerNum(sw.Version, deviceVersions.Image.Version) {
         resp.Software = &SoftwareVersion{
             Version: sw.Version,
             Size:    sw.Size,
@@ -238,7 +245,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             DownloadURL: DownloadURLFormat(tenantID, "images", "hndr-sw", sw.Version),
         }
     }
-    if isNewerNum(rules.Version, deviceVersions.RulesVersion) {
+    if isNewerNum(rules.Version, deviceVersions.Rules.Version) {
         resp.Rules = &VersionInfo{
             Version:     rules.Version,
             Size:        rules.Size,
@@ -246,7 +253,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             DownloadURL: DownloadURLFormat(tenantID, "rules", "hndr-rules", rules.Version),
         }
     }
-    if isNewerNum(ti.Version, deviceVersions.ThreatfeedVersion) {
+    if isNewerNum(ti.Version, deviceVersions.Threatfeed.Version) {
         resp.ThreatIntel = &VersionInfo{
             Version:     ti.Version,
             Size:        ti.Size,
