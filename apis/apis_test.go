@@ -198,6 +198,20 @@ func TestUpdate(t *testing.T) {
             ),
         },
         {
+            name:           "Valid jason with incorrect fields",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            tenantID:       "1",
+	    body:           `{"image_version": {"version":"v1.2.3"},"rules_version": {"version":"r1.2.3"},"threatfeed_version":{"version":"2025.04.10.153010"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody: fmt.Sprintf(
+                `{"image":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q},"threatfeed":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
+                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.3"),
+                DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
+                DownloadURLFormat(1, "threatintel", "threatintel", "2025.04.10.153010"),
+            ),
+        },
+        {
             name:           "No updates needed",
             apiKey:         "valid-key",
             deviceID:       "dev1",

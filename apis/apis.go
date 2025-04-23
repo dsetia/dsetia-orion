@@ -277,6 +277,10 @@ func isNewerLex(manifestVersion, deviceVersion string) bool {
 // isNewerNum compares two version strings numerically (v1.2.10 > v1.2.3)
 // threatfeed should use timestamp in the format YYYY.MM.DD.HHMMSS
 func isNewerNum(manifestVersion, deviceVersion string) bool {
+    // force update if version missing from device
+    if deviceVersion == "" {
+        return true
+    }
     dvTrimmed := strings.TrimLeft(deviceVersion, "vr")
     mvTrimmed := strings.TrimLeft(manifestVersion, "vr")
 
