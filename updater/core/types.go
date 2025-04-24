@@ -44,7 +44,19 @@ type SensorConfig struct {
 
 type UpdateRequest HndrConfig
 
-type StatusRequest HndrConfig
+type StatusRequest struct {
+	Image struct {
+		Status string `json:"status"`
+	} `json:"image"`
+
+	Rules struct {
+		Status string `json:"status"`
+	} `json:"rules"`
+
+	Malware struct {
+		Status string `json:"status"`
+	} `json:"malware"`
+}
 
 type ComponentUpdate struct {
 	Version string `json:"version"`

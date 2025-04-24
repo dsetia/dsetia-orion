@@ -97,7 +97,6 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
 		status, err := core.UpateSWNow(content, update.Software.Version, update.Software.DownloadURL, updaterCfg)
 		if err != nil {
 			log.Println("Error updating software :", err)
-			return
 		}
 
 		log.Println("Sending status update...")

@@ -25,9 +25,6 @@ import (
 	"strings"
 )
 
-// var globalFolderOne string = "/tmp/hndr-1"
-// var globalFolderTwo string = "/tmp/hndr-2"
-
 // ExtractTarGz extracts a .tar.gz file to a specified directory.
 func ExtractTarGz(tarGzPath, destDir string) error {
 	log.Println("Extracting file:", tarGzPath)
@@ -113,9 +110,6 @@ func GetFolderName(absRealPath string) string {
 }
 
 func GetFolderToDeploy(absRealPath, folderOne, folderTwo string) string {
-	//folderOne := globalFolderOne
-	//folderTwo := globalFolderOne
-
 	if strings.EqualFold(absRealPath, folderOne) {
 		return folderTwo
 	} else if strings.EqualFold(absRealPath, folderTwo) {
@@ -229,7 +223,9 @@ func IsUpdateInProgress(filePath string) error {
 
 // Update the sensor sw using the provided binary
 func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig) (StatusRequest, error) {
-	status := StatusRequest{"0", "0", "0"}
+	status := StatusRequest{
+        Image:   struct{ Status string `json:"status"`}{Status: "failed"},
+	}
 
 	defer RemoveUpdateLock(config.UpdateLock)
 
@@ -291,7 +287,7 @@ func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig
 		return status, err
 	}
 
-	//Read, update and write configuration file
+	//Read, update and write configuration file with latest version details
 	var hndrCfg HndrConfig
 	if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
 		return status, err
@@ -304,10 +300,7 @@ func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig
 	}
 	log.Println("hndr config updated successfully: ")
 
-	//Finally, Read the updated config
-	if err = LoadJSONConfig(config.HndrConfig, &status); err != nil {
-		return status, err
-	}
+	status.Image.Status = "success"
 	log.Println("Status of config after Update: ", status)
 
 	return status, err
@@ -315,6 +308,8 @@ func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig
 
 // Update the sensor Rules using the provided binary
 func UpateRulesNow(content []byte, filePath string, config UpdaterConfig) (StatusRequest, error) {
-	status := StatusRequest{"0", "0", "0"}
+	status := StatusRequest{
+        Rules:   struct{ Status string `json:"status"`}{Status: "failed"},
+	}
 	return status, nil
 }
