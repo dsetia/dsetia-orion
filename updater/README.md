@@ -4,4 +4,4 @@ The service is run in sensor to update the SW/Rules/TI. A configuration file con
 
 Running
  - go run main.go --help
-  - List the commandline arguments supported by the service
+   - List the commandline arguments supported by the service
