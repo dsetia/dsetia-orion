@@ -36,7 +36,7 @@
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "image": {
+                                "software": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -52,7 +52,7 @@
                                         }
                                     }
                                 },
-                                "threatfeed": {
+                                "threat_intel": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -70,7 +70,7 @@
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "image": {
+                                "software": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -104,7 +104,7 @@
                                         }
                                     }
                                 },
-                                "threatfeed": {
+                                "threat_intel": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -208,7 +208,7 @@
                         "schema": {
                             "type": "object",
                             "properties": {
-                                "image": {
+                                "software": {
                                     "type": "object",
                                     "properties": {
                                         "status": {
@@ -224,7 +224,7 @@
                                         }
                                     }
                                 },
-                                "malware": {
+                                "threat_intel": {
                                     "type": "object",
                                     "properties": {
                                         "status": {
