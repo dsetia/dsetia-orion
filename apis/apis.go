@@ -26,6 +26,19 @@ type DeviceVersions struct {
     } `json:"threatfeed"`
 }
 
+// /v1/status request
+type DeviceStatus struct {
+    Image struct {
+        Status string `json:"status"`
+    } `json:"image"`
+    Rules struct {
+        Status string `json:"status"`
+    } `json:"rules"`
+    Malware struct {
+        Status string `json:"status"`
+    } `json:"Malware"`
+}
+
 
 // UpdateResponse represents the /v1/update response
 type UpdateResponse struct {
@@ -308,6 +321,49 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
     json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
+// handleStatus handles /v1/status/{tenant-id}
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodPost {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    // Extract tenant_id from URL
+    tenantIDStr := path.Base(r.URL.Path)
+    tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
+    if err != nil {
+	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
+        return
+    }
+
+    // Authenticate
+    authTenantID, deviceID, err := s.authenticate(r)
+    if err != nil {
+	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
+        return
+    }
+
+    // Verify tenant_id matches
+    if authTenantID != tenantID {
+        http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
+        return
+    }
+
+    // parse request body
+    var req DeviceStatus
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    err = s.db.InsertStatus(deviceID, tenantID, req.Image.Status, req.Rules.Status, req.Malware.Status)
+
+    // Return response
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
+    json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+}
+
 func main() {
 
     // Command line flag for config path
@@ -345,6 +401,7 @@ func main() {
     http.HandleFunc("/v1/authenticate/", server.handleAuthenticate)
     http.HandleFunc("/v1/updates/", server.handleUpdates)
     http.HandleFunc("/v1/healthcheck", server.handleHealthCheck)
+    http.HandleFunc("/v1/status/", server.handleStatus)
 
     log.Println("Starting API server on :8080")
     if err := http.ListenAndServe(":8080", nil); err != nil {

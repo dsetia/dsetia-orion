@@ -88,6 +88,12 @@ func setupTestDB(t *testing.T) *DB {
         t.Fatalf("Failed to insert hndr_sw: %v", err)
     }
 
+    // status
+    err = db.InsertStatus("dev1", tenantID, "failure", "failure", "failure")
+    if err != nil {
+        t.Fatalf("Failed to insert hndr_sw: %v", err)
+    }
+
     return db
 }
 
@@ -309,6 +315,63 @@ func TestUpdate(t *testing.T) {
 
             rr := httptest.NewRecorder()
             server.handleUpdates(rr, req)
+
+            if rr.Code != tt.expectedStatus {
+                t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)
+            }
+            if body := rr.Body.String(); body != tt.expectedBody {
+                t.Errorf("Expected body %q, got %q", tt.expectedBody, body)
+            }
+        })
+    }
+    defer db.Close()
+}
+
+func TestStatus(t *testing.T) {
+    cleanupTestDB(t)
+    db := setupTestDB(t)
+
+    server := &Server{db: db}
+    tests := []struct {
+        name           string
+        url            string
+        apiKey         string
+        deviceID       string
+	body           string
+        expectedStatus int
+        expectedBody   string
+    }{
+        {
+            name:           "Update existing device status",
+            url:            "/v1/status/1",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+	    body:           `{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody:   "{\"status\":\"ok\"}\n",
+        },
+        {
+            name:           "Update new device status",
+            url:            "/v1/status/1",
+            apiKey:         "valid-key-2",
+            deviceID:       "dev2",
+	    body:           `{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody:   "{\"status\":\"ok\"}\n",
+        },
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            req, err := http.NewRequest("POST", tt.url, bytes.NewBufferString(tt.body))
+            if err != nil {
+                t.Fatal(err)
+            }
+            req.Header.Set("X-API-KEY", tt.apiKey)
+            req.Header.Set("X-DEVICE-ID", tt.deviceID)
+
+            rr := httptest.NewRecorder()
+            server.handleStatus(rr, req)
 
             if rr.Code != tt.expectedStatus {
                 t.Errorf("Expected status %d, got %d", tt.expectedStatus, rr.Code)

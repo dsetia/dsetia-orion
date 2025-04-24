@@ -47,8 +47,19 @@ CREATE TABLE threatintel (
     sha256 TEXT NOT NULL,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE status (
+    device_id TEXT PRIMARY KEY,
+    tenant_id INTEGER NOT NULL,
+    image TEXT NOT NULL,
+    rules TEXT NOT NULL,
+    malware TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
+);
 -- Indexes
 CREATE INDEX idx_device_tenant ON devices(tenant_id);
+CREATE INDEX idx_status_tenant ON status(tenant_id);
 CREATE INDEX idx_api_key_tenant_device ON api_keys(tenant_id, device_id);
 CREATE INDEX idx_hndr_rules_tenant ON hndr_rules(tenant_id);
 CREATE INDEX idx_hndr_sw_updated ON hndr_sw(updated_at);

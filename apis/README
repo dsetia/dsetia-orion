@@ -54,3 +54,6 @@ reads with serialized writes.
 1) The API server opens a SQLite connection to updater.db using sql.Open("sqlite3", dbPath).
 2) Queries are executed directly via the DB struct’s methods (e.g., db.QueryRow, db.Exec).
 3) SQLite handles file-level locking for concurrency (WAL mode supports multiple readers and one writer).
+
+# use dbtool to review tables
+../db/dbtool -db "postgres://pguser:pgpass@localhost:5432/testdb?sslmode=disable" -op list-status
