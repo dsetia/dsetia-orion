@@ -1,0 +1,15 @@
+{
+    "update_lock": "/tmp/HNDR_UPDATE_IN_PROGRESS.lock",
+    "hndr_config": "./config/hndr-config.json",
+    "sensor_config": "./config/sensor-config.json",
+    "folder_one": "/tmp/hndr-1",
+    "folder_two": "/tmp/hndr-2",
+    "scratch_folder": "/tmp",
+    "hndr_symlink": "/tmp/hndr",
+    "api_server_url": "https://localhost",
+    "api_server_port": 443,
+    "certificate_verify_skip": true,
+    "poll_interval_mins": 60,
+    "daemonize": false,
+    "verbose": true
+}

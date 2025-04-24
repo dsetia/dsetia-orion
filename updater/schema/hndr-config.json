@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "hNDR Configuration",
+  "type": "object",
+  "properties": {
+    "image_version": {
+      "type": "string",
+      "description": "hndr SW version"
+    },
+    "rules_version": {
+      "type": "string",
+      "description": "hndr rules version"
+    },
+    "threatfeed_version": {
+      "type": "string",
+      "description": "malware TI feed"
+    }
+  },
+  "required": [
+    "image_version",
+    "rules_version",
+    "threatfeed_version"
+  ]
+}

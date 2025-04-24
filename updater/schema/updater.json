@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Updater Configuration",
+  "type": "object",
+  "properties": {
+    "update_lock": {
+      "type": "string",
+      "description": "File created to indicate update in progress, deleted after update is done"
+    },
+    "hndr_symlink": {
+      "type": "string",
+      "description": "The active configuration of hndr is deployed in hndr-1 or hndr-2 and referenced using symbolic link set to this key"
+    },
+    "hndr_config": {
+      "type": "string",
+      "description": "Path to the hndr configuration file"
+    },
+    "sensor_config": {
+      "type": "string",
+      "description": "Path to the sensor configuration file"
+    },
+    "folder_one": {
+      "type": "string",
+      "description": "One of the 2 paths to store the hndr configuration"
+    },
+    "folder_two": {
+      "type": "string",
+      "description": "One of the 2 paths to store the hndr configuration"
+    },
+    "scratch_folder": {
+      "type": "string",
+      "description": "Scratch folder to save the received package"
+    },
+    "api_server_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Base URL of the API server"
+    },
+    "api_server_port": {
+      "type": "integer",
+      "description": "Port of the API server"
+    },
+    "certificate_verify_skip": {
+      "type": "boolean",
+      "description": "Whether to skip TLS certificate verification"
+    },
+    "poll_interval_mins": {
+      "type": "integer",
+      "description": "Poll server for updates at specified interval"
+    },
+    "daemonize": {
+      "type": "boolean",
+      "description": "Whether to run as a background daemon"
+    },
+    "verbose": {
+      "type": "boolean",
+      "description": "Enable verbose logging"
+    }
+  },
+  "required": [
+    "update_lock",
+    "hndr_symlink",
+    "hndr_config",
+    "sensor_config",
+    "folder_one",
+    "folder_two",
+    "scratch_folder",
+    "api_server_url",
+    "api_server_port",
+    "poll_interval_mins",
+    "certificate_verify_skip",
+    "daemonize",
+    "verbose"
+  ]
+}
