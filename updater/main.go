@@ -33,7 +33,7 @@ type CmdArguments struct {
 
 func ParseArgs() CmdArguments {
 	// Define flags and their default values.
-	configPtr := flag.String("config", "/opt/hndr/etc/updater.json", "Path to config file")
+	configPtr := flag.String("config", "/opt/hndr/etc/updater-config.json", "Path to config file")
 	daemonPtr := flag.Bool("deamon", false, "Run in foreground")
 	verbosePtr := flag.Bool("verbose", false, "Enable verbose mode")
 
@@ -114,11 +114,10 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
 
 func main() {
 	cmdArgs := ParseArgs()
-
 	// Use the arguments.
-	log.Println("Config:", cmdArgs.config)
-	log.Println("Daemon:", cmdArgs.daemon)
-	log.Println("Verbose:", cmdArgs.verbose)
+	log.Println("Update Config:", cmdArgs.config)
+	// log.Println("Daemon:", cmdArgs.daemon)
+	// log.Println("Verbose:", cmdArgs.verbose)
 
 	var updaterCfg core.UpdaterConfig
 	if err := core.LoadJSONConfig(cmdArgs.config, &updaterCfg); err != nil {
