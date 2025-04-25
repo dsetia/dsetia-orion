@@ -83,5 +83,9 @@ print_status $? "Nginx download of threatintel passed"
 echo "Testing Nginx proxy to MinIO (rules) with valid credentials..."
 curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_RULES" | grep -q 200
 print_status $? "Nginx download of rules passed"
+# Test API server status API
+echo "Testing API server status endpoint ..."
+curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
+print_status $? "API server status end point passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"

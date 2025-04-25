@@ -46,10 +46,12 @@ Usage of ./dbutil:
         Threatfeed version
 
 # insert
+# -db "postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable"
 ./dbutil -op insert -table tenants -tenant-name "TenantA"
 ./dbutil -op insert -table devices -device-id "dev1" -tenant-id 1 -device-name "Device1"
 ./dbutil -op insert -table api_keys -api-key "key1" -tenant-id 1 -device-id "dev1"
 ./dbutil -op insert -table global_manifest -image-version "v1.2.3" -threatfeed-version "2025.04.01.001"
+./dbtool -op insert-status -device-id "dev1" -tenant-id 1 -status-image "failure" -status-rules "failure" -status-malware "failure"
 # validate
 ./dbutil -op validate -table tenants -tenant-id 1
 ./dbutil -op validate -table devices -device-id "dev1"
