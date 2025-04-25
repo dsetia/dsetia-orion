@@ -10,6 +10,7 @@
     "api_server_port": 443,
     "certificate_verify_skip": true,
     "poll_interval_mins": 60,
+    "api_server_timeout": 10,
     "daemonize": false,
     "verbose": true
 }
