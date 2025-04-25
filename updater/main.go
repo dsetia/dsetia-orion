@@ -23,6 +23,7 @@ import (
     "os/signal"
     "time"
     "updater/core"
+    "orion/common"
 )
 
 type CmdArguments struct {
@@ -82,7 +83,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
     log.Println("Authenticated successfully.")
 
     // Read the existing update config
-    var updtCfg core.UpdateRequest
+    var updtCfg common.UpdateRequest
     if err := core.LoadJSONConfig(updaterCfg.HndrConfig, &updtCfg); err != nil {
         return
     }
@@ -97,7 +98,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
     }
     log.Printf("Update manifest: %+v\n", updates)
 
-    upInfo := core.StatusRequest{
+    upInfo := common.StatusRequest{
         Software: struct {
             Status string `json:"status"`
         }{Status: ""},
@@ -109,7 +110,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
         }{Status: ""},
     }
     sendSts := false
-    if len(updates.Software.DownloadURL) != 0 {
+    if updates.Software != nil && len(updates.Software.DownloadURL) != 0 {
         log.Printf("url: %s\n", updates.Software.DownloadURL)
         sendSts = true
         log.Println("Fetching software...")
@@ -127,7 +128,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
         }
 
     }
-    if len(updates.Rules.DownloadURL) != 0 {
+    if updates.Rules != nil && len(updates.Rules.DownloadURL) != 0 {
         log.Println("Fetching Rules...")
         sendSts = true
         content, err := apiClient.DownloadFile(updates.Rules.DownloadURL)
@@ -142,7 +143,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
             }
         }
     }
-    if len(updates.ThreatIntel.DownloadURL) != 0 {
+    if updates.ThreatIntel != nil && len(updates.ThreatIntel.DownloadURL) != 0 {
         log.Println("Fetching ThreatIntel...")
         sendSts = true
         content, err := apiClient.DownloadFile(updates.ThreatIntel.DownloadURL)

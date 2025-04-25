@@ -20,6 +20,7 @@ import (
     "io"
     "log"
     "net/http"
+    "orion/common"
 )
 
 type Client struct {
@@ -75,27 +76,27 @@ func (c *Client) sendRequest(method, url string, body any) (*http.Response, erro
     return resp, nil
 }
 
-func (c *Client) GetUpdateManifest(tenantID string, data UpdateRequest) (UpdateResponse, error) {
+func (c *Client) GetUpdateManifest(tenantID string, data common.UpdateRequest) (common.UpdateResponse, error) {
     url := fmt.Sprintf("%s/v1/updates/%s", c.BaseURL, tenantID)
     log.Printf("Sending request to URL: %s", url)
 
     resp, err := c.sendRequest(http.MethodPost, url, data)
     if err != nil {
         log.Printf("Request failed: %v", err)
-        return UpdateResponse{}, err
+        return common.UpdateResponse{}, err
     }
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
         body, err := io.ReadAll(resp.Body)
         if err != nil {
-            return UpdateResponse{}, err
+            return common.UpdateResponse{}, err
         }
         log.Printf("!OK: Response body size: %d bytes", len(body))
-        return UpdateResponse{}, fmt.Errorf("server returned %s: %s", resp.Status, string(body))
+        return common.UpdateResponse{}, fmt.Errorf("server returned %s: %s", resp.Status, string(body))
     }
 
-    var result UpdateResponse
+    var result common.UpdateResponse
     body, err := io.ReadAll(resp.Body)
     if err != nil {
         log.Printf("Failed to read response body: %v", err)
@@ -152,7 +153,7 @@ func (c *Client) Authenticate(tenantID string) error {
     return nil
 }
 
-func (c *Client) SendStatus(tenantID string, data StatusRequest) error {
+func (c *Client) SendStatus(tenantID string, data common.StatusRequest) error {
     url := fmt.Sprintf("%s/v1/status/%s", c.BaseURL, tenantID)
     resp, err := c.sendRequest(http.MethodPost, url, data)
     if err != nil {

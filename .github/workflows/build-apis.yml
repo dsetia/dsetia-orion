@@ -23,7 +23,7 @@ jobs:
     - name: Build the Docker image
       uses: docker/build-push-action@v5
       with:
-          context: ./apis
+          context: .
           file: ./apis/Dockerfile
           push: false # Set to true to push the image to a registry
           tags: apis-server:latest

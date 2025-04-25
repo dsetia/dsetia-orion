@@ -23,6 +23,7 @@ import (
     "os/exec"
     "path/filepath"
     "strings"
+    "orion/common"
 )
 
 // ExtractTarGz extracts a .tar.gz file to a specified directory.
@@ -286,7 +287,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     }
 
     //Read, update and write configuration file with latest version details
-    var hndrCfg HndrConfig
+    var hndrCfg common.HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
     }

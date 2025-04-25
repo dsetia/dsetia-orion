@@ -34,7 +34,9 @@ services:
     restart: unless-stopped
 
   apis-container:
-    build: ./apis
+    build:
+      context: .
+      dockerfile: apis/Dockerfile
     image: apis-server
     container_name: apis-container
     ports:
