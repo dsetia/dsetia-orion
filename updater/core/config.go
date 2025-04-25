@@ -14,42 +14,42 @@
 package core
 
 import (
-	"encoding/json"
-	"log"
-	"os"
+    "encoding/json"
+    "log"
+    "os"
 )
 
 // LoadJSONConfig loads a JSON file into any provided struct pointer
 func LoadJSONConfig(path string, out any) error {
-	log.Println("loading json: ", path)
-	f, err := os.Open(path)
-	if err != nil {
-		log.Printf("failed to open file: %w", err)
-		return err
-	}
-	defer f.Close()
+    log.Println("loading json: ", path)
+    f, err := os.Open(path)
+    if err != nil {
+        log.Printf("failed to open file: %w", err)
+        return err
+    }
+    defer f.Close()
 
-	if err := json.NewDecoder(f).Decode(out); err != nil {
-		log.Printf("failed to decode JSON: %w", err)
-		return err
-	}
-	return nil
+    if err := json.NewDecoder(f).Decode(out); err != nil {
+        log.Printf("failed to decode JSON: %w", err)
+        return err
+    }
+    return nil
 }
 
 // SaveJSONConfig writes any struct to a JSON file with indentation
 func SaveJSONConfig(path string, in any) error {
-	f, err := os.Create(path)
-	if err != nil {
-		log.Printf("failed to create file: %w", err)
-		return err
-	}
-	defer f.Close()
+    f, err := os.Create(path)
+    if err != nil {
+        log.Printf("failed to create file: %w", err)
+        return err
+    }
+    defer f.Close()
 
-	encoder := json.NewEncoder(f)
-	encoder.SetIndent("", "  ") // pretty print
-	if err := encoder.Encode(in); err != nil {
-		log.Printf("failed to encode JSON: %w", err)
-		return err
-	}
-	return nil
+    encoder := json.NewEncoder(f)
+    encoder.SetIndent("", "  ") // pretty print
+    if err := encoder.Encode(in); err != nil {
+        log.Printf("failed to encode JSON: %w", err)
+        return err
+    }
+    return nil
 }
