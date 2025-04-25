@@ -208,7 +208,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    if isNewerNum(sw.Version, deviceVersions.Image.Version) {
+    if isNewerNum(sw.Version, deviceVersions.Software.Version) {
         resp.Software = &common.SoftwareVersion{
             Version: sw.Version,
             Size:    sw.Size,
@@ -225,7 +225,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             DownloadURL: DownloadURLFormat(tenantID, "rules", "hndr-rules", rules.Version),
         }
     }
-    if isNewerNum(ti.Version, deviceVersions.Threatfeed.Version) {
+    if isNewerNum(ti.Version, deviceVersions.ThreatIntel.Version) {
         resp.ThreatIntel = &common.VersionInfo{
             Version:     ti.Version,
             Size:        ti.Size,
@@ -315,7 +315,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    err = s.db.InsertStatus(deviceID, tenantID, req.Image.Status, req.Rules.Status, req.Malware.Status)
+    err = s.db.InsertStatus(deviceID, tenantID, req.Software.Status, req.Rules.Status, req.ThreatIntel.Status)
 
     // Return response
     w.Header().Set("Content-Type", "application/json")

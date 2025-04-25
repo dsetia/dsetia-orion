@@ -1,36 +1,48 @@
 package common
 
+import (
+    "encoding/json"
+)
+
 type DeviceVersions struct {
-    Image struct {
+    Software struct {
         Version string `json:"version"`
-    } `json:"image"`
+    } `json:"software"`
     Rules struct {
         Version string `json:"version"`
     } `json:"rules"`
-    Threatfeed struct {
+    ThreatIntel struct {
         Version string `json:"version"`
-    } `json:"threatfeed"`
+    } `json:"threatintel"`
 }
 
 // /v1/status request
 type DeviceStatus struct {
-    Image struct {
+    Software struct {
         Status string `json:"status"`
-    } `json:"image"`
+    } `json:"software"`
     Rules struct {
         Status string `json:"status"`
     } `json:"rules"`
-    Malware struct {
+    ThreatIntel struct {
         Status string `json:"status"`
-    } `json:"Malware"`
+    } `json:"threatintel"`
 }
+
+type UpdateRequest DeviceStatus
+type StatusRequest DeviceStatus
 
 
 // UpdateResponse represents the /v1/update response
 type UpdateResponse struct {
-    Software      *SoftwareVersion `json:"image,omitempty"`
+    Software      *SoftwareVersion `json:"software,omitempty"`
     Rules         *VersionInfo     `json:"rules,omitempty"`
-    ThreatIntel   *VersionInfo     `json:"threatfeed,omitempty"`
+    ThreatIntel   *VersionInfo     `json:"threatintel,omitempty"`
+}
+
+func (u UpdateResponse) String() string {
+    b, _ := json.MarshalIndent(u, "", "  ")
+    return string(b)
 }
 
 // SoftwareVersion includes hndr_sw details

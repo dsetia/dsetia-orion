@@ -1,11 +1,11 @@
 {
   "software": {
-    "version": "0"
+    "version": "v1.2.3"
   },
   "rules": {
     "version": "0"
   },
-  "threat_intel": {
-    "version": "0"
+  "threatintel": {
+    "version": ""
   }
 }

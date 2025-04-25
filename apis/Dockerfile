@@ -4,8 +4,9 @@ WORKDIR /app
 COPY . .
 RUN ls -l /app && echo "Listing complete" || echo "Error listing /app"
 
+WORKDIR /app/apis
 RUN go mod tidy
-RUN go build -o apis ./apis
+RUN go build -o apis .
 
 FROM debian:bookworm-slim
 WORKDIR /app
