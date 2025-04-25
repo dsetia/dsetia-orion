@@ -1,4 +1,4 @@
-module apis
+module orion
 
 go 1.19
 

@@ -11,58 +11,9 @@ import (
     "io/ioutil"
     "strconv"
     "strings"
+    "orion/common"
     "github.com/hashicorp/go-version"
 )
-
-type DeviceVersions struct {
-    Image struct {
-        Version string `json:"version"`
-    } `json:"image"`
-    Rules struct {
-        Version string `json:"version"`
-    } `json:"rules"`
-    Threatfeed struct {
-        Version string `json:"version"`
-    } `json:"threatfeed"`
-}
-
-// /v1/status request
-type DeviceStatus struct {
-    Image struct {
-        Status string `json:"status"`
-    } `json:"image"`
-    Rules struct {
-        Status string `json:"status"`
-    } `json:"rules"`
-    Malware struct {
-        Status string `json:"status"`
-    } `json:"Malware"`
-}
-
-
-// UpdateResponse represents the /v1/update response
-type UpdateResponse struct {
-    Software      *SoftwareVersion `json:"image,omitempty"`
-    Rules         *VersionInfo     `json:"rules,omitempty"`
-    ThreatIntel   *VersionInfo     `json:"threatfeed,omitempty"`
-}
-
-// SoftwareVersion includes hndr_sw details
-type SoftwareVersion struct {
-    Version string `json:"version"`
-    Size    int64  `json:"size"`
-    Sha256  string `json:"sha256"`
-    Source  string `json:"source"` // "device" or "latest"
-    DownloadURL string `json:"download_url"`
-}
-
-// VersionInfo includes version details for rules and threatintel
-type VersionInfo struct {
-    Version string `json:"version"`
-    Size    int64  `json:"size"`
-    Sha256  string `json:"sha256"`
-    DownloadURL string `json:"download_url"`
-}
 
 type DBConfig struct {
     Host     string `json:"host"`
@@ -76,6 +27,14 @@ type DBConfig struct {
 // Server holds the API server state
 type Server struct {
     db *DB
+}
+
+// DownloadURLFormat generates a download URL for the given tenant ID, type, prefix, and version.
+// resourceType is images, rules, or threatintel
+// prefix is hndr-sw, hndr-rules, or threatintel
+// Returns string like /v1/download/1/images/hndr-sw-v1.2.3.tar.gz
+func DownloadURLFormat(tenantID int64, resourceType, prefix, version string) string {
+    return fmt.Sprintf("/v1/download/%d/%s/%s-%s.tar.gz", tenantID, resourceType, prefix, version)
 }
 
 // NewServer initializes the API server
@@ -172,7 +131,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     }
 
     // parse request body
-    var deviceVersions DeviceVersions
+    var deviceVersions common.DeviceVersions
     if err := json.NewDecoder(r.Body).Decode(&deviceVersions); err != nil {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
@@ -191,7 +150,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     }
 
     // Prepare response
-    resp := UpdateResponse{}
+    resp := common.UpdateResponse{}
 
     // Get software version
     var sw HndrSw
@@ -250,7 +209,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     }
 
     if isNewerNum(sw.Version, deviceVersions.Image.Version) {
-        resp.Software = &SoftwareVersion{
+        resp.Software = &common.SoftwareVersion{
             Version: sw.Version,
             Size:    sw.Size,
             Sha256:  sw.Sha256,
@@ -259,7 +218,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         }
     }
     if isNewerNum(rules.Version, deviceVersions.Rules.Version) {
-        resp.Rules = &VersionInfo{
+        resp.Rules = &common.VersionInfo{
             Version:     rules.Version,
             Size:        rules.Size,
             Sha256:      rules.Sha256,
@@ -267,7 +226,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         }
     }
     if isNewerNum(ti.Version, deviceVersions.Threatfeed.Version) {
-        resp.ThreatIntel = &VersionInfo{
+        resp.ThreatIntel = &common.VersionInfo{
             Version:     ti.Version,
             Size:        ti.Size,
             Sha256:      ti.Sha256,
@@ -350,7 +309,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     }
 
     // parse request body
-    var req DeviceStatus
+    var req common.DeviceStatus
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return

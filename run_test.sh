@@ -1,4 +1,5 @@
 #!/bin/bash
+#
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
