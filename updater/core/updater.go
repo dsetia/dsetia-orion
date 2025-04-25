@@ -224,7 +224,7 @@ func IsUpdateInProgress(filePath string) error {
 // Update the sensor sw using the provided binary
 func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig) (StatusRequest, error) {
 	status := StatusRequest{
-        Image:   struct{ Status string `json:"status"`}{Status: "failed"},
+        Software:   struct{ Status string `json:"status"`}{Status: "failed"},
 	}
 
 	defer RemoveUpdateLock(config.UpdateLock)
@@ -293,14 +293,14 @@ func UpateSWNow(content []byte, swVersion, filePath string, config UpdaterConfig
 		return status, err
 	}
 	log.Println("hndr config: ", hndrCfg)
-	hndrCfg.Image = swVersion
+	hndrCfg.Software.Version = swVersion
 
 	if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
 		return status, err
 	}
 	log.Println("hndr config updated successfully: ")
 
-	status.Image.Status = "success"
+	status.Software.Status = "success"
 	log.Println("Status of config after Update: ", status)
 
 	return status, err

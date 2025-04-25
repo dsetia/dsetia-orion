@@ -1,24 +1,48 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "hNDR Configuration",
-  "type": "object",
-  "properties": {
-    "image_version": {
-      "type": "string",
-      "description": "hndr SW version"
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "hNDR Configuration",
+    "type": "object",
+    "properties": {
+        "software": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "hndr SW version"
+                }
+            },
+            "required": [
+                "version"
+            ]
+        },
+        "rules": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "hndr rules version"
+                }
+            },
+            "required": [
+                "version"
+            ]
+        },
+        "threat_intel": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "threat intelligence feed"
+                }
+            },
+            "required": [
+                "version"
+            ]
+        }
     },
-    "rules_version": {
-      "type": "string",
-      "description": "hndr rules version"
-    },
-    "threatfeed_version": {
-      "type": "string",
-      "description": "malware TI feed"
-    }
-  },
-  "required": [
-    "image_version",
-    "rules_version",
-    "threatfeed_version"
-  ]
+    "required": [
+        "software",
+        "rules",
+        "threat_intel"
+    ]
 }

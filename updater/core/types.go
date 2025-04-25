@@ -29,11 +29,21 @@ type UpdaterConfig struct {
 	Verbose               bool   `json:"verbose"`
 }
 
-type HndrConfig struct {
-	Image      string `json:"image_version"`
-	Rules      string `json:"rules_version"`
-	ThreatFeed string `json:"threatfeed_version"`
+type UpdateRequest struct {
+	Software struct {
+		Version string `json:"version"`
+	} `json:"software"`
+
+	Rules struct {
+		Version string `json:"version"`
+	} `json:"rules"`
+
+	ThreatIntel struct {
+		Version string `json:"version"`
+	} `json:"threat_intel"`
 }
+
+type HndrConfig UpdateRequest
 
 type SensorConfig struct {
 	ApiKey     string `json:"api_key"`
@@ -42,20 +52,18 @@ type SensorConfig struct {
 	TenantID   string `json:"tenant_id"`
 }
 
-type UpdateRequest HndrConfig
-
 type StatusRequest struct {
-	Image struct {
+	Software struct {
 		Status string `json:"status"`
-	} `json:"image"`
+	} `json:"software"`
 
 	Rules struct {
 		Status string `json:"status"`
 	} `json:"rules"`
 
-	Malware struct {
+	ThreatIntel struct {
 		Status string `json:"status"`
-	} `json:"malware"`
+	} `json:"threatintel"`
 }
 
 type ComponentUpdate struct {

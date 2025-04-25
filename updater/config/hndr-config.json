@@ -1,5 +1,11 @@
 {
-  "image_version": "0",
-  "rules_version": "0.0.0",
-  "threatfeed_version": "0.0.0"
+  "software": {
+    "version": "0"
+  },
+  "rules": {
+    "version": "0"
+  },
+  "threat_intel": {
+    "version": "0"
+  }
 }
