@@ -27,7 +27,7 @@
                 "version"
             ]
         },
-        "threat_intel": {
+        "threatintel": {
             "type": "object",
             "properties": {
                 "version": {
@@ -43,6 +43,6 @@
     "required": [
         "software",
         "rules",
-        "threat_intel"
+        "threatintel"
     ]
 }

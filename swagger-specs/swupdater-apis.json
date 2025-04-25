@@ -52,7 +52,7 @@
                                         }
                                     }
                                 },
-                                "threat_intel": {
+                                "threatintel": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -104,7 +104,7 @@
                                         }
                                     }
                                 },
-                                "threat_intel": {
+                                "threatintel": {
                                     "type": "object",
                                     "properties": {
                                         "version": {
@@ -224,7 +224,7 @@
                                         }
                                     }
                                 },
-                                "threat_intel": {
+                                "threatintel": {
                                     "type": "object",
                                     "properties": {
                                         "status": {
