@@ -287,7 +287,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     }
 
     //Read, update and write configuration file with latest version details
-    var hndrCfg common.DeviceVersions
+    var hndrCfg common.HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
     }
