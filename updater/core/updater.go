@@ -23,7 +23,6 @@ import (
     "os/exec"
     "path/filepath"
     "strings"
-    "orion/common"
 )
 
 // ExtractTarGz extracts a .tar.gz file to a specified directory.
@@ -31,14 +30,14 @@ func ExtractTarGz(tarGzPath, destDir string) error {
     log.Println("Extracting file:", tarGzPath)
     file, err := os.Open(tarGzPath)
     if err != nil {
-        log.Println("opening %s: %w", tarGzPath, err)
+        log.Printf("opening %s: %w", tarGzPath, err)
         return err
     }
     defer file.Close()
 
     gzReader, err := gzip.NewReader(file)
     if err != nil {
-        log.Println("creating gzip reader: %w", err)
+        log.Printf("creating gzip reader: %w", err)
         return err
     }
     defer gzReader.Close()
@@ -51,7 +50,7 @@ func ExtractTarGz(tarGzPath, destDir string) error {
             break
         }
         if err != nil {
-            log.Println("reading tar header: %w", err)
+            log.Printf("reading tar header: %w", err)
             return err
         }
 
@@ -61,26 +60,26 @@ func ExtractTarGz(tarGzPath, destDir string) error {
         case tar.TypeDir:
             err = os.MkdirAll(target, 0755)
             if err != nil {
-                log.Println("creating directory %s: %w", target, err)
+                log.Printf("creating directory %s: %w", target, err)
                 return err
             }
         case tar.TypeReg:
             outFile, err := os.Create(target)
             if err != nil {
-                log.Println("creating file %s: %w", target, err)
+                log.Printf("creating file %s: %w", target, err)
                 return err
             }
             defer outFile.Close()
 
             _, err = io.Copy(outFile, tarReader)
             if err != nil {
-                log.Println("writing file %s: %w", target, err)
+                log.Printf("writing file %s: %w", target, err)
                 return err
             }
         case tar.TypeSymlink:
             err = os.Symlink(header.Linkname, target)
             if err != nil {
-                log.Println("creating symlink %s -> %s: %w", target, header.Linkname, err)
+                log.Printf("creating symlink %s -> %s: %w", target, header.Linkname, err)
                 return err
             }
         }
@@ -148,29 +147,41 @@ func UnlinkAndLink(symlinkPath, absRealPath string) error {
     return err
 }
 
-func CleanupFolder(dirPath string) error {
-    binDirPath := dirPath + "/bin"
-    log.Println("binDirPath: ", binDirPath)
-    err := os.RemoveAll(binDirPath)
+func CleanupFolder(dirPath, subDirPath string) error {
+    absDirPath := dirPath + "/" + subDirPath
+    log.Println("Cleaning up folder: ", absDirPath)
+    err := os.RemoveAll(absDirPath)
     if err != nil {
-        log.Println("Error: Removing folder %s: %w", binDirPath, err)
+        log.Printf("Error: Removing folder %s: %w", absDirPath, err)
         return err
     }
+    return err
+}
 
-    libFilePath := dirPath + "/lib/lib*"
-    log.Println("libFilePath: ", libFilePath)
-    files, err := filepath.Glob(libFilePath)
+func CleanupFilesInFolder(dirPath, wildcardMatch string) error {
+    filesPath := dirPath + wildcardMatch
+    log.Println("Cleaning up files: ", filesPath)
+    files, err := filepath.Glob(filesPath)
     if err != nil {
-        log.Println("Error: listing folder %s: %w", libFilePath, err)
+        log.Printf("Error: listing folder %s: %w", filesPath, err)
         return err
     }
     for _, f := range files {
         if err := os.Remove(f); err != nil {
-            log.Println("Error: removing file %s: %w", f, err)
+            log.Printf("Error: removing file %s: %w", f, err)
             return err
         }
     }
+    return err
+}
 
+func CleanupSoftwareFolder(dirPath string) error {
+    err := CleanupFolder(dirPath, "bin")
+    if err != nil {
+        return err
+    }
+
+    CleanupFilesInFolder(dirPath + "/lib/", "lib*")
     return err
 }
 
@@ -187,7 +198,7 @@ func WriteToFile(content []byte, filepath string) error {
     // Write the byte slice content to the file
     _, err = outFile.Write(content)
     if err != nil {
-        log.Println("Error: failed to write to file: %v", err)
+        log.Printf("Error: failed to write to file: %v", err)
         return err
     }
 
@@ -224,7 +235,7 @@ func IsUpdateInProgress(filePath string) error {
 
 // Update the sensor sw using the provided binary
 func UpateSoftwareNow(content []byte, swVersion, filePath string, config UpdaterConfig) (string, error) {
-    status := "failed"
+    status := "FAILED"
 
     defer RemoveUpdateLock(config.UpdateLock)
 
@@ -271,7 +282,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     log.Println("Folder Name:", folderName)
     log.Println("Folder to Deploy:", folderToDeploy)
 
-    err = CleanupFolder(folderToDeploy)
+    err = CleanupSoftwareFolder(folderToDeploy)
     if err != nil {
         return status, err
     }
@@ -287,7 +298,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     }
 
     //Read, update and write configuration file with latest version details
-    var hndrCfg common.HndrConfig
+    var hndrCfg HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
     }
@@ -299,7 +310,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     }
     log.Println("hndr config updated successfully: ")
 
-    status = "success"
+    status = "SUCCESS"
     log.Println("Status of config after Update: ", status)
 
     return status, err
@@ -307,14 +318,72 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
 
 // Update the sensor Rules using the provided binary
 func UpateRulesNow(content []byte, rulesVersion, filePath string, config UpdaterConfig) (string, error) {
-    status := "failed"
+    status := "FAILED"
+    // The rules must be deployed in the folder that is currently in use.
+    defer RemoveUpdateLock(config.UpdateLock)
 
-    return status, nil
+    err := IsUpdateInProgress(config.UpdateLock)
+    if err == nil {
+        log.Printf("Error update in progress, skipping", err)
+        return status, errors.New("update in progress")
+    }
+
+    fileName := GetFolderName(filePath)
+    if len(fileName) == 0 {
+        log.Println("Error extracting file name from URL: ", filePath)
+        return status, nil
+    }
+
+    swFilepath := config.ScratchFolder + "/" + fileName
+    log.Println("Writing downloaded artifacts at:", swFilepath)
+    err = WriteToFile(content, swFilepath)
+    if err != nil {
+        log.Printf("Error saving software file: %v", err)
+        return status, err
+    }
+
+    absRealPath, err := GetRealPath(config.HndrSymlink)
+    if err != nil {
+        log.Println("Error: Non-existent path")
+        return status, err
+    }
+    log.Println("Real path:", absRealPath)
+
+    folderToDeploy := absRealPath + "/" + config.RulesFolder
+    log.Println("Deployment folder:", folderToDeploy)
+    err = CleanupFilesInFolder(folderToDeploy, "*.rules")
+    if err != nil {
+        return status, err
+    }
+
+    err = ExtractTarGz(swFilepath, folderToDeploy)
+    if err != nil {
+        return status, err
+    }
+
+    //Read, update and write configuration file with latest version details
+    var hndrCfg HndrConfig
+    if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
+        return status, err
+    }
+    log.Println("hndr config: ", hndrCfg)
+    hndrCfg.Rules.Version = rulesVersion
+
+    if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
+        return status, err
+    }
+    log.Println("hndr config updated successfully: ")
+
+    status = "SUCCESS"
+    log.Println("Status of config after Update: ", status)
+
+    return status, err
 }
 
 // Update the  threat intel using the provided binary
 func UpateThreatIntelNow(content []byte, tiVersion, filePath string, config UpdaterConfig) (string, error) {
-    status := "failed"
+    status := "SUCCESS"
+    log.Println("---TI UPDATES NOT SUPPORTED YET ---, return SUCCESS")
 
     return status, nil
 }

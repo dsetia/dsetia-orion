@@ -27,6 +27,14 @@
       "type": "string",
       "description": "One of the 2 paths to store the hndr configuration"
     },
+    "rules_folder": {
+      "type": "string",
+      "description": "Folder to deploy the rules package updates"
+    },
+    "ids_service_name": {
+      "type": "string",
+      "description": "Name of the IDS service as used in supervisord.conf file"
+    },
     "scratch_folder": {
       "type": "string",
       "description": "Scratch folder to save the received package"
@@ -68,11 +76,15 @@
     "sensor_config",
     "folder_one",
     "folder_two",
+    "rules_folder",
     "scratch_folder",
+    "ids_service_name",
     "api_server_url",
     "api_server_port",
     "poll_interval_mins",
-    "api_server_timeout",
+    "api_server_timeout"
+  ],
+  "optional": [
     "certificate_verify_skip",
     "daemonize",
     "verbose"

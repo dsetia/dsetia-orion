@@ -1,9 +1,9 @@
 {
   "software": {
-    "version": "0"
+    "version": "v1.2.3"
   },
   "rules": {
-    "version": "0"
+    "version": "r1.2.3"
   },
   "threatintel": {
     "version": "0"

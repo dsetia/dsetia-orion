@@ -117,7 +117,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
         content, err := apiClient.DownloadFile(updates.Software.DownloadURL)
         if err != nil {
             log.Println("Error downloading software :", err)
-            upInfo.Software.Status = "failed"
+            upInfo.Software.Status = "FAILED"
         } else {
             status, err := core.UpateSoftwareNow(content, updates.Software.Version,
                 updates.Software.DownloadURL, updaterCfg)
@@ -131,10 +131,11 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
     if updates.Rules != nil && len(updates.Rules.DownloadURL) != 0 {
         log.Println("Fetching Rules...")
         sendSts = true
+
         content, err := apiClient.DownloadFile(updates.Rules.DownloadURL)
         if err != nil {
             log.Println("Error downloading rules :", err)
-            upInfo.Rules.Status = "failed"
+            upInfo.Rules.Status = "FAILED"
         } else {
             status, err := core.UpateRulesNow(content, updates.Rules.Version, updates.Rules.DownloadURL, updaterCfg)
             upInfo.Rules.Status = status
@@ -149,7 +150,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
         content, err := apiClient.DownloadFile(updates.ThreatIntel.DownloadURL)
         if err != nil {
             log.Println("Error downloading threatintel :", err)
-            upInfo.ThreatIntel.Status = "failed"
+            upInfo.ThreatIntel.Status = "FAILED"
         } else {
             status, err := core.UpateThreatIntelNow(content, updates.ThreatIntel.Version, updates.ThreatIntel.DownloadURL, updaterCfg)
             upInfo.ThreatIntel.Status = status
@@ -160,7 +161,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
     }
 
     if sendSts {
-        log.Println("Sending status update...")
+        log.Println("Sending update status...")
         err = apiClient.SendStatus(snrCfg.TenantID, upInfo)
         if err != nil {
             log.Println("Failed to send status:", err)
