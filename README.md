@@ -1,6 +1,6 @@
 # securite
 
-The 'launch.sh' script will pull all nginx, minio and postgres containers. Using docker compose
+The 'orion.sh' script will pull all nginx, minio and postgres containers. Using docker compose
 orchestrates the containers.
 
 Dependencies
