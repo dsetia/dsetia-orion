@@ -13,6 +13,8 @@
 
 package core
 
+import "orion/common"
+
 type UpdaterConfig struct {
     UpdateLock            string `json:"update_lock"`
     HndrSymlink           string `json:"hndr_symlink"`
@@ -20,6 +22,8 @@ type UpdaterConfig struct {
     SensorConfig          string `json:"sensor_config"`
     FolderOne             string `json:"folder_one"`
     FolderTwo             string `json:"folder_two"`
+    RulesFolder           string `json:"rules_folder"`
+    IDSServiceName        string `json:"ids_service_name"`
     ScratchFolder         string `json:"scratch_folder"`
     APIServerURL          string `json:"api_server_url"`
     APIServerPort         int    `json:"api_server_port"`
@@ -41,3 +45,5 @@ type Configuration struct {
     Users  []string
     Groups []string
 }
+
+type HndrConfig common.DeviceVersions
