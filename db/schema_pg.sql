@@ -52,7 +52,7 @@ CREATE TABLE status (
     tenant_id INTEGER NOT NULL,
     software TEXT NOT NULL,
     rules TEXT NOT NULL,
-    malware TEXT NOT NULL,
+    threatintel TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE

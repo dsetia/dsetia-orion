@@ -335,6 +335,7 @@ func TestStatus(t *testing.T) {
     tests := []struct {
         name           string
         url            string
+        method         string
         apiKey         string
         deviceID       string
 	body           string
@@ -344,26 +345,55 @@ func TestStatus(t *testing.T) {
         {
             name:           "Update existing device status",
             url:            "/v1/status/1",
+            method:         "POST",
             apiKey:         "valid-key",
             deviceID:       "dev1",
-	    body:           `{"software": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            body:           `{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}`,
             expectedStatus: http.StatusOK,
             expectedBody:   "{\"status\":\"ok\"}\n",
         },
         {
+            name:           "Verify update of existing device status",
+            url:            "/v1/status/1",
+            method:         "GET",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            body:           "",
+            expectedStatus: http.StatusOK,
+            expectedBody:   `{"software":{"status":"success"},"rules":{"status":"failure"},"threatintel":{"status":"success"}}` + "\n",
+        },
+        {
             name:           "Update new device status",
             url:            "/v1/status/1",
+            method:         "POST",
             apiKey:         "valid-key-2",
             deviceID:       "dev2",
-	    body:           `{"software": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            body:           `{"software": {"status":"SUCCESS"},"rules": {"status":"FAILURE"},"threatintel":{"status":"success"}}`,
             expectedStatus: http.StatusOK,
             expectedBody:   "{\"status\":\"ok\"}\n",
+        },
+        {
+            name:           "Verify update of new device status",
+            url:            "/v1/status/1",
+            method:         "GET",
+            apiKey:         "valid-key-2",
+            deviceID:       "dev2",
+            body:           "",
+            expectedStatus: http.StatusOK,
+            expectedBody:   `{"software":{"status":"SUCCESS"},"rules":{"status":"FAILURE"},"threatintel":{"status":"success"}}` + "\n",
         },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            req, err := http.NewRequest("POST", tt.url, bytes.NewBufferString(tt.body))
+            var err error
+            var req *http.Request
+
+            if tt.method == "POST" {
+                req, err = http.NewRequest("POST", tt.url, bytes.NewBufferString(tt.body))
+            } else {
+                req, err = http.NewRequest("GET", tt.url, nil)
+            }
             if err != nil {
                 t.Fatal(err)
             }

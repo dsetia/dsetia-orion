@@ -310,14 +310,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
     if r.Method == http.MethodGet {
 	var resp common.DeviceStatus
-	err, x, y, z := s.db.GetStatus(deviceID, tenantID)
+	Status, err := s.db.GetStatus(deviceID, tenantID)
 	if err != nil {
             http.Error(w, "Device not found", http.StatusNotFound)
 	    return
 	}
-	resp.Software.Status = x
-	resp.Rules.Status = y
-	resp.ThreatIntel.Status = z
+	resp.Software.Status = Status.Software
+	resp.Rules.Status = Status.Rules
+	resp.ThreatIntel.Status = Status.ThreatIntel
         w.Header().Set("Content-Type", "application/json")
         w.WriteHeader(http.StatusOK)
         json.NewEncoder(w).Encode(resp)
@@ -333,6 +333,10 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     }
 
     err = s.db.InsertStatus(deviceID, tenantID, req.Software.Status, req.Rules.Status, req.ThreatIntel.Status)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
     // Return response
     w.Header().Set("Content-Type", "application/json")

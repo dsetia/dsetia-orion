@@ -75,7 +75,7 @@ type Status struct {
     TenantID      int64
     Software      string
     Rules         string
-    Malware       string
+    ThreatIntel   string
     CreatedAt     time.Time
     UpdatedAt     time.Time
 }
@@ -443,10 +443,10 @@ func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
     return ti, nil
 }
 
-func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sRules string, sMalware string) (error) {
+func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sRules string, sThreatIntel string) (error) {
     // Ensure at least one status field is provided
-    if sSoftware == "" && sRules == "" && sMalware == "" {
-        return errors.New("At least one of software, rules, or malware must be provided")
+    if sSoftware == "" && sRules == "" && sThreatIntel == "" {
+        return errors.New("At least one of software, rules, or threatintel must be provided")
     }
 
     exists, err := db.ValidateDevice(deviceID, tenantID)
@@ -460,17 +460,17 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
     // Check if the row exists
     var cur Status
     err = db.QueryRow(`
-        SELECT device_id, tenant_id, software, rules, malware, created_at
+        SELECT device_id, tenant_id, software, rules, threatintel, created_at
         FROM status
         WHERE device_id = $1 AND tenant_id = $2`,
         deviceID, tenantID).Scan(
-        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.Malware, &cur.CreatedAt,
+        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.ThreatIntel, &cur.CreatedAt,
     )
     if err == sql.ErrNoRows {
         _, err = db.Exec(`
-            INSERT INTO status (device_id, tenant_id, software, rules, malware, created_at, updated_at)
+            INSERT INTO status (device_id, tenant_id, software, rules, threatintel, created_at, updated_at)
             VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-            deviceID, tenantID, sSoftware, sRules, sMalware,
+            deviceID, tenantID, sSoftware, sRules, sThreatIntel,
         )
         if err != nil {
             return fmt.Errorf("Failed to create status: "+err.Error())
@@ -485,15 +485,15 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
 	if sRules != "" {
 	    rules = sRules
 	}
-	malware := cur.Malware
-	if sMalware != "" {
-	    malware = sMalware
+	threatintel := cur.ThreatIntel
+	if sThreatIntel != "" {
+	    threatintel = sThreatIntel
 	}
         _, err = db.Exec(`
 	    UPDATE status
-	    SET software = $1, rules = $2, malware = $3, updated_at = CURRENT_TIMESTAMP
+	    SET software = $1, rules = $2, threatintel = $3, updated_at = CURRENT_TIMESTAMP
 	    WHERE device_id = $4 AND tenant_id = $5`,
-            software, rules, malware, deviceID, tenantID,
+            software, rules, threatintel, deviceID, tenantID,
         )
         if err != nil {
             return fmt.Errorf("Failed to update status: "+err.Error())
@@ -503,34 +503,38 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
     return nil
 }
 
-func (db *DB) GetStatus(deviceID string, tenantID int64) (error, string, string, string) {
+func (db *DB) GetStatus(deviceID string, tenantID int64) (Status, error) {
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
-        return err, "", "", ""
+        return Status{}, err
     }
     if !exists {
-        return fmt.Errorf("device ID %s or tenant ID %d does not exist", deviceID, tenantID), "", "", ""
+        return Status{}, fmt.Errorf("device ID %s or tenant ID %d does not exist", deviceID, tenantID)
     }
 
     // Check if the row exists
     var cur Status
     err = db.QueryRow(`
-        SELECT device_id, tenant_id, software, rules, malware, created_at
+        SELECT device_id, tenant_id, software, rules, threatintel, created_at
         FROM status
         WHERE device_id = $1 AND tenant_id = $2`,
         deviceID, tenantID).Scan(
-        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.Malware, &cur.CreatedAt,
+        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.ThreatIntel, &cur.CreatedAt,
     )
     if err == sql.ErrNoRows {
-        return fmt.Errorf("Status entry for device ID %s does not exist", deviceID), "", "", ""
+        return Status{}, fmt.Errorf("Status entry for device ID %s does not exist", deviceID)
     }
 
-    return nil, cur.Software, cur.Rules, cur.Malware
+    return Status {
+        Software: cur.Software,
+	Rules: cur.Rules,
+	ThreatIntel: cur.ThreatIntel,
+    }, nil
 }
 
 // ListThreatIntel retrieves all threat intelligence versions
 func (db *DB) ListStatus() ([]Status, error) {
-    rows, err := db.Query("SELECT device_id, tenant_id, software, rules, malware, updated_at FROM status")
+    rows, err := db.Query("SELECT device_id, tenant_id, software, rules, threatintel, updated_at FROM status")
     if err != nil {
         return nil, fmt.Errorf("failed to list status: %w", err)
     }
@@ -539,7 +543,7 @@ func (db *DB) ListStatus() ([]Status, error) {
     var ti []Status
     for rows.Next() {
         var t Status
-        if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.Malware, &t.UpdatedAt); err != nil {
+        if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
             return nil, fmt.Errorf("failed to scan status: %w", err)
         }
         ti = append(ti, t)

@@ -36,6 +36,9 @@ fi
 
 export PGPASSWORD=$password
 
+echo # Dropping database $dbname"
+dropdb -U $user -h $host -p $port $dbname
+
 echo "Creating database $dbname (if it doesn't exist)..."
 createdb -U $user -h $host -p $port $dbname
 
