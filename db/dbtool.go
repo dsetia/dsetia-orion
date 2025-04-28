@@ -44,9 +44,9 @@ func main() {
     tiSha256 := flag.String("ti-sha256", "", "Threat intelligence SHA256 hash")
 
     // Status flags
-    sImage := flag.String("status-image", "", "Image status")
+    sSoftware := flag.String("status-software", "", "Software status")
     sRules := flag.String("status-rules", "", "Rules status")
-    sMalware := flag.String("status-malware", "", "Malware status")
+    sThreatIntel := flag.String("status-threatintel", "", "ThreatIntel status")
 
     flag.Parse()
 
@@ -293,11 +293,11 @@ func main() {
 
     // Status Operations
     case "insert-status":
-        if *deviceID == "" || *tenantID == 0 || (*sImage == "" && *sRules == "" && *sMalware == "") {
+        if *deviceID == "" || *tenantID == 0 || (*sSoftware == "" && *sRules == "" && *sThreatIntel == "") {
             fmt.Println("Error: -device-id and -tenant-id are required for insert-status")
             os.Exit(1)
         }
-        err := db.InsertStatus(*deviceID, *tenantID, *sImage, *sRules, *sMalware)
+        err := db.InsertStatus(*deviceID, *tenantID, *sSoftware, *sRules, *sThreatIntel)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
@@ -311,8 +311,8 @@ func main() {
             os.Exit(1)
         }
         for _, d := range statusList {
-            fmt.Printf("Device: ID=%s, TenantID=%d, Image=%s, Rules=%s, Malware=%s\n",
-                d.DeviceID, d.TenantID, d.Image, d.Rules, d.Malware)
+            fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s\n",
+                d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel)
         }
 
     default:

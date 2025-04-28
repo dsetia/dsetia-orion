@@ -50,9 +50,9 @@ CREATE TABLE threatintel (
 CREATE TABLE status (
     device_id TEXT PRIMARY KEY,
     tenant_id INTEGER NOT NULL,
-    image TEXT NOT NULL,
+    software TEXT NOT NULL,
     rules TEXT NOT NULL,
-    malware TEXT NOT NULL,
+    threatintel TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE

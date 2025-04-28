@@ -42,7 +42,10 @@ type UpdateResponse struct {
 }
 
 func (u UpdateResponse) String() string {
-    b, _ := json.MarshalIndent(u, "", "  ")
+    b, err := json.MarshalIndent(u, "", "  ")
+    if err != nil {
+        return "Error marshaling UpdateResponse: " + err.Error()
+    }
     return string(b)
 }
 

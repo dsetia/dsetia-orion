@@ -74,7 +74,7 @@ func setupTestDB(t *testing.T) *DB {
         t.Fatalf("Failed to insert threatintel: %v", err)
     }
 
-    // 2nd device to use global image
+    // 2nd device to use global software
     _, err = db.GetOrInsertDevice("dev2", tenantID, "Test Device", "")
     if err != nil {
         t.Fatalf("Failed to insert device: %v", err)
@@ -198,7 +198,7 @@ func TestUpdate(t *testing.T) {
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
                 `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q},"threatintel":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
-                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.3"),
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
                 DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
                 DownloadURLFormat(1, "threatintel", "threatintel", "2025.04.10.153010"),
             ),
@@ -212,7 +212,7 @@ func TestUpdate(t *testing.T) {
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
                 `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q},"threatintel":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
-                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.3"),
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
                 DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
                 DownloadURLFormat(1, "threatintel", "threatintel", "2025.04.10.153010"),
             ),
@@ -235,7 +235,7 @@ func TestUpdate(t *testing.T) {
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q}}` + "\n",
-                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.3"),
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
 	    ),
         },
         {
@@ -298,7 +298,7 @@ func TestUpdate(t *testing.T) {
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"software":{"version":"v1.2.4","size":1234,"sha256":"sw-sha256","source":"latest","download_url":%q}}` + "\n",
-                DownloadURLFormat(1, "images", "hndr-sw", "v1.2.4"),
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.4"),
 	    ),
         },
 
@@ -335,6 +335,7 @@ func TestStatus(t *testing.T) {
     tests := []struct {
         name           string
         url            string
+        method         string
         apiKey         string
         deviceID       string
 	body           string
@@ -344,26 +345,55 @@ func TestStatus(t *testing.T) {
         {
             name:           "Update existing device status",
             url:            "/v1/status/1",
+            method:         "POST",
             apiKey:         "valid-key",
             deviceID:       "dev1",
-	    body:           `{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            body:           `{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}`,
             expectedStatus: http.StatusOK,
             expectedBody:   "{\"status\":\"ok\"}\n",
         },
         {
+            name:           "Verify update of existing device status",
+            url:            "/v1/status/1",
+            method:         "GET",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            body:           "",
+            expectedStatus: http.StatusOK,
+            expectedBody:   `{"software":{"status":"success"},"rules":{"status":"failure"},"threatintel":{"status":"success"}}` + "\n",
+        },
+        {
             name:           "Update new device status",
             url:            "/v1/status/1",
+            method:         "POST",
             apiKey:         "valid-key-2",
             deviceID:       "dev2",
-	    body:           `{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}`,
+            body:           `{"software": {"status":"SUCCESS"},"rules": {"status":"FAILURE"},"threatintel":{"status":"success"}}`,
             expectedStatus: http.StatusOK,
             expectedBody:   "{\"status\":\"ok\"}\n",
+        },
+        {
+            name:           "Verify update of new device status",
+            url:            "/v1/status/1",
+            method:         "GET",
+            apiKey:         "valid-key-2",
+            deviceID:       "dev2",
+            body:           "",
+            expectedStatus: http.StatusOK,
+            expectedBody:   `{"software":{"status":"SUCCESS"},"rules":{"status":"FAILURE"},"threatintel":{"status":"success"}}` + "\n",
         },
     }
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            req, err := http.NewRequest("POST", tt.url, bytes.NewBufferString(tt.body))
+            var err error
+            var req *http.Request
+
+            if tt.method == "POST" {
+                req, err = http.NewRequest("POST", tt.url, bytes.NewBufferString(tt.body))
+            } else {
+                req, err = http.NewRequest("GET", tt.url, nil)
+            }
             if err != nil {
                 t.Fatal(err)
             }

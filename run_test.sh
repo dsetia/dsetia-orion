@@ -12,7 +12,7 @@ API_PORT=8080
 VALID_API_KEY="key1"
 VALID_DEVICE_ID="dev1"
 INVALID_API_KEY="invalid-key"
-TEST_FILE_IMAGE="images/hndr-sw-v1.2.3.tar.gz"
+TEST_FILE_IMAGE="software/hndr-sw-v1.2.3.tar.gz"
 TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
 TEST_FILE_RULES="rules/1/hndr-rules-r1.2.3.tar.gz"
 
@@ -85,7 +85,7 @@ curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-D
 print_status $? "Nginx download of rules passed"
 # Test API server status API
 echo "Testing API server status endpoint ..."
-curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image": {"status":"success"},"rules": {"status":"failure"},"malware":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
 print_status $? "API server status end point passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"
