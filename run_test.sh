@@ -12,7 +12,7 @@ API_PORT=8080
 VALID_API_KEY="key1"
 VALID_DEVICE_ID="dev1"
 INVALID_API_KEY="invalid-key"
-TEST_FILE_IMAGE="images/hndr-sw-v1.2.3.tar.gz"
+TEST_FILE_IMAGE="software/hndr-sw-v1.2.3.tar.gz"
 TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
 TEST_FILE_RULES="rules/1/hndr-rules-r1.2.3.tar.gz"
 

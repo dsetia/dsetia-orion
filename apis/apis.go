@@ -30,9 +30,9 @@ type Server struct {
 }
 
 // DownloadURLFormat generates a download URL for the given tenant ID, type, prefix, and version.
-// resourceType is images, rules, or threatintel
+// resourceType is software, rules, or threatintel
 // prefix is hndr-sw, hndr-rules, or threatintel
-// Returns string like /v1/download/1/images/hndr-sw-v1.2.3.tar.gz
+// Returns string like /v1/download/1/software/hndr-sw-v1.2.3.tar.gz
 func DownloadURLFormat(tenantID int64, resourceType, prefix, version string) string {
     return fmt.Sprintf("/v1/download/%d/%s/%s-%s.tar.gz", tenantID, resourceType, prefix, version)
 }
@@ -214,7 +214,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             Size:    sw.Size,
             Sha256:  sw.Sha256,
             Source:  source,
-            DownloadURL: DownloadURLFormat(tenantID, "images", "hndr-sw", sw.Version),
+            DownloadURL: DownloadURLFormat(tenantID, "software", "hndr-sw", sw.Version),
         }
     }
     if isNewerNum(rules.Version, deviceVersions.Rules.Version) {
@@ -282,7 +282,7 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 
 // handleStatus handles /v1/status/{tenant-id}
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
+    if r.Method != http.MethodPost && r.Method != http.MethodGet {
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
@@ -307,6 +307,23 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
+
+    if r.Method == http.MethodGet {
+	var resp common.DeviceStatus
+	err, x, y, z := s.db.GetStatus(deviceID, tenantID)
+	if err != nil {
+            http.Error(w, "Device not found", http.StatusNotFound)
+	    return
+	}
+	resp.Software.Status = x
+	resp.Rules.Status = y
+	resp.ThreatIntel.Status = z
+        w.Header().Set("Content-Type", "application/json")
+        w.WriteHeader(http.StatusOK)
+        json.NewEncoder(w).Encode(resp)
+        return
+    }
+
 
     // parse request body
     var req common.DeviceStatus
