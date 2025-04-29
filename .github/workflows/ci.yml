@@ -69,6 +69,13 @@ jobs:
         working-directory: ./db
         run: go build -o dbtool
 
+      # Install mc
+      - name: Install mc
+        run: |
+          wget https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x mc
+          sudo mv mc /usr/local/bin/
+
       # Run sanity tests
       - name: Run sanity tests
         run: |
