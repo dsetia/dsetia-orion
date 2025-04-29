@@ -1,0 +1,85 @@
+name: Full Stack Sanity Tests
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'apis/**'
+      - 'shared/**'
+      - 'docker-compose.yml'
+      - 'nginx.conf'
+      - 'Dockerfile.apis'
+      - 'run_test.sh'
+      - 'init_db.sh'
+      - 'populate_db.sh'
+      - 'populate_minio.sh'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'apis/**'
+      - 'shared/**'
+      - 'docker-compose.yml'
+      - 'nginx.conf'
+      - 'Dockerfile.apis'
+      - 'run_test.sh'
+      - 'init_db.sh'
+      - 'populate_db.sh'
+      - 'populate_minio.sh'
+
+jobs:
+  sanity-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Docker
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+          sudo systemctl start docker
+          sudo systemctl enable docker
+          sudo usermod -aG docker $USER
+
+      # Install Docker Compose
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      # Run sanity tests
+      - name: Run sanity tests
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          sleep 10
+          ./init_db.sh <<< "y"
+          ./populate_db.sh <<< "y"
+          ./populate_minio.sh
+          ./run_test.sh
+          docker-compose -f docker-compose.yml down
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: pguser
+          DB_PASSWORD: pgpass
+          DB_NAME: testdb
+          DB_SSLMODE: disable
+
+      # Upload test log for debugging
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-log
+          path: test.log
+
+      # Check Docker logs on failure
+      - name: Show Docker logs on failure
+        if: failure()
+        run: |
+          docker-compose -f docker-compose.yml logs

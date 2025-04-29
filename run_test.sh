@@ -31,6 +31,11 @@ print_status() {
     fi
 }
 
+# Check if docker-compose is running
+echo "Checking docker-compose status..."
+sudo docker-compose -f "$COMPOSE_FILE" ps | grep "Up" >/dev/null
+print_status $? "Docker-compose services are running"
+
 # 3. Verify containers are running
 echo "Checking container status..."
 sudo docker ps --filter "name=nginx" --filter "status=running" -q | grep . >/dev/null
@@ -39,11 +44,16 @@ sudo docker ps --filter "name=minio" --filter "status=running" -q | grep . >/dev
 print_status $? "MinIO container is running"
 sudo docker ps --filter "name=apis-container" --filter "status=running" -q | grep . >/dev/null
 print_status $? "API server container is running"
+sudo docker ps --filter "name=postgres" --filter "status=running" -q | grep . >/dev/null
+print_status $? "Postgres container is running"
 
 # 4. Test MinIO health check
 echo "Testing MinIO health endpoint..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$MINIO_API_PORT/minio/health/live" | grep -q 200
 print_status $? "MinIO health check passed"
+echo "Verifying MinIO files..."
+#sudo sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 minioadmin minioadmin && mc ls myminio/$TEST_FILE_IMAGE"
+#print_status $? "MinIO image file exists"
 
 # Test API server healthcheck (direct)
 echo "Testing API server health endpoint (direct)..."
@@ -64,7 +74,7 @@ echo "Testing API server with invalid credentials..."
 curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/1" | grep -q 401
 print_status $? "API server invalid authentication rejected"
 # 7. Test API server updates API
-curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/1" | grep -q 200
 print_status $? "API server updates POST passed"
 
 # 8. Test Nginx proxy to MinIO (invalid credentials)
@@ -85,7 +95,7 @@ curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-D
 print_status $? "Nginx download of rules passed"
 # Test API server status API
 echo "Testing API server status endpoint ..."
-curl -k -s -o /dev/null -w "%{http_code}" POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
 print_status $? "API server status end point passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"
