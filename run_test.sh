@@ -84,7 +84,7 @@ print_status $? "Nginx proxy to MinIO with invalid credentials rejected"
 # 9. Test Nginx proxy to MinIO (image)
 echo "Testing Nginx proxy to MinIO (images) with valid credentials..."
 curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 200
-print_status $? "Nginx download of image passed"
+print_status $? "Nginx download of software passed"
 # 10. Test Nginx proxy to MinIO (threatintel)
 echo "Testing Nginx proxy to MinIO (threatintel) with valid credentials..."
 curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_THREATINTEL" | grep -q 200
