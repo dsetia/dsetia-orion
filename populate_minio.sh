@@ -9,12 +9,12 @@ mc mb myminio/threatintel
 
 cd ./minio
 mc cp hndr-sw-v1.2.3.tar.gz myminio/software/
-mc cp hndr-rules-r1.2.3.tar.gz myminio/rules/1
+mc cp hndr-rules-r1.2.3.tar.gz myminio/rules/1/hndr-rules-r1.2.3.tar.gz
 mc cp threatintel-2025.04.10.1523.tar.gz myminio/threatintel/
 
 # Add API user
-mc admin user add myminio apiuser apipass
-mc alias set local http://localhost:9000 apiuser apipass
+mc admin user add myminio apiuser apiuserpassword
+mc alias set local http://localhost:9000 apiuser apiuserpassword
 
 # Create policy
 echo '{
@@ -32,6 +32,6 @@ echo '{
 mc admin policy create myminio apiuser-policy apiuser_policy.json
 mc admin policy attach myminio apiuser-policy --user apiuser
 
-mc policy set download local/software
-mc policy set download local/rules
-mc policy set download local/threatintel
+mc anonymous set download myminio/software
+mc anonymous set download myminio/rules
+mc anonymous set download myminio/threatintel
