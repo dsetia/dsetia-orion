@@ -28,5 +28,5 @@ echo '{
 }' > apiuser_policy.json
 
 # Apply policy
-minio mc admin policy create myminio apiuser-policy apiuser_policy.json
-minio mc admin policy attach myminio apiuser-policy --user apiuser
+mc admin policy create myminio apiuser-policy apiuser_policy.json
+mc admin policy attach myminio apiuser-policy --user apiuser
