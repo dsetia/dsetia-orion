@@ -22,7 +22,7 @@ echo "Hello from MinIO!" > ~/securite/minio/testfile.txt
 mc cp /data/testfile.txt myminio/testbucket/
 # downlaod
 mc cp myminio/testbucket/testfile.txt /data/downloaded.txt
-# list 
+# list
 mc ls myminio/testbucket
 
 
@@ -64,6 +64,17 @@ sudo docker run -d \
   minio/minio server /data --console-address ":9001"
 
 # set custom public policy for bucket images (via http://localhost:9001) UI
+This policy allows anonymous s3:GetObject access which might be considered
+insecure. However note that nginx does authenticate every request before
+proxying to minio.  MinIO buckets (software, rules, threatintel) created by
+populate_minio.sh are private by default, allowing only the root user
+(minioadmin:minioadmin) or authenticated users with explicit permissions to access objects.
+
+It turns out it is not easy in Nginx to generate S3 compatible Authorization header
+with dynamic credentials easily.
+
+
+
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -75,3 +86,4 @@ sudo docker run -d \
     }
   ]
 }
+
