@@ -10,7 +10,9 @@ if ! command -v jq &>/dev/null; then
 fi
 
 # Read config values into variables
-host=$(jq -r '.host' "$CONFIG_FILE")
+# host is local since this script is run outside the containers
+# host=$(jq -r '.host' "$CONFIG_FILE")
+host="localhost"
 port=$(jq -r '.port' "$CONFIG_FILE")
 user=$(jq -r '.user' "$CONFIG_FILE")
 password=$(jq -r '.password' "$CONFIG_FILE")

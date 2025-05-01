@@ -1,0 +1,4 @@
+{
+  "minio_root_user": "minioadmin",
+  "minio_root_password": "minioadmin"
+}
