@@ -56,6 +56,18 @@ mc admin policy create myminio apiuser-policy apiuser_policy.json
 mc admin policy attach myminio apiuser-policy --user apiuser
 
 # Allow anonymous access for nginx
+# This is equivamt to a policy like:
+#{
+#  "Version": "2012-10-17",
+#  "Statement": [
+#    {
+#      "Effect": "Allow",
+#      "Principal": "*",
+#      "Action": ["s3:GetObject"],
+#      "Resource": ["arn:aws:s3:::software/*"]
+#    }
+#  ]
+#}
 mc anonymous set download myminio/software
 mc anonymous set download myminio/rules
 mc anonymous set download myminio/threatintel

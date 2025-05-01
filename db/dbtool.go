@@ -12,7 +12,7 @@ import (
 // Command-line interface
 func main() {
     // Common flags
-    dbPath := flag.String("db", "postgres://pguser:pgpass@localhost:5432/pgdb?sslmode=disable", "Path to postgres database")
+    dbPath := flag.String("db", "", "Path to postgres database")
     op := flag.String("op", "", "Operation to perform (e.g., insert-tenant, list-devices)")
 
     // Tenant flags
@@ -50,8 +50,8 @@ func main() {
 
     flag.Parse()
 
-    if *op == "" {
-        fmt.Println("Error: -op flag is required")
+    if *op == "" || *dbPath == "" {
+        fmt.Println("Error: -op and -db flags are required")
         fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
         fmt.Println("  insert-tenant, validate-tenant, list-tenants")

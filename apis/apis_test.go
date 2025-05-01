@@ -1,38 +1,64 @@
 package main
 
 import (
+    "os"
     "fmt"
     "bytes"
     "io/ioutil"
     "log"
     "net/http"
     "net/http/httptest"
+    "encoding/json"
     "testing"
     _ "github.com/lib/pq"
 )
 
+func loadDBConfig(path string) (DBConfig, error) {
+    var cfg DBConfig
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return cfg, err
+    }
+    err = json.Unmarshal(data, &cfg)
+    return cfg, err
+}
+
+func (c DBConfig) ConnString() string {
+    return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+        c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
+}
+
 func cleanupTestDB(t *testing.T) {
-    dbPath := "host=localhost port=5432 user=pguser password=pgpass dbname=pgdb sslmode=disable"
-    db2, err := NewDB(dbPath)
+    t.Helper()
+    cfg, err := loadDBConfig("../config/apis_config.json")
     if err != nil {
-        t.Fatalf("Failed to cleanup test DB: %v", err)
+        t.Fatalf("Failed to load config: %v", err)
     }
-    _, err = db2.Exec("DROP DATABASE testdb")
+
+    cfg.Host = "localhost" // test running outside docker network
+    db2, err := NewDB(cfg.ConnString())
     if err != nil {
-        t.Fatalf("Failed to drop testdb: %v", err)
+        t.Fatalf("Failed to connect to DB: %v", err)
     }
-    _, err = db2.Exec("CREATE DATABASE testdb")
-    if err != nil {
-        t.Fatalf("Failed to create testdb: %v", err)
-    }
+
+    // Drop and recreate testdb
+    db2.Exec("DROP DATABASE IF EXISTS testdb")
+    db2.Exec("CREATE DATABASE testdb")
     db2.Close()
 }
 
 func setupTestDB(t *testing.T) *DB {
-    dbPath := "host=localhost port=5432 user=pguser password=pgpass dbname=testdb sslmode=disable"
-    db, err := NewDB(dbPath)
+    t.Helper()
+    cfg, err := loadDBConfig("../config/apis_config.json")
     if err != nil {
-        t.Fatalf("Failed to create test DB: %v", err)
+        t.Fatalf("Failed to load config: %v", err)
+    }
+
+    cfg.Host = "localhost" // test running outside docker network
+    cfg.DBName = "testdb"
+    db, err := NewDB(cfg.ConnString())
+    if err != nil {
+        t.Fatalf("Failed to connect to DB: %v", err)
     }
 
     // Create schema
