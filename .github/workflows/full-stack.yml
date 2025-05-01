@@ -1,9 +1,0 @@
-- name: Run sanity tests
-  run: |
-    docker-compose -f docker-compose.yml up -d
-    sleep 10
-    ./init_db.sh
-    ./populate_db.sh
-    ./populate_minio.sh
-    ./run_test.sh
-    docker-compose -f docker-compose.yml down

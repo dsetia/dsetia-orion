@@ -16,6 +16,10 @@ TEST_FILE_IMAGE="software/hndr-sw-v1.2.3.tar.gz"
 TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
 TEST_FILE_RULES="rules/1/hndr-rules-r1.2.3.tar.gz"
 
+MINIO_CONFIG_FILE="config/minio_config.json"
+minioadminuser=$(jq -r '.minio_root_user' "$MINIO_CONFIG_FILE")
+minioadminpass=$(jq -r '.minio_root_password' "$MINIO_CONFIG_FILE")
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -52,8 +56,8 @@ echo "Testing MinIO health endpoint..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$MINIO_API_PORT/minio/health/live" | grep -q 200
 print_status $? "MinIO health check passed"
 echo "Verifying MinIO files..."
-#sudo sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 minioadmin minioadmin && mc ls myminio/$TEST_FILE_IMAGE"
-#print_status $? "MinIO image file exists"
+sudo sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 $minioadminuser $minioadminpass && mc ls myminio/$TEST_FILE_IMAGE"
+print_status $? "MinIO image file exists"
 
 # Test API server healthcheck (direct)
 echo "Testing API server health endpoint (direct)..."

@@ -6,10 +6,9 @@ on:
       - master
     paths:
       - 'apis/**'
-      - 'shared/**'
+      - 'config/**'
       - 'docker-compose.yml'
-      - 'nginx.conf'
-      - 'Dockerfile.apis'
+      - 'nginx/nginx.conf'
       - 'run_test.sh'
       - 'init_db.sh'
       - 'populate_db.sh'
@@ -19,10 +18,9 @@ on:
       - master
     paths:
       - 'apis/**'
-      - 'shared/**'
+      - 'config/**'
       - 'docker-compose.yml'
-      - 'nginx.conf'
-      - 'Dockerfile.apis'
+      - 'nginx/nginx.conf'
       - 'run_test.sh'
       - 'init_db.sh'
       - 'populate_db.sh'
@@ -65,7 +63,7 @@ jobs:
           go-version: '1.19'  # Matching our Dockerfile's Go version
 
       # Install dependencies
-      - name: Install dbtool dependencies
+      - name: Install dbtool
         working-directory: ./db
         run: go build -o dbtool
 
@@ -83,7 +81,7 @@ jobs:
           sleep 10
           ./init_db.sh <<< "y"
           ./populate_db.sh <<< "y"
-          ./populate_minio.sh
+          ./populate_minio.sh <<< "y"
           ./run_test.sh
           docker-compose -f docker-compose.yml down
         env:
