@@ -221,7 +221,7 @@ func TestUpdate(t *testing.T) {
             expectedBody: fmt.Sprintf(
                 `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q},"threatintel":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
                 DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
-                DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
+                DownloadURLFormatRules(1, "rules", "hndr-rules", "r1.2.3"),
                 DownloadURLFormat(1, "threatintel", "threatintel", "2025.04.10.153010"),
             ),
         },
@@ -235,7 +235,7 @@ func TestUpdate(t *testing.T) {
             expectedBody: fmt.Sprintf(
                 `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q},"threatintel":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
                 DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
-                DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
+                DownloadURLFormatRules(1, "rules", "hndr-rules", "r1.2.3"),
                 DownloadURLFormat(1, "threatintel", "threatintel", "2025.04.10.153010"),
             ),
         },
@@ -269,7 +269,7 @@ func TestUpdate(t *testing.T) {
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q}}` + "\n",
-                DownloadURLFormat(1, "rules", "hndr-rules", "r1.2.3"),
+                DownloadURLFormatRules(1, "rules", "hndr-rules", "r1.2.3"),
 	    ),
         },
         {

@@ -28,6 +28,9 @@ type Server struct {
 func DownloadURLFormat(tenantID int64, resourceType, prefix, version string) string {
     return fmt.Sprintf("/v1/download/%d/%s/%s-%s.tar.gz", tenantID, resourceType, prefix, version)
 }
+func DownloadURLFormatRules(tenantID int64, resourceType, prefix, version string) string {
+    return fmt.Sprintf("/v1/download/%d/%s/%d/%s-%s.tar.gz", tenantID, resourceType, tenantID, prefix, version)
+}
 
 // NewServer initializes the API server
 func NewServer(dbPath string) (*Server, error) {
@@ -214,7 +217,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             Version:     rules.Version,
             Size:        rules.Size,
             Sha256:      rules.Sha256,
-            DownloadURL: DownloadURLFormat(tenantID, "rules", "hndr-rules", rules.Version),
+            DownloadURL: DownloadURLFormatRules(tenantID, "rules", "hndr-rules", rules.Version),
         }
     }
     if isNewerNum(ti.Version, deviceVersions.ThreatIntel.Version) {
