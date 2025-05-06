@@ -1,6 +1,7 @@
 package common
 
 import (
+    "fmt"
     "encoding/json"
 )
 
@@ -64,4 +65,18 @@ type VersionInfo struct {
     Size    int64  `json:"size"`
     Sha256  string `json:"sha256"`
     DownloadURL string `json:"download_url"`
+}
+
+type DBConfig struct {
+    Host     string `json:"host"`
+    Port     int    `json:"port"`
+    User     string `json:"user"`
+    Password string `json:"password"`
+    DBName   string `json:"dbname"`
+    SSLMode  string `json:"sslmode"`
+}
+
+func (c DBConfig) ConnString() string {
+    return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+        c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }

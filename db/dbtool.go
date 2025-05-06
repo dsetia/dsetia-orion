@@ -1,10 +1,14 @@
 package main
 
 import (
+    "encoding/json"
     "flag"
     "fmt"
     "os"
+    "log"
+    "io/ioutil"
 
+    "orion/common"
     _ "github.com/lib/pq"
 )
 
@@ -12,7 +16,7 @@ import (
 // Command-line interface
 func main() {
     // Common flags
-    dbPath := flag.String("db", "", "Path to postgres database")
+    configPath := flag.String("db", "", "Path to postgres database config file")
     op := flag.String("op", "", "Operation to perform (e.g., insert-tenant, list-devices)")
 
     // Tenant flags
@@ -50,7 +54,7 @@ func main() {
 
     flag.Parse()
 
-    if *op == "" || *dbPath == "" {
+    if *op == "" || *configPath == "" {
         fmt.Println("Error: -op and -db flags are required")
         fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
@@ -64,8 +68,27 @@ func main() {
         os.Exit(1)
     }
 
-    db, err := NewDB(*dbPath)
-    //db, err := NewDB(dbPath)
+    // Open and read the config file
+    file, err := os.Open(*configPath)
+    if err != nil {
+        log.Fatalf("Error opening config file: %v", err)
+    }
+    defer file.Close()
+    bytes, err := ioutil.ReadAll(file)
+    if err != nil {
+        log.Fatalf("Error reading config file: %v", err)
+    }
+    var cfg common.DBConfig
+    if err := json.Unmarshal(bytes, &cfg); err != nil {
+        log.Fatalf("Error parsing config: %v", err)
+    }
+
+    // Construct DB path
+    cfg.Host = "localhost" // tool running outside docker network
+    dbPath := cfg.ConnString()
+    log.Println("DB path = ", dbPath)
+
+    db, err := NewDB(dbPath)
     if err != nil {
         fmt.Printf("Error: %v\n", err)
         os.Exit(1)

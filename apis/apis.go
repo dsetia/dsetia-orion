@@ -15,14 +15,6 @@ import (
     "github.com/hashicorp/go-version"
 )
 
-type DBConfig struct {
-    Host     string `json:"host"`
-    Port     int    `json:"port"`
-    User     string `json:"user"`
-    Password string `json:"password"`
-    DBName   string `json:"dbname"`
-    SSLMode  string `json:"sslmode"`
-}
 
 // Server holds the API server state
 type Server struct {
@@ -362,7 +354,7 @@ func main() {
         log.Fatalf("Error reading config file: %v", err)
     }
 
-    var cfg DBConfig
+    var cfg common.DBConfig
     if err := json.Unmarshal(bytes, &cfg); err != nil {
         log.Fatalf("Error parsing config: %v", err)
     }

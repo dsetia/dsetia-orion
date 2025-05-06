@@ -10,22 +10,18 @@ import (
     "net/http/httptest"
     "encoding/json"
     "testing"
+    "orion/common"
     _ "github.com/lib/pq"
 )
 
-func loadDBConfig(path string) (DBConfig, error) {
-    var cfg DBConfig
+func loadDBConfig(path string) (common.DBConfig, error) {
+    var cfg common.DBConfig
     data, err := os.ReadFile(path)
     if err != nil {
         return cfg, err
     }
     err = json.Unmarshal(data, &cfg)
     return cfg, err
-}
-
-func (c DBConfig) ConnString() string {
-    return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-        c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
 
 func cleanupTestDB(t *testing.T) {
