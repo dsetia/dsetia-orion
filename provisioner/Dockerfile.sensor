@@ -1,0 +1,33 @@
+# Launch docker container for local testing
+# Use AlmaLinux as the base image
+FROM almalinux:9.5
+
+# Install dependencies (curl, tar, supervisor)
+RUN dnf install -y epel-release && \
+    dnf install -y tar supervisor && \
+    dnf clean all
+
+# Set working directory
+WORKDIR /app
+
+# Copy the sensor-provision.tar.gz tarball
+COPY sensor-provision.tar.gz .
+
+# Untar the tarball
+RUN tar -xzf sensor-provision.tar.gz && \
+    rm sensor-provision.tar.gz
+
+# Copy supervisord.conf
+COPY supervisord.conf /etc/supervisord.conf
+
+# Copy entrypoint script
+COPY entrypoint.sh .
+COPY debug-entrypoint.sh .
+
+# Make entrypoint and init-sensor.sh executable
+RUN chmod +x entrypoint.sh sensor-provision/init-sensor.sh
+RUN chmod +x debug-entrypoint.sh
+
+# Use entrypoint to run init-sensor.sh and start supervisord
+ENTRYPOINT ["/app/entrypoint.sh"]
+# ENTRYPOINT ["/app/debug-entrypoint.sh"]

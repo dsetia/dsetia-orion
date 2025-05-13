@@ -7,3 +7,6 @@ The service is run in sensor to update the SW/Rules/TI. A configuration file con
   - ./updater --help
     - List the commandline arguments supported by the service
   - ./updater --config /orion/updater/config/updater-config.json
+
+# build with AlmaLinux-compatible settings
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o updater.alma8

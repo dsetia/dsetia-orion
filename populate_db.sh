@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# config file
+dbpath=${1:-"config/apis_config.json"}
+
 # Configuration
 TENANT_ID=1
 TENANT_NAME="tenant1"
@@ -16,8 +19,7 @@ GLOBAL_THREAT_VERSION="2025.04.10.1523"
 # - orion/db/init_db.sh - sqliet3 
 # - orion/db/init_pg.sh - postgres
 
-# config file
-dbpath="config/apis_config.json"
+echo "DB path is $dbpath"
 
 ./db/dbtool -db $dbpath -op insert-tenant -tenant-name $TENANT_NAME
 ./db/dbtool -db $dbpath -op insert-device -tenant-id $TENANT_ID -device-id $DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION

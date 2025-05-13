@@ -11,13 +11,13 @@ usage() {
 }
 
 init() {
-    # Copy contents of your original init.sh here
-    ./init_db.sh
+    # DB init directly from outside the docker network
+    ./init_db.sh ./config/db_dev_config.json
 }
 
 populate() {
-    # Copy contents of your original init.sh here
-    ./populate_db.sh
+    # DB populate directly from outside the docker network
+    ./populate_db.sh ./config/db_dev_config.json
 }
 
 launch() {

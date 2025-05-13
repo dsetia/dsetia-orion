@@ -7,6 +7,7 @@ on:
     paths:
       - 'apis/**'
       - 'config/**'
+      - 'provisioner/**'
       - 'db/dbtool.go'
       - 'docker-compose.yml'
       - 'nginx/nginx.conf'
@@ -14,12 +15,14 @@ on:
       - 'init_db.sh'
       - 'populate_db.sh'
       - 'populate_minio.sh'
+      - 'updater/**'
   pull_request:
     branches:
       - master
     paths:
       - 'apis/**'
       - 'config/**'
+      - 'provisioner/**'
       - 'db/dbtool.go'
       - 'docker-compose.yml'
       - 'nginx/nginx.conf'
@@ -27,9 +30,11 @@ on:
       - 'init_db.sh'
       - 'populate_db.sh'
       - 'populate_minio.sh'
+      - 'updater/**'
+  workflow_dispatch:
 
 jobs:
-  sanity-tests:
+  cloud-side-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -62,14 +67,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.19'  # Matching our Dockerfile's Go version
+          go-version: '1.19'  # Verify with updater/go.mod
 
       # Install dependencies
       - name: Install dbtool
         working-directory: ./db
         run: go build -o dbtool
 
-      # Install mc
       - name: Install mc
         run: |
           wget https://dl.min.io/client/mc/release/linux-amd64/mc
@@ -81,29 +85,130 @@ jobs:
         run: |
           docker-compose -f docker-compose.yml up -d
           sleep 10
-          ./init_db.sh <<< "y"
-          ./populate_db.sh <<< "y"
+          # init and populate DB from outside the docker network
+          ./init_db.sh config/db_dev_config.json <<< "y"
+          ./populate_db.sh config/db_dev_config.json <<< "y"
           ./populate_minio.sh <<< "y"
           ./run_test.sh
-          docker-compose -f docker-compose.yml down
-        env:
-          DB_HOST: localhost
-          DB_PORT: 5432
-          DB_USER: pguser
-          DB_PASSWORD: pgpass
-          DB_NAME: testdb
-          DB_SSLMODE: disable
 
       # Upload test log for debugging
-      - name: Upload test log
+      - name: Upload cloud-side test log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-log
+          name: server-test-log
           path: test.log
 
-      # Check Docker logs on failure
+  updater-tests:
+    runs-on: ubuntu-latest
+    needs: cloud-side-tests  # Run only if cloud-side-tests succeed
+
+    steps:
+      # Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Docker
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
+          sudo apt-get install -y ca-certificates curl gnupg lsb-release
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          sudo systemctl start docker
+          sudo systemctl enable docker
+          sudo usermod -aG docker $USER
+
+      # Install Docker Compose
+      - name: Install Docker Compose
+        run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+
+      # Set up Go environment
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.19'
+
+      # Install dependencies
+      - name: Install dbtool
+        working-directory: ./db
+        run: go build -o dbtool
+
+      - name: Install mc
+        run: |
+          wget https://dl.min.io/client/mc/release/linux-amd64/mc
+          chmod +x mc
+          sudo mv mc /usr/local/bin/
+
+      # Start backend containers
+      - name: Start backend containers
+        run: |
+          docker-compose -f docker-compose.yml up -d
+          sleep 10
+          # init and populate DB from outside the docker network
+          ./init_db.sh config/db_dev_config.json <<< "y"
+          ./populate_db.sh config/db_dev_config.json <<< "y"
+          ./populate_minio.sh <<< "y"
+
+      # Build provisioner tarball
+      - name: Build provisioner tarball
+        working-directory: ./provisioner
+        run: |
+          # sensor to connect with dev docker cloud; provisioning DB access via localhost
+          ./create-tarball.sh ./config/provision-dev-config.json ../config/db_dev_config.json ./sensor-provision.tar.gz
+
+      # Build sensor image
+      - name: Build sensor image
+        working-directory: ./provisioner
+        run: |
+          docker build -f Dockerfile.sensor -t sensor:latest .
+
+      # Run updater tests
+      - name: Run updater tests
+        run: |
+          mkdir -p test_logs/suricata test_logs/updater
+          docker run --name sensor \
+            --network host \
+            -v "$(pwd)/test_logs/suricata:/var/log/suricata" \
+            -v "$(pwd)/test_logs/updater:/var/log/updater" \
+            -d sensor:latest
+          # Wait for sensor to stabilize
+          sleep 20
+          # Validate sensor logs
+          docker logs sensor > test_logs/sensor.log
+          grep "Sensor initialization complete" test_logs/sensor.log
+          grep "hndr entered RUNNING state" test_logs/sensor.log
+          grep "updater entered RUNNING state" test_logs/sensor.log
+          # Validate suricata logs
+          cat test_logs/suricata/suricata.log | grep "Hello World"
+          # Validate updater logs
+          cat test_logs/updater/updater.log | grep "Status update sent successfully"
+
+      # Clean up
+      - name: Clean up
+        if: always()
+        run: |
+          docker-compose -f docker-compose.yml down -v
+          docker rm -f sensor || true
+
+      # Upload test logs for debugging
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-test-logs
+          path: test_logs/
+
+      # Show Docker logs on failure
       - name: Show Docker logs on failure
         if: failure()
         run: |
           docker-compose -f docker-compose.yml logs
+          docker logs sensor || true
+

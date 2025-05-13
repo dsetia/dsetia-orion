@@ -44,7 +44,7 @@ type UpdateInfo struct {
 
 func ParseArgs() CmdArguments {
     // Define flags and their default values.
-    configPtr := flag.String("config", "/opt/hndr/etc/updater-config.json", "Path to config file")
+    configPtr := flag.String("config", "/opt/hndr/updater/config/updater-config.json", "Path to config file")
     daemonPtr := flag.Bool("deamon", false, "Run in foreground")
     verbosePtr := flag.Bool("verbose", false, "Enable verbose mode")
 

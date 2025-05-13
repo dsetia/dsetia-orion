@@ -1,0 +1,8 @@
+{
+  "host": "localhost",
+  "port": 5432,
+  "user": "pguser",
+  "password": "pgpass",
+  "dbname": "pgdb",
+  "sslmode": "disable"
+}

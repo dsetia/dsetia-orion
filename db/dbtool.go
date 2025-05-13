@@ -84,7 +84,6 @@ func main() {
     }
 
     // Construct DB path
-    cfg.Host = "localhost" // tool running outside docker network
     dbPath := cfg.ConnString()
     log.Println("DB path = ", dbPath)
 

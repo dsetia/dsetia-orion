@@ -1,0 +1,12 @@
+- hosts: sensors
+  tasks:
+    - name: Copy tarball
+      copy:
+        src: sensor-provision.tar.gz
+        dest: /tmp/sensor-provision.tar.gz
+    - name: Untar tarball
+      command: tar -xzf /tmp/sensor-provision.tar.gz -C /tmp
+    - name: Run init-sensor.sh
+      command: /tmp/sensor-provision/init-sensor.sh
+      args:
+        chdir: /tmp/sensor-provision

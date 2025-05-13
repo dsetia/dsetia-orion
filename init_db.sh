@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # config file
-CONFIG_FILE="config/apis_config.json"
+CONFIG_FILE=${1:-"config/apis_config.json"}
 SCHEMA_FILE="db/schema_pg.sql"
 
 if ! command -v jq &>/dev/null; then
@@ -11,8 +11,7 @@ fi
 
 # Read config values into variables
 # host is local since this script is run outside the containers
-# host=$(jq -r '.host' "$CONFIG_FILE")
-host="localhost"
+host=$(jq -r '.host' "$CONFIG_FILE")
 port=$(jq -r '.port' "$CONFIG_FILE")
 user=$(jq -r '.user' "$CONFIG_FILE")
 password=$(jq -r '.password' "$CONFIG_FILE")
