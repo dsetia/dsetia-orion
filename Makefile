@@ -3,7 +3,7 @@
 # ──────────────────────────────────────────────────────────────────────────────
 
 # where we’ll drop the binaries
-BINDIR := bin
+BINDIR := $(HOME)/go/bin
 
 # cross‑compile settings (exported for every go build)
 GOOS        := linux
@@ -35,22 +35,22 @@ $(BINDIR):
 # apis
 $(BINDIR)/apis: $(APIS_SRCS) | $(BINDIR)
 	@echo "Building apis → $@"
-	cd apis && go build -o ../$(BINDIR)/apis
+	cd apis && go build -o $(BINDIR)/apis
 
 # dbtool
 $(BINDIR)/dbtool: $(DB_SRCS) | $(BINDIR)
 	@echo "Building dbtool → $@"
-	cd db && go build -o ../$(BINDIR)/dbtool
+	cd db && go build -o $(BINDIR)/dbtool
 
 # updater
 $(BINDIR)/updater: $(UPDATER_SRCS) | $(BINDIR)
 	@echo "Building updater → $@"
-	cd updater && go build -o ../$(BINDIR)/updater
+	cd updater && go build -o $(BINDIR)/updater
 
 # provision‑sensor
 $(BINDIR)/provision-sensor: $(PROVISIONER_SRCS) | $(BINDIR)
 	@echo "Building provision‑sensor → $@"
-	cd provisioner && go build -o ../$(BINDIR)/provision-sensor
+	cd provisioner && go build -o $(BINDIR)/provision-sensor
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 clean:

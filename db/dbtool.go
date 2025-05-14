@@ -132,8 +132,8 @@ func main() {
 
     // Device Operations
     case "insert-device":
-        if *deviceID == "" || *tenantID == 0 {
-            fmt.Println("Error: -device-id and -tenant-id are required for insert-device")
+        if *deviceName == "" || *tenantID == 0 {
+            fmt.Println("Error: -device-name and -tenant-id are required for insert-device")
             os.Exit(1)
         }
         id, err := db.GetOrInsertDevice(*deviceID, *tenantID, *deviceName, *hndrSwVersion)
@@ -169,8 +169,8 @@ func main() {
 
     // APIKey Operations
     case "insert-api-key":
-        if *apiKey == "" || *tenantID == 0 || *deviceID == "" {
-            fmt.Println("Error: -api-key, -tenant-id, and -device-id are required for insert-api-key")
+        if *tenantID == 0 || *deviceID == "" {
+            fmt.Println("Error: -tenant-id, and -device-id are required for insert-api-key")
             os.Exit(1)
         }
         key, err := db.GetOrInsertAPIKey(*apiKey, *tenantID, *deviceID, *isActive)

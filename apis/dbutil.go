@@ -6,6 +6,7 @@ import (
     "fmt"
     "time"
 
+    "github.com/google/uuid"
     _ "github.com/lib/pq"
 )
 
@@ -148,9 +149,9 @@ func (db *DB) ListTenants() ([]Tenant, error) {
 }
 
 // GetOrInsertDevice retrieves an existing device or inserts a new one
-func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hndrSwVersion string) (string, error) {
-    if deviceID == "" {
-        return "", errors.New("device ID cannot be empty")
+func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName string, hndrSwVersion string) (string, error) {
+    if deviceName == "" {
+        return "", errors.New("device name cannot be empty")
     }
     exists, err := db.ValidateTenant(tenantID)
     if err != nil {
@@ -160,17 +161,20 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, name string, hn
         return "", fmt.Errorf("tenant ID %d does not exist", tenantID)
     }
     var existingID string
-    err = db.QueryRow("SELECT device_id FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID).Scan(&existingID)
+    err = db.QueryRow("SELECT device_id FROM devices WHERE device_name = $1 AND tenant_id = $2", deviceName, tenantID).Scan(&existingID)
     if err == nil {
         return existingID, nil
     }
     if err != sql.ErrNoRows {
         return "", fmt.Errorf("failed to check device: %w", err)
     }
+    if deviceID == "" {
+        deviceID = "dev-" + uuid.New().String()[:8]
+    }
     _, err = db.Exec(`
         INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `, deviceID, tenantID, name, hndrSwVersion)
+    `, deviceID, tenantID, deviceName, hndrSwVersion)
     if err != nil {
         return "", fmt.Errorf("failed to insert device: %w", err)
     }
@@ -214,8 +218,8 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
 
 // GetOrInsertAPIKey retrieves an existing API key or inserts a new one
 func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, isActive bool) (string, error) {
-    if apiKey == "" || deviceID == "" {
-        return "", errors.New("API key and device ID cannot be empty")
+    if deviceID == "" {
+        return "", errors.New("device ID cannot be empty")
     }
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
@@ -225,12 +229,15 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
         return "", fmt.Errorf("device %s does not exist for tenant %d", deviceID, tenantID)
     }
     var existingKey string
-    err = db.QueryRow("SELECT api_key FROM api_keys WHERE api_key = $1", apiKey).Scan(&existingKey)
+    err = db.QueryRow("SELECT api_key FROM api_keys WHERE device_id = $1", deviceID).Scan(&existingKey)
     if err == nil {
         return existingKey, nil
     }
     if err != sql.ErrNoRows {
         return "", fmt.Errorf("failed to check API key: %w", err)
+    }
+    if apiKey == "" {
+        apiKey = "key-" + uuid.New().String()
     }
     _, err = db.Exec(`
         INSERT INTO api_keys (api_key, tenant_id, device_id, is_active, created_at)

@@ -144,15 +144,15 @@ func main() {
         }
 
         // Step 2: Create device ID
-        finalDeviceID := "dev-" + uuid.New().String()[:8]
-        _, err = db.GetOrInsertDevice(finalDeviceID, tenantID, *deviceName, "")
+	var finalDeviceID string
+        finalDeviceID, err = db.GetOrInsertDevice("", tenantID, *deviceName, "")
         if err != nil {
             log.Fatalf("Failed to get or insert device %s: %v", finalDeviceID, err)
         }
 
         // Step 3: Create API key
-        finalAPIKey := "key-" + uuid.New().String()
-        _, err = db.GetOrInsertAPIKey(finalAPIKey, tenantID, finalDeviceID, true)
+	var finalAPIKey string;
+        finalAPIKey, err = db.GetOrInsertAPIKey("", tenantID, finalDeviceID, true)
         if err != nil {
             log.Fatalf("Failed to get or insert API key: %v", err)
         }

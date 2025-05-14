@@ -97,7 +97,7 @@ func setupTestDB(t *testing.T) *DB {
     }
 
     // 2nd device to use global software
-    _, err = db.GetOrInsertDevice("dev2", tenantID, "Test Device", "")
+    _, err = db.GetOrInsertDevice("dev2", tenantID, "Test Device 2", "")
     if err != nil {
         t.Fatalf("Failed to insert device: %v", err)
     }

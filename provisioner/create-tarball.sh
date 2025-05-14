@@ -29,15 +29,6 @@ cd ../updater
 GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o updater
 cd ../provisioner
 
-# Build updater binary in AlmaLinux 8 container to handle GLIBC mismatch
-# cd ..
-# sudo docker run --rm -v $(pwd):/orion -w /orion/updater almalinux:8 bash -c "
-#     dnf install -y go &&
-#     go mod tidy &&
-#     go build -o updater.alma8
-# "
-# cd provisioner
-
 # TODO
 # 1. Bring in suricata config file (target: /opt/hndr/suricata/suricata.yaml)
 
