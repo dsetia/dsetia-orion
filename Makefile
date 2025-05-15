@@ -52,6 +52,13 @@ $(BINDIR)/provision-sensor: $(PROVISIONER_SRCS) | $(BINDIR)
 	@echo "Building provision‑sensor → $@"
 	cd provisioner && go build -o $(BINDIR)/provision-sensor
 
+# ─── Install ─────────────────────────────────────────────────────────────────
+install:
+	sudo cp $(BINDIR)/apis /usr/local/bin
+	sudo cp $(BINDIR)/dbtool /usr/local/bin
+	sudo cp $(BINDIR)/updater /usr/local/bin
+	sudo cp $(BINDIR)/provision-sensor /usr/local/bin
+
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 clean:
 	rm -rf $(BINDIR)

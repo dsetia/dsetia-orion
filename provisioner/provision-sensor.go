@@ -18,7 +18,6 @@ type ProvisionConfig struct {
     APIServerURL       string `json:"api_server_url"`
     APIServerPort      int    `json:"api_server_port"`
     CertificateSkip    bool   `json:"certificate_verify_skip"`
-    SuricataConfig     string `json:"suricata_config"`
     SensorOutput       string `json:"sensor_output"`
     UpdaterOutput      string `json:"updater_output"`
     HndrOutput         string `json:"hndr_output"`

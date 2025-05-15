@@ -21,16 +21,16 @@ GLOBAL_THREAT_VERSION="2025.04.10.1523"
 
 echo "DB path is $dbpath"
 
-./db/dbtool -db $dbpath -op insert-tenant -tenant-name $TENANT_NAME
-./db/dbtool -db $dbpath -op insert-device -tenant-id $TENANT_ID -device-id $DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
-./db/dbtool -db $dbpath -op insert-api-key -tenant-id $TENANT_ID -device-id $DEVICE_ID -api-key $VALID_API_KEY
-./db/dbtool -db $dbpath -op insert-hndr-sw -sw-version $GLOBAL_IMAGE_VERSION -sw-size 1024 -sw-sha256 sw-sha256
-./db/dbtool -db $dbpath -op insert-hndr-rules -tenant-id $TENANT_ID -rules-version $TENANT_RULES_VERSION -rules-size 512 -rules-sha256 rules-sha256
-./db/dbtool -db $dbpath -op insert-threat-intel -ti-version $GLOBAL_THREAT_VERSION -ti-size 256 -ti-sha256 ti-sha256
+dbtool -db $dbpath -op insert-tenant -tenant-name $TENANT_NAME
+dbtool -db $dbpath -op insert-device -tenant-id $TENANT_ID -device-id $DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
+dbtool -db $dbpath -op insert-api-key -tenant-id $TENANT_ID -device-id $DEVICE_ID -api-key $VALID_API_KEY
+dbtool -db $dbpath -op insert-hndr-sw -sw-version $GLOBAL_IMAGE_VERSION -sw-size 1024 -sw-sha256 sw-sha256
+dbtool -db $dbpath -op insert-hndr-rules -tenant-id $TENANT_ID -rules-version $TENANT_RULES_VERSION -rules-size 512 -rules-sha256 rules-sha256
+dbtool -db $dbpath -op insert-threat-intel -ti-version $GLOBAL_THREAT_VERSION -ti-size 256 -ti-sha256 ti-sha256
 
-./db/dbtool -db $dbpath -op list-tenants
-./db/dbtool -db $dbpath -op list-devices
-./db/dbtool -db $dbpath -op list-api-keys
-./db/dbtool -db $dbpath -op list-hndr-sw
-./db/dbtool -db $dbpath -op list-hndr-rules
-./db/dbtool -db $dbpath -op list-threat-intel
+dbtool -db $dbpath -op list-tenants
+dbtool -db $dbpath -op list-devices
+dbtool -db $dbpath -op list-api-keys
+dbtool -db $dbpath -op list-hndr-sw
+dbtool -db $dbpath -op list-hndr-rules
+dbtool -db $dbpath -op list-threat-intel

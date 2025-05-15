@@ -27,9 +27,13 @@ sudo docker rm -f sensor || true
 rm -rf "$LOG_DIR" "$TARBALL_PATH"
 mkdir -p "$LOG_DIR" "$LOG_DIR/suricata" "$LOG_DIR/updater"
 
+echo "Provisioning tenant and sensor"
+provision-sensor -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
+provision-sensor -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1"
+
 # Build provisioner tarball
 echo "Building provisioner tarball..."
-./create-tarball.sh ./config/provision-config.json ../config/db_dev_config.json "$TARBALL_PATH"
+./create-tarball.sh
 
 # Build and start sensor container
 echo "Building and starting sensor container..."

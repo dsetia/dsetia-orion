@@ -70,9 +70,11 @@ jobs:
           go-version: '1.19'  # Verify with updater/go.mod
 
       # Install dependencies
-      - name: Install dbtool
-        working-directory: ./db
-        run: go build -o dbtool
+      - name: Build Go binaries
+        working-directory: .
+        run: |
+          make all
+          make install
 
       - name: Install mc
         run: |
@@ -136,9 +138,11 @@ jobs:
           go-version: '1.19'
 
       # Install dependencies
-      - name: Install dbtool
-        working-directory: ./db
-        run: go build -o dbtool
+      - name: Build Go binaries
+        working-directory: .
+        run: |
+          make all
+          make install
 
       - name: Install mc
         run: |
@@ -161,7 +165,9 @@ jobs:
         working-directory: ./provisioner
         run: |
           # sensor to connect with dev docker cloud; provisioning DB access via localhost
-          ./create-tarball.sh ./config/provision-dev-config.json ../config/db_dev_config.json ./sensor-provision.tar.gz
+          provision-sensor -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
+          provision-sensor -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1"
+          ./create-tarball.sh ./sensor-provision.tar.gz
 
       # Build sensor image
       - name: Build sensor image
