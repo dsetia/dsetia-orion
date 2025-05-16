@@ -4,7 +4,7 @@ set -e
 # Configuration
 UPDATER_LOG="/var/log/updater/updater.log"
 SURICATA_LOG="/var/log/suricata/suricata.log"
-UPDATER_BINARY="/opt/updater/bin/updater"
+UPDATER_BINARY="/opt/hndr/bin/updater"
 SURICATA_BINARY="/opt/hndr/bin/suricata"
 UPDATER_CONFIG="/etc/supervisord.d/updater.ini"
 SURICATA_CONFIG="/etc/supervisord.d/hndr.ini"  # Adjust to suricata.ini if needed

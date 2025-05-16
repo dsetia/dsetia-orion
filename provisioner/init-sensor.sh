@@ -5,13 +5,13 @@ set -e
 # followed by launching hndr and updater services
 
 # Create directories from updater-config.json
-mkdir -p /opt/hndr-1
-mkdir -p /opt/hndr-2
-ln -sf /opt/hndr-1 /opt/hndr
+mkdir -p /tmp/hndr-1
+mkdir -p /tmp/hndr-2
+mkdir -p /tmp
+ln -sf /tmp/hndr-1 /tmp/hndr
 mkdir -p /var/lib/suricata/rules
 mkdir -p /var/log/suricata /var/log/updater
-mkdir -p /opt/hndr/bin /opt/hndr/suricata
-mkdir -p /opt/updater/bin /opt/updater/config
+mkdir -p /opt/hndr/bin /opt/hndr/suricata /opt/hndr/updater/config
 
 # Install supervisor (if not already installed)
 if ! command -v supervisorctl &> /dev/null; then
@@ -37,10 +37,9 @@ fi
 
 # Move files
 ls -l
-mv sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
-mv updater /opt/updater/bin/
+mv sensor-config.json updater-config.json hndr-config.json /opt/hndr/updater/config/
+mv updater /opt/hndr/bin/
 mv suricata /opt/hndr/bin/
-
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"
 if [ ! -f /.dockerenv ]; then
