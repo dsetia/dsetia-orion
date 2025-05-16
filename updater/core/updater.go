@@ -119,15 +119,15 @@ func GetFolderToDeploy(absRealPath, folderOne, folderTwo string) string {
     return ""
 }
 
-func ExecCommand(cmd string) { //string {
-    executor := exec.Command(cmd)
-    output, err := executor.Output()
+func ExecuteSupervisorCmd(cmd, serviceName string) error {
+    executor := exec.Command("supervisorctl", cmd, serviceName)
+    output, err := executor.CombinedOutput()
     if err != nil {
-        log.Println("Error:", err)
-        return
+        log.Println("Error: failed to '%s' service '%s': %v\n  Output: %s", cmd, serviceName, err, string(output))
+        return err
     }
-    log.Println(string(output))
-    //return string(output)
+    log.Println("Successfully '%s' service '%s'\n  Output: %s", cmd, serviceName, string(output))
+    return nil
 }
 
 func UnlinkAndLink(symlinkPath, absRealPath string) error {
@@ -292,7 +292,17 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
         return status, err
     }
 
+    err = ExecuteSupervisorCmd("stop", "hndr")
+    if err != nil {
+        return status, err
+    }
+
     err = UnlinkAndLink(config.HndrSymlink, folderToDeploy)
+    if err != nil {
+        return status, err
+    }
+
+    err = ExecuteSupervisorCmd("start", "hndr")
     if err != nil {
         return status, err
     }
