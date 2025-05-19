@@ -8,6 +8,7 @@ import (
     "os"
     "fmt"
     "strconv"
+    "path/filepath"
 
     "orion/common"
     "github.com/google/uuid"
@@ -64,6 +65,7 @@ func main() {
     // Command-line flags
     configFile := flag.String("config", "", "Path to provisioning config JSON file")
     dbPath := flag.String("db", "", "Path to postgres database config file")
+    minioPath := flag.String("minio", "", "Path to Minio config file")
     op := flag.String("op", "", "Operation to perform (e.g., provision-tenant, provision-sensor)")
 
     // tenant provision
@@ -82,6 +84,7 @@ func main() {
         fmt.Println("  provision-sensor")
         os.Exit(1)
     }
+
 
     // Read config file
     configData, err := ioutil.ReadFile(*configFile)
@@ -117,6 +120,28 @@ func main() {
         log.Fatalf("Failed to initialize database: %v", err)
     }
     defer db.Close()
+
+    var cfgMinio common.MinioConfig
+    if *op == "provision-sensor" {
+	if *minioPath == "" {
+            fmt.Println("Error: -minio flag is required for provision-sensor operation")
+            os.Exit(1)
+        }
+        // Open and read the Minio config file
+        file, err := os.Open(*minioPath)
+        if err != nil {
+            log.Fatalf("Error opening config file: %v", err)
+        }
+        defer file.Close()
+        bytes, err := ioutil.ReadAll(file)
+        if err != nil {
+            log.Fatalf("Error reading config file: %v", err)
+        }
+        if err := json.Unmarshal(bytes, &cfgMinio); err != nil {
+            log.Fatalf("Error parsing config: %v", err)
+        }
+    }
+    log.Println("Minio path = ", minioPath)
 
     switch *op {
     // Tenant Operations
@@ -202,6 +227,18 @@ func main() {
             log.Fatalf("Failed to write updater config: %v", err)
         }
         log.Printf("Generated %s successfully", config.UpdaterOutput)
+
+	// write sensor-config to minio
+	mc, err := NewMinio(cfgMinio)
+	if err != nil {
+            log.Fatalf("Failed to initialize MinIO client: %v", err)
+	}
+	var bucketPath = strconv.FormatInt(tenantID, 10) + "/" + filepath.Base(config.SensorOutput)
+        err = mc.UploadObject("config", bucketPath, config.SensorOutput)
+        if err != nil {
+            log.Fatalf("minIO upload failed: %v", err)
+        }
+        log.Printf("Sensor config uploaded successfully")
 
     default:
         fmt.Printf("Error: Unknown operation: %s\n", *op)

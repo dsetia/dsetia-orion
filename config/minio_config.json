@@ -1,4 +1,6 @@
 {
-  "minio_root_user": "minioadmin",
-  "minio_root_password": "minioadmin"
+  "user": "minioadmin",
+  "password": "minioadmin",
+  "endpoint": "localhost:9000",
+  "usessl": false
 }

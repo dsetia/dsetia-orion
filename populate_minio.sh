@@ -7,13 +7,15 @@ if ! command -v jq &>/dev/null; then
     exit 1
 fi
 
-adminuser=$(jq -r '.minio_root_user' "$CONFIG_FILE")
-adminpass=$(jq -r '.minio_root_password' "$CONFIG_FILE")
+adminuser=$(jq -r '.user' "$CONFIG_FILE")
+adminpass=$(jq -r '.password' "$CONFIG_FILE")
+endpoint=$(jq -r '.endpoint' "$CONFIG_FILE")
 
 # Print config and ask for confirmation
 echo "✅ Loaded configuration:"
 echo "  User     : $adminuser"
 echo "  Password : $adminpass"
+echo "  Endpoint : $endpoint"
 
 read -p "❓ Proceed with this configuration? [y/N] " confirm
 confirm=${confirm,,}  # to lowercase
@@ -23,12 +25,14 @@ if [[ "$confirm" != "y" && "$confirm" != "yes" ]]; then
     exit 1
 fi
 
-mc alias set myminio http://localhost:9000 $adminuser $adminpass
+mc alias set myminio http://$endpoint $adminuser $adminpass
 
 # seed minio
 mc mb myminio/software
 mc mb myminio/rules
 mc mb myminio/threatintel
+mc mb myminio/config
+mc mb myminio/provisioner
 
 cd ./minio
 mc cp hndr-sw-v1.2.3.tar.gz myminio/software/

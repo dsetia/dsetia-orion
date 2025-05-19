@@ -17,8 +17,8 @@ TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
 TEST_FILE_RULES="rules/1/hndr-rules-r1.2.3.tar.gz"
 
 MINIO_CONFIG_FILE="config/minio_config.json"
-minioadminuser=$(jq -r '.minio_root_user' "$MINIO_CONFIG_FILE")
-minioadminpass=$(jq -r '.minio_root_password' "$MINIO_CONFIG_FILE")
+minioadminuser=$(jq -r '.user' "$MINIO_CONFIG_FILE")
+minioadminpass=$(jq -r '.password' "$MINIO_CONFIG_FILE")
 
 # Colors for output
 RED='\033[0;31m'

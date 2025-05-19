@@ -17,6 +17,9 @@ COPY sensor-provision.tar.gz .
 RUN tar -xzf sensor-provision.tar.gz && \
     rm sensor-provision.tar.gz
 
+# Copy sensor config
+COPY sensor-config.json /app/sensor-provision/
+
 # Copy supervisord.conf
 COPY supervisord.conf /etc/supervisord.conf
 

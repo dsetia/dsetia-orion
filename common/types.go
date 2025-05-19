@@ -80,3 +80,10 @@ func (c DBConfig) ConnString() string {
     return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
         c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
 }
+
+type MinioConfig struct {
+    Endpoint  string `json:"endpoint"`
+    AccessKey string `json:"user"`
+    SecretKey string `json:"password"`
+    UseSSL    bool   `json:"usessl"`
+}
