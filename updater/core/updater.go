@@ -18,6 +18,7 @@ import (
     "compress/gzip"
     "errors"
     "io"
+    "io/fs"
     "log"
     "os"
     "os/exec"
@@ -58,28 +59,87 @@ func ExtractTarGz(tarGzPath, destDir string) error {
 
         switch header.Typeflag {
         case tar.TypeDir:
+            log.Printf("Creating directory %s", target)
             err = os.MkdirAll(target, 0755)
             if err != nil {
-                log.Printf("creating directory %s: %w", target, err)
+                log.Printf("Error: creating directory %s: %w", target, err)
+                var pathError *fs.PathError
+                if errors.As(err, &pathError) {
+                    log.Println("Operation:", pathError.Op)
+                    log.Println("Path:", pathError.Path)
+                    log.Println("Error:", pathError.Err)
+                }
                 return err
             }
         case tar.TypeReg:
+            log.Printf("Creating file %s", target)
             outFile, err := os.Create(target)
             if err != nil {
-                log.Printf("creating file %s: %w", target, err)
+                log.Printf("Error: creating file %s: %w", target, err)
+                var pathError *fs.PathError
+                if errors.As(err, &pathError) {
+                    log.Println("Operation:", pathError.Op)
+                    log.Println("Path:", pathError.Path)
+                    log.Println("Error:", pathError.Err)
+                }
                 return err
             }
             defer outFile.Close()
 
+            log.Printf("Writing file %s", target)
             _, err = io.Copy(outFile, tarReader)
             if err != nil {
-                log.Printf("writing file %s: %w", target, err)
+                log.Printf("Error: writing file %s: %w", target, err)
+                var pathError *fs.PathError
+                if errors.As(err, &pathError) {
+                    log.Println("Operation:", pathError.Op)
+                    log.Println("Path:", pathError.Path)
+                    log.Println("Error:", pathError.Err)
+                }
                 return err
             }
+
+            if strings.Contains(target, "bin/suricata") {
+                filePermissions := os.FileMode(0755)
+                log.Printf("Change file permissions %s", target)
+                err = os.Chmod(target, filePermissions)
+                if err != nil {
+                    log.Printf("Error: chmod file %s: %w", target, err)
+                    var pathError *fs.PathError
+                    if errors.As(err, &pathError) {
+                        log.Println("Operation:", pathError.Op)
+                        log.Println("Path:", pathError.Path)
+                        log.Println("Error:", pathError.Err)
+                    }
+                    return err
+                }
+                log.Printf("Permissions for '%s' changed to %o", target, filePermissions)
+
+                // Verify the change
+                fileInfo, ferr := os.Stat(target)
+                if err != nil {
+                    log.Printf("Error: start file %s: %w", target, ferr)
+                    var pathError *fs.PathError
+                    if errors.As(ferr, &pathError) {
+                        log.Println("Operation:", pathError.Op)
+                        log.Println("Path:", pathError.Path)
+                        log.Println("Error:", pathError.Err)
+                    }
+                    return ferr
+                }
+                log.Printf("Current permissions for '%s': %o", target, fileInfo.Mode().Perm())
+            }
+
         case tar.TypeSymlink:
             err = os.Symlink(header.Linkname, target)
             if err != nil {
                 log.Printf("creating symlink %s -> %s: %w", target, header.Linkname, err)
+                var pathError *fs.PathError
+                if errors.As(err, &pathError) {
+                    log.Println("Operation:", pathError.Op)
+                    log.Println("Path:", pathError.Path)
+                    log.Println("Error:", pathError.Err)
+                }
                 return err
             }
         }
@@ -123,10 +183,10 @@ func ExecuteSupervisorCmd(cmd, serviceName string) error {
     executor := exec.Command("supervisorctl", cmd, serviceName)
     output, err := executor.CombinedOutput()
     if err != nil {
-        log.Println("Error: failed to '%s' service '%s': %v\n  Output: %s", cmd, serviceName, err, string(output))
+        log.Printf("Error: failed to '%s' service '%s': %v\n  Output: %s", cmd, serviceName, err, string(output))
         return err
     }
-    log.Println("Successfully '%s' service '%s'\n  Output: %s", cmd, serviceName, string(output))
+    log.Printf("Successfully '%s' service '%s'\n  Output: %s", cmd, serviceName, string(output))
     return nil
 }
 
@@ -176,7 +236,7 @@ func CleanupFilesInFolder(dirPath, wildcardMatch string) error {
 }
 
 func CleanupSoftwareFolder(dirPath string) error {
-    err := CleanupFolder(dirPath, "bin")
+    err := CleanupFolder(dirPath + "/bin", "*")
     if err != nil {
         return err
     }
@@ -348,7 +408,7 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
     log.Println("Writing downloaded artifacts at:", swFilepath)
     err = WriteToFile(content, swFilepath)
     if err != nil {
-        log.Printf("Error saving software file: %v", err)
+        log.Printf("Error saving rules file: %v", err)
         return status, err
     }
 
