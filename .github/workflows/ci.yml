@@ -196,6 +196,14 @@ jobs:
           cat test_logs/suricata/suricata.log | grep "Hello World"
           # Validate updater logs
           cat test_logs/updater/updater.log | grep "Status update sent successfully"
+          # Check for 404 Not Found errors in updater logs
+          echo "Checking for 404 Not Found errors in updater logs..."
+          if grep -i "404 Not Found" test_logs/updater/updater.log; then
+            echo "ERROR: Found '404 Not Found' errors in updater.log"
+            exit 1
+          else
+            echo "No '404 Not Found' errors found in updater.log"
+          fi
 
       # Clean up
       - name: Clean up
