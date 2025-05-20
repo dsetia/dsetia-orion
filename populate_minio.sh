@@ -34,10 +34,12 @@ mc mb myminio/threatintel
 mc mb myminio/config
 mc mb myminio/provisioner
 
-cd ./minio
-mc cp hndr-sw-v1.2.3.tar.gz myminio/software/
-mc cp hndr-rules-r1.2.3.tar.gz myminio/rules/1/hndr-rules-r1.2.3.tar.gz
-mc cp threatintel-2025.04.10.1523.tar.gz myminio/threatintel/
+#mc cp hndr-sw-v1.2.3.tar.gz myminio/software/
+#mc cp hndr-rules-r1.2.3.tar.gz myminio/rules/1/hndr-rules-r1.2.3.tar.gz
+#mc cp threatintel-2025.04.10.1523.tar.gz myminio/threatintel/
+objupdater -type software -dbconfig config/db_dev_config.json -minioconfig config/minio_config.json -file minio/hndr-sw-v1.2.3.tar.gz 
+objupdater -type rules -dbconfig config/db_dev_config.json -minioconfig config/minio_config.json -file minio/hndr-rules-r1.2.3.tar.gz -tenantid 1
+objupdater -type threatintel -dbconfig config/db_dev_config.json -minioconfig config/minio_config.json -file minio/threatintel-2025.04.10.1523.tar.gz
 
 # Add API user
 mc admin user add myminio apiuser apiuserpassword

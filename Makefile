@@ -15,15 +15,17 @@ export GOOS GOARCH CGO_ENABLED
 APIS_SRCS        := $(wildcard apis/*.go)
 DB_SRCS          := $(wildcard db/*.go)
 UPDATER_SRCS     := $(wildcard updater/*.go)
+OBJUPDATER_SRCS  := $(wildcard objupdater/*.go)
 PROVISIONER_SRCS := $(wildcard provisioner/*.go)
 
 # ─── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: all clean apis dbtool updater provision-sensor
+.PHONY: all clean apis dbtool updater objupdater provision-sensor
 
 all: $(BINDIR) \
      $(BINDIR)/apis \
      $(BINDIR)/dbtool \
      $(BINDIR)/updater \
+     $(BINDIR)/objupdater \
      $(BINDIR)/provision-sensor
 
 # ensure bin/ exists
@@ -46,6 +48,11 @@ $(BINDIR)/dbtool: $(DB_SRCS) | $(BINDIR)
 $(BINDIR)/updater: $(UPDATER_SRCS) | $(BINDIR)
 	@echo "Building updater → $@"
 	cd updater && go build -o $(BINDIR)/updater
+	#
+# objupdater
+$(BINDIR)/objupdater: $(OBJUPDATER_SRCS) | $(BINDIR)
+	@echo "Building objupdater → $@"
+	cd objupdater && go build -o $(BINDIR)/objupdater
 
 # provision‑sensor
 $(BINDIR)/provision-sensor: $(PROVISIONER_SRCS) | $(BINDIR)
