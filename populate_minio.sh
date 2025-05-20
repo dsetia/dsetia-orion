@@ -33,6 +33,7 @@ mc mb myminio/rules
 mc mb myminio/threatintel
 mc mb myminio/config
 mc mb myminio/provisioner
+mc mb myminio/sensor
 
 #mc cp hndr-sw-v1.2.3.tar.gz myminio/software/
 #mc cp hndr-rules-r1.2.3.tar.gz myminio/rules/1/hndr-rules-r1.2.3.tar.gz

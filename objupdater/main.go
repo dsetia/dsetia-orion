@@ -95,8 +95,8 @@ func parseObjectInfo(objectType, filename string, tenantID int) (ObjectInfo, err
     }
 
     // Regular expressions for filename formats
-    swRegex := regexp.MustCompile(`^hndr-sw-v(\d+\.\d+\.\d+)\.tar\.gz$`)
-    rulesRegex := regexp.MustCompile(`^hndr-rules-r(\d+\.\d+\.\d+)\.tar\.gz$`)
+    swRegex := regexp.MustCompile(`^hndr-sw-(v\d+\.\d+\.\d+)\.tar\.gz$`)
+    rulesRegex := regexp.MustCompile(`^hndr-rules-(r\d+\.\d+\.\d+)\.tar\.gz$`)
     threatRegex := regexp.MustCompile(`^threatintel-(\d{4}\.\d{2}\.\d{2}\.\d{4})\.tar\.gz$`)
 
     base := filepath.Base(filename)
@@ -107,7 +107,7 @@ func parseObjectInfo(objectType, filename string, tenantID int) (ObjectInfo, err
         }
         info.Version = swRegex.FindStringSubmatch(base)[1]
         info.Bucket = "software"
-        info.ObjectPath = fmt.Sprintf("/hndr-sw-v%s.tar.gz", info.Version)
+        info.ObjectPath = fmt.Sprintf("/hndr-sw-%s.tar.gz", info.Version)
 
     case "rules":
         if !rulesRegex.MatchString(base) {
@@ -115,7 +115,7 @@ func parseObjectInfo(objectType, filename string, tenantID int) (ObjectInfo, err
         }
         info.Version = rulesRegex.FindStringSubmatch(base)[1]
         info.Bucket = "rules"
-        info.ObjectPath = fmt.Sprintf("/%d/hndr-rules-r%s.tar.gz", tenantID, info.Version)
+        info.ObjectPath = fmt.Sprintf("/%d/hndr-rules-%s.tar.gz", tenantID, info.Version)
 
     case "threatintel":
         if !threatRegex.MatchString(base) {

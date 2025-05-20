@@ -33,4 +33,5 @@ mc rb --force myminio/rules
 mc rb --force myminio/threatintel
 mc rb --force myminio/config
 mc rb --force myminio/provisioner
+mc rb --force myminio/sensor
 
