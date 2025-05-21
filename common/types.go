@@ -32,8 +32,6 @@ type DeviceStatus struct {
 
 type UpdateRequest DeviceStatus
 type StatusRequest DeviceStatus
-type HndrConfig    DeviceVersions
-
 
 // UpdateResponse represents the /v1/update response
 type UpdateResponse struct {

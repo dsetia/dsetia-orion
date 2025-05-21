@@ -13,8 +13,6 @@
 
 package core
 
-import "orion/common"
-
 type UpdaterConfig struct {
     UpdateLock            string `json:"update_lock"`
     HndrSymlink           string `json:"hndr_symlink"`
@@ -46,4 +44,14 @@ type Configuration struct {
     Groups []string
 }
 
-type HndrConfig common.DeviceVersions
+type HndrConfig struct {
+    Software struct {
+        Version string `json:"version"`
+    } `json:"software"`
+    Rules struct {
+        Version string `json:"version"`
+    } `json:"rules"`
+    ThreatIntel struct {
+        Version string `json:"version"`
+    } `json:"threatintel"`
+}

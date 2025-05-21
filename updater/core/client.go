@@ -76,7 +76,7 @@ func (c *Client) sendRequest(method, url string, body any) (*http.Response, erro
     return resp, nil
 }
 
-func (c *Client) GetUpdateManifest(tenantID string, data common.UpdateRequest) (common.UpdateResponse, error) {
+func (c *Client) GetUpdateManifest(tenantID string, data HndrConfig) (common.UpdateResponse, error) {
     url := fmt.Sprintf("%s/v1/updates/%s", c.BaseURL, tenantID)
     log.Printf("Sending request to URL: %s", url)
 

@@ -431,6 +431,11 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
         return status, err
     }
 
+    err = ExecuteSupervisorCmd("restart", "hndr")
+    if err != nil {
+        return status, err
+    }
+
     //Read, update and write configuration file with latest version details
     var hndrCfg HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {

@@ -83,7 +83,7 @@ func CheckUpdates(updaterCfg core.UpdaterConfig, snrCfg core.SensorConfig) {
     log.Println("Authenticated successfully.")
 
     // Read the existing update config
-    var updtCfg common.UpdateRequest
+    var updtCfg core.HndrConfig
     if err := core.LoadJSONConfig(updaterCfg.HndrConfig, &updtCfg); err != nil {
         return
     }
