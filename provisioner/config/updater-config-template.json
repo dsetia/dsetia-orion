@@ -4,7 +4,7 @@
     "sensor_config": "/opt/updater/config/sensor-config.json",
     "folder_one": "/opt/hndr-1",
     "folder_two": "/opt/hndr-2",
-    "rules_folder": "var/lib/suricata/rules",
+    "rules_folder": "",
     "ids_service_name": "hndr",
     "scratch_folder": "/tmp",
     "hndr_symlink": "/opt/hndr",

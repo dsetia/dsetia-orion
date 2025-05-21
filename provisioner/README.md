@@ -38,7 +38,6 @@ Files:
 provisioner/Dockerfile.sensor: docker file for local testing
 provisioner/config/updater-config-template.json: template file for sensor's updater-config.json
 provisioner/config/provision-config.json: Override config file for above template (generates updater-config.json)
-provisioner/create-tarball.sh: create tar ball of configs, updater and init script
 provisioner/entrypoint.sh: docker entry point for local testing; launches supervisord
 provisioner/debug-entrypoint.sh: docker debug entry point for local testing; drops to shell
 provisioner/deploy-sensor.sh: plaeholder for deployment of tarball to destination using scp/ssh
@@ -48,3 +47,11 @@ provisioner/init-sensor.sh: runs on the sensor for initialization; part of the t
 provisioner/provision-sensor.go: Provisioner Go code
 provisioner/supervisor/hndr.conf: initial suricata supervisord conf file
 provisioner/supervisor/updater.conf: updater ssupervisord conf file
+
+# Build provisioner package and upload to minio bucket "provisioner"
+cd provisioner
+./deploy.sh provisioner ../config/minio_config.json
+
+# build sensor package and upload to minio bucket "sensor"
+# tenant ID is required
+./deploy.sh sensor ../config/minio_config.json 1

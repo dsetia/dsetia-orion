@@ -15,7 +15,7 @@ export GOOS GOARCH CGO_ENABLED
 APIS_SRCS        := $(wildcard apis/*.go)
 DB_SRCS          := $(wildcard db/*.go)
 UPDATER_SRCS     := $(wildcard updater/*.go)
-OBJUPDATER_SRCS  := $(wildcard objupdater/*.go)
+OBJUPDATER_SRCS  := $(shell find updater -name '*.go')
 PROVISIONER_SRCS := $(wildcard provisioner/*.go)
 
 # ─── Phony targets ────────────────────────────────────────────────────────────
@@ -64,6 +64,7 @@ install:
 	sudo cp $(BINDIR)/apis /usr/local/bin
 	sudo cp $(BINDIR)/dbtool /usr/local/bin
 	sudo cp $(BINDIR)/updater /usr/local/bin
+	sudo cp $(BINDIR)/objupdater /usr/local/bin
 	sudo cp $(BINDIR)/provision-sensor /usr/local/bin
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────

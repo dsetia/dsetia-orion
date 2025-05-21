@@ -12,6 +12,7 @@ mkdir -p /var/lib/suricata/rules
 mkdir -p /var/log/suricata /var/log/updater
 mkdir -p /opt/hndr/bin /opt/hndr/suricata
 mkdir -p /opt/updater/bin /opt/updater/config
+mkdir -p /opt/hndr/var/lib/suricata
 
 # Install supervisor (if not already installed)
 if ! command -v supervisorctl &> /dev/null; then
@@ -40,6 +41,7 @@ ls -l
 mv sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
 mv updater /opt/updater/bin/
 mv suricata /opt/hndr/bin/
+mv suricata.yaml /opt/hndr/var/lib/suricata/
 
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"

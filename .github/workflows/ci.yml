@@ -167,13 +167,14 @@ jobs:
           # sensor to connect with dev docker cloud; provisioning DB access via localhost
           provision-sensor -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
           provision-sensor -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=../config/minio_config.json
-          ./create-tarball.sh ./sensor-provision.tar.gz
-          mc cp myminio/config/1/sensor-config.json ./sensor-config.json
+          ./deploy.sh provisioner ../config/minio_config.json
+          ./deploy.sh sensor ../config/minio_config.json 1
 
       # Build sensor image
       - name: Build sensor image
         working-directory: ./provisioner
         run: |
+          mc cp myminio/sensor/1/sensor-provision.tar.gz .
           docker build -f Dockerfile.sensor -t sensor:latest .
 
       # Run updater tests
