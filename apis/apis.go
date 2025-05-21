@@ -67,6 +67,7 @@ func (s *Server) authenticate(r *http.Request) (int64, string, error) {
 // handleAuthenticate handles /v1/authenticate/{tenant_id}
 func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodGet {
+        log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
@@ -75,6 +76,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
+	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -82,12 +84,14 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, _, err := s.authenticate(r)
     if err != nil {
+	log.Printf("Unauthorized: "+err.Error())
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
+        log.Print("Unauthorized: tenant mismatch")
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
@@ -100,6 +104,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 // handleUpdate handles /v1/updates/{tenant-id}
 func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodPost {
+        log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
@@ -108,6 +113,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
+	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -115,12 +121,14 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, deviceID, err := s.authenticate(r)
     if err != nil {
+	log.Printf("Unauthorized: "+err.Error())
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
+        log.Print("Unauthorized: tenant mismatch")
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
@@ -128,6 +136,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     // parse request body
     var deviceVersions common.DeviceVersions
     if err := json.NewDecoder(r.Body).Decode(&deviceVersions); err != nil {
+        log.Print("Invalid request body")
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
@@ -140,6 +149,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         WHERE device_id = $1 AND tenant_id = $2
     `, deviceID, tenantID).Scan(&device.ID, &device.TenantID, &device.Name, &device.HndrSwVersion)
     if err != nil {
+	log.Print("Device ID not found: "+deviceID)
         http.Error(w, "Device not found", http.StatusNotFound)
         return
     }
@@ -158,6 +168,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             WHERE version = $1
         `, device.HndrSwVersion).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Sha256)
         if err != nil {
+	    log.Print("Software version not found: " + device.HndrSwVersion)
             http.Error(w, "Software version not found", http.StatusNotFound)
             return
         }
@@ -171,6 +182,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             LIMIT 1
         `).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Sha256)
         if err != nil {
+            log.Print("No software versions available")
             http.Error(w, "No software versions available", http.StatusNotFound)
             return
         }
@@ -186,6 +198,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         LIMIT 1
     `, tenantID).Scan(&rules.ID, &rules.Version, &rules.Size, &rules.Sha256)
     if err != nil {
+        log.Print("No rules available for tenant")
         http.Error(w, "No rules available for tenant", http.StatusNotFound)
         return
     }
@@ -199,6 +212,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         LIMIT 1
     `).Scan(&ti.ID, &ti.Version, &ti.Size, &ti.Sha256)
     if err != nil {
+        log.Print("No threat intelligence available")
         http.Error(w, "No threat intelligence available", http.StatusNotFound)
         return
     }
@@ -265,6 +279,7 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
 // handleHealthCheck handles /v1/healthcheck
 func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodGet {
+        log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
@@ -278,6 +293,7 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 // handleStatus handles /v1/status/{tenant-id}
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     if r.Method != http.MethodPost && r.Method != http.MethodGet {
+        log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
         return
     }
@@ -286,6 +302,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
+	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -293,12 +310,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, deviceID, err := s.authenticate(r)
     if err != nil {
+	log.Printf("Unauthorized: "+err.Error())
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
+        log.Print("Unauthorized: tenant mismatch")
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
@@ -307,6 +326,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	var resp common.DeviceStatus
 	Status, err := s.db.GetStatus(deviceID, tenantID)
 	if err != nil {
+	    log.Print("Device not found: " + deviceID)
             http.Error(w, "Device not found", http.StatusNotFound)
 	    return
 	}
@@ -323,12 +343,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     // parse request body
     var req common.DeviceStatus
     if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        log.Print("Invalid request body")
         http.Error(w, "Invalid request body", http.StatusBadRequest)
         return
     }
 
     err = s.db.InsertStatus(deviceID, tenantID, req.Software.Status, req.Rules.Status, req.ThreatIntel.Status)
     if err != nil {
+	log.Print("Error in inserting status: " + err.Error())
         http.Error(w, err.Error(), http.StatusBadRequest)
         return
     }
