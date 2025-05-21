@@ -78,7 +78,7 @@ func main() {
 
     if *op == "" || *configFile == "" || *dbPath == "" {
         fmt.Println("Error: -op, -config and -db flags are required")
-        fmt.Println("Usage: ./provision-sensor -config <path> -db <path> -op <operation> [args]")
+        fmt.Println("Usage: ./provisioner -config <path> -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
         fmt.Println("  provision-tenant")
         fmt.Println("  provision-sensor")

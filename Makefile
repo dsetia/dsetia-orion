@@ -19,14 +19,14 @@ OBJUPDATER_SRCS  := $(shell find updater -name '*.go')
 PROVISIONER_SRCS := $(wildcard provisioner/*.go)
 
 # ─── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: all clean apis dbtool updater objupdater provision-sensor
+.PHONY: all clean apis dbtool updater objupdater provisioner
 
 all: $(BINDIR) \
      $(BINDIR)/apis \
      $(BINDIR)/dbtool \
      $(BINDIR)/updater \
      $(BINDIR)/objupdater \
-     $(BINDIR)/provision-sensor
+     $(BINDIR)/provisioner
 
 # ensure bin/ exists
 $(BINDIR):
@@ -55,9 +55,9 @@ $(BINDIR)/objupdater: $(OBJUPDATER_SRCS) | $(BINDIR)
 	cd objupdater && go build -o $(BINDIR)/objupdater
 
 # provision‑sensor
-$(BINDIR)/provision-sensor: $(PROVISIONER_SRCS) | $(BINDIR)
-	@echo "Building provision‑sensor → $@"
-	cd provisioner && go build -o $(BINDIR)/provision-sensor
+$(BINDIR)/provisioner: $(PROVISIONER_SRCS) | $(BINDIR)
+	@echo "Building provisioner → $@"
+	cd provisioner && go build -o $(BINDIR)/provisioner
 
 # ─── Install ─────────────────────────────────────────────────────────────────
 install:
@@ -65,7 +65,7 @@ install:
 	sudo cp $(BINDIR)/dbtool /usr/local/bin
 	sudo cp $(BINDIR)/updater /usr/local/bin
 	sudo cp $(BINDIR)/objupdater /usr/local/bin
-	sudo cp $(BINDIR)/provision-sensor /usr/local/bin
+	sudo cp $(BINDIR)/provisioner /usr/local/bin
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 clean:

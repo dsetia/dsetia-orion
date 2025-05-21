@@ -28,8 +28,8 @@ rm -rf "$LOG_DIR" "$TARBALL_PATH" ./sensor-config.json
 mkdir -p "$LOG_DIR" "$LOG_DIR/suricata" "$LOG_DIR/updater"
 
 echo "Provisioning tenant and sensor"
-provision-sensor -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
-provision-sensor -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=../config/minio_config.json
+provisioner -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
+provisioner -config=./config/provision-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=../config/minio_config.json
 
 # Build and upload provisioner and sensor tarball
 echo "Building and uploading provisioner and sensor packages"

@@ -2,7 +2,7 @@ RUN go mod init provisioner
 
 # build provisioner
 go get github.com/google/uuid github.com/lib/pq
-go build -o provisioner provision-sensor.go dbutil.go
+go build -o provisioner main.go dbutil.go
 
 # Ansible deployment of sensor
  ansible-playbook -i sensor_inventory deploy-sensor.yml
@@ -44,7 +44,7 @@ provisioner/deploy-sensor.sh: plaeholder for deployment of tarball to destinatio
 provisioner/deploy-sensor.yml: placeholder for deployment of tarbell to destination using ansible
 provisioner/hello_world.sh: placeholder for actual suricata binary for testing etc.
 provisioner/init-sensor.sh: runs on the sensor for initialization; part of the tarball
-provisioner/provision-sensor.go: Provisioner Go code
+provisioner/main.go: Provisioner Go code
 provisioner/supervisor/hndr.conf: initial suricata supervisord conf file
 provisioner/supervisor/updater.conf: updater ssupervisord conf file
 
