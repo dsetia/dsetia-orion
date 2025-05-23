@@ -48,6 +48,13 @@ provisioner/main.go: Provisioner Go code
 provisioner/supervisor/hndr.conf: initial suricata supervisord conf file
 provisioner/supervisor/updater.conf: updater ssupervisord conf file
 
+# test provisioner
+# launch cloud service first using
+# cd ..; ./launch provisioner/provisioner/docker-compose.override.yml
+# this will create a new network and launch api server using testdb
+# instead of pgdb
+./test_provisioner.sh
+
 # Build provisioner package and upload to minio bucket "provisioner"
 cd provisioner
 ./deploy.sh provisioner ../config/minio_config.json

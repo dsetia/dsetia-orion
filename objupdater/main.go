@@ -2,7 +2,6 @@ package main
 
 import (
     "crypto/sha256"
-    "database/sql"
     "encoding/hex"
     "encoding/json"
     "flag"
@@ -25,7 +24,7 @@ type ObjectInfo struct {
     Type      string
     Filename  string
     Version   string
-    TenantID  int // Only for "rules"
+    TenantID  int64 // Only for "rules"
     Bucket    string
     ObjectPath string
 }
@@ -43,20 +42,6 @@ func readConfig[T any](filename string) (T, error) {
     return config, nil
 }
 
-// connectDB establishes a PostgreSQL connection
-func connectDB(cfg common.DBConfig) (*sql.DB, error) {
-    connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-        cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
-    db, err := sql.Open("postgres", connStr)
-    if err != nil {
-        return nil, fmt.Errorf("failed to connect to database: %w", err)
-    }
-    if err := db.Ping(); err != nil {
-        return nil, fmt.Errorf("failed to ping database: %w", err)
-    }
-    return db, nil
-}
-
 // connectMinio establishes a MinIO client connection
 func connectMinio(cfg common.MinioConfig) (*minio.Client, error) {
     client, err := minio.New(cfg.Endpoint, &minio.Options{
@@ -70,7 +55,7 @@ func connectMinio(cfg common.MinioConfig) (*minio.Client, error) {
 }
 
 // parseObjectInfo extracts metadata from the filename and validates inputs
-func parseObjectInfo(objectType, filename string, tenantID int) (ObjectInfo, error) {
+func parseObjectInfo(objectType, filename string, tenantID int64) (ObjectInfo, error) {
     info := ObjectInfo{
         Type:     objectType,
         Filename: filename,
@@ -149,19 +134,6 @@ func computeSHA256(filename string) (string, int64, error) {
     return hex.EncodeToString(hashSum), size, nil
 }
 
-// validateTenantID checks if the tenant ID exists in the tenants table
-func validateTenantID(db *sql.DB, tenantID int) error {
-    var exists bool
-    err := db.QueryRow("SELECT EXISTS (SELECT 1 FROM tenants WHERE tenant_id = $1)", tenantID).Scan(&exists)
-    if err != nil {
-        return fmt.Errorf("failed to validate tenant ID %d: %w", tenantID, err)
-    }
-    if !exists {
-        return fmt.Errorf("tenant ID %d does not exist in tenants table", tenantID)
-    }
-    return nil
-}
-
 // uploadToMinio uploads the file to MinIO
 func uploadToMinio(client *minio.Client, info ObjectInfo, filename string) error {
     _, err := client.FPutObject(context.Background(), info.Bucket, info.ObjectPath, filename, minio.PutObjectOptions{})
@@ -172,27 +144,33 @@ func uploadToMinio(client *minio.Client, info ObjectInfo, filename string) error
 }
 
 // updateDatabase inserts the object metadata into the appropriate table
-func updateDatabase(db *sql.DB, info ObjectInfo, size int64, sha256 string) error {
+func (db *DB) updateDatabase(info ObjectInfo, size int64, sha256 string) error {
     switch info.Type {
     case "software":
-        _, err := db.Exec("INSERT INTO hndr_sw (version, size, sha256) VALUES ($1, $2, $3)",
-            info.Version, size, sha256)
+	id, err := db.InsertHndrSw(info.Version, size, sha256)
         if err != nil {
             return fmt.Errorf("failed to insert into hndr_sw: %w", err)
         }
+	if id > 0 {
+	    fmt.Printf("HndrSw inserted: ID=%d\n", id)
+        }
 
     case "rules":
-        _, err := db.Exec("INSERT INTO hndr_rules (tenant_id, version, size, sha256) VALUES ($1, $2, $3, $4)",
-            info.TenantID, info.Version, size, sha256)
+	id, err := db.InsertHndrRules(info.TenantID, info.Version, size, sha256)
         if err != nil {
             return fmt.Errorf("failed to insert into hndr_rules: %w", err)
         }
+	if id > 0 {
+	    fmt.Printf("HndrRules inserted: ID=%d\n", id)
+        }
 
     case "threatintel":
-        _, err := db.Exec("INSERT INTO threatintel (version, size, sha256) VALUES ($1, $2, $3)",
-            info.Version, size, sha256)
+	id, err := db.InsertThreatIntel(info.Version, size, sha256)
         if err != nil {
             return fmt.Errorf("failed to insert into threatintel: %w", err)
+        }
+	if id > 0 {
+	    fmt.Printf("ThreatIntel inserted: ID=%d\n", id)
         }
     }
     return nil
@@ -203,7 +181,7 @@ func main() {
     dbConfigFile := flag.String("dbconfig", "", "Path to PostgreSQL config file")
     minioConfigFile := flag.String("minioconfig", "", "Path to MinIO config file")
     objectType := flag.String("type", "", "Object type (software, rules, threatintel)")
-    tenantID := flag.Int("tenantid", 0, "Tenant ID (required for rules)")
+    tenantID := flag.Int64("tenantid", 0, "Tenant ID (required for rules)")
     filename := flag.String("file", "", "Path to the file to upload")
     flag.Parse()
 
@@ -235,16 +213,21 @@ func main() {
     }
 
     // Connect to PostgreSQL
-    db, err := connectDB(dbConfig)
+    db, err := NewDB(dbConfig.ConnString())
     if err != nil {
-        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-        os.Exit(1)
+        fmt.Errorf("failed to connect to database: %w", err)
+	os.Exit(1)
+    }
+    if err := db.Ping(); err != nil {
+        fmt.Errorf("failed to ping database: %w", err)
+	os.Exit(1)
     }
     defer db.Close()
 
     // Validate tenant ID for rules
     if info.Type == "rules" {
-        if err := validateTenantID(db, info.TenantID); err != nil {
+        _, err := db.ValidateTenant(info.TenantID)
+	if err != nil {
             fmt.Fprintf(os.Stderr, "Error: %v\n", err)
             os.Exit(1)
         }
@@ -272,7 +255,7 @@ func main() {
     fmt.Printf("Successfully uploaded %s to MinIO bucket %s at path %s\n", *filename, info.Bucket, info.ObjectPath)
 
     // Update database
-    if err := updateDatabase(db, info, size, sha256); err != nil {
+    if err := db.updateDatabase(info, size, sha256); err != nil {
         fmt.Fprintf(os.Stderr, "Error: %v\n", err)
         os.Exit(1)
     }

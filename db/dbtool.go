@@ -58,7 +58,7 @@ func main() {
         fmt.Println("Error: -op and -db flags are required")
         fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
-        fmt.Println("  insert-tenant, validate-tenant, list-tenants")
+        fmt.Println("  insert-tenant, validate-tenant, list-tenants, delete-tenant")
         fmt.Println("  insert-device, validate-device, list-devices")
         fmt.Println("  insert-api-key, validate-api-key, list-api-keys")
         fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw")
@@ -119,6 +119,24 @@ func main() {
             os.Exit(1)
         }
         fmt.Printf("Tenant exists: %v\n", exists)
+
+    case "delete-tenant":
+        if *tenantID == 0 {
+            fmt.Println("Error: -tenant-id is required for delete-tenant")
+            os.Exit(1)
+        }
+        exists, err := db.ValidateTenant(*tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Tenant %d exists: %v\n", *tenantID, exists)
+        err = db.DeleteTenant(*tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Tenant deleted: %d\n", *tenantID)
 
     case "list-tenants":
         tenants, err := db.ListTenants()

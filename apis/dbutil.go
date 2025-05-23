@@ -129,6 +129,22 @@ func (db *DB) ValidateTenant(id int64) (bool, error) {
     return count > 0, nil
 }
 
+// DeleteTenant deletes a tenant by ID
+func (db *DB) DeleteTenant(id int64) (error) {
+    result, err := db.Exec("DELETE FROM tenants WHERE tenant_id = $1", id)
+    if err != nil {
+        return fmt.Errorf("failed to delete tenant: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if tenant was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no tenant found with ID %d", id)
+    }
+    return nil
+}
+
 // ListTenants retrieves all tenants
 func (db *DB) ListTenants() ([]Tenant, error) {
     rows, err := db.Query("SELECT tenant_id, tenant_name, created_at, updated_at FROM tenants")
@@ -298,8 +314,19 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
     if size <= 0 {
         return 0, errors.New("size must be positive")
     }
+
+    // avoid duplicate
+    exists, err := db.ValidateHndrSw(version)
+    if err != nil {
+        return 0, err
+    }
+    if exists {
+        fmt.Printf("HndrRules version %s already exists\n", version)
+	return 0, nil
+    }
+
     var id int64
-    err := db.QueryRow(`
+    err = db.QueryRow(`
         INSERT INTO hndr_sw (version, size, sha256, updated_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
 	RETURNING id
@@ -354,6 +381,17 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
     if !exists {
         return 0, fmt.Errorf("tenant ID %d does not exist", tenantID)
     }
+
+    // avoid duplicate
+    exists, err = db.ValidateHndrRules(tenantID, version)
+    if err != nil {
+        return 0, err
+    }
+    if exists {
+        fmt.Printf("HndrRules version %s already exists for tenant %d\n", version, tenantID)
+	return 0, nil
+    }
+
     var id int64
     err = db.QueryRow(`
         INSERT INTO hndr_rules (tenant_id, version, size, sha256, updated_at)
@@ -409,8 +447,20 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
     if size <= 0 {
         return 0, errors.New("size must be positive")
     }
+
+    // avoid duplicate
+    exists, err := db.ValidateThreatIntel(version)
+    if err != nil {
+        return 0, err
+    }
+    if exists {
+        fmt.Printf("ThreatIntel version %s already exists\n", version)
+	return 0, nil
+    }
+
+    // insert
     var id int64
-    err := db.QueryRow(`
+    err = db.QueryRow(`
         INSERT INTO threatintel (version, size, sha256, updated_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
 	RETURNING id

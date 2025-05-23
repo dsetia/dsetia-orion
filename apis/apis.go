@@ -52,13 +52,16 @@ func (s *Server) authenticate(r *http.Request) (int64, string, error) {
     // Validate API key
     isActive, tenantID, keyDeviceID, err := s.db.ValidateAPIKey(apiKey)
     if err != nil {
+	log.Printf("api key = %s, device id = %s, tenant id = %d", apiKey, deviceID, tenantID)
         return 0, "", fmt.Errorf("failed to validate API key")
     }
     if !isActive {
+	log.Printf("api key = %s, device id = %s, tenant id = %d", apiKey, deviceID, tenantID)
         return 0, "", fmt.Errorf("inactive API key")
     }
 
     if keyDeviceID != deviceID {
+	log.Printf("api key = %s, device id = %s, tenant id = %d", apiKey, deviceID, tenantID)
         return 0, "", fmt.Errorf("failed to validate device id")
     }
     return tenantID, deviceID, nil

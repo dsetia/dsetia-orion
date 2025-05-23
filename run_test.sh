@@ -1,6 +1,10 @@
 #!/bin/bash
 #
 
+CONFIG_DIR="config"
+DBPATH=${1:-"$CONFIG_DIR/db_dev_config.json"}
+MINIO_PATH=${1:-"$CONFIG_DIR/minio_config.json"}
+
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
 NETWORK_NAME="securite-net"
@@ -9,12 +13,9 @@ NGINX_SSL_PORT=443
 MINIO_API_PORT=9000
 MINIO_CONSOLE_PORT=9001
 API_PORT=8080
-VALID_API_KEY="key1"
-VALID_DEVICE_ID="dev1"
 INVALID_API_KEY="invalid-key"
 TEST_FILE_IMAGE="software/hndr-sw-v1.2.3.tar.gz"
 TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
-TEST_FILE_RULES="rules/1/hndr-rules-r1.2.3.tar.gz"
 
 MINIO_CONFIG_FILE="config/minio_config.json"
 minioadminuser=$(jq -r '.user' "$MINIO_CONFIG_FILE")
@@ -69,37 +70,54 @@ echo "Testing API server health endpoint (nginx)..."
 curl -k -s -o /dev/null -w "%{http_code}" "https://localhost:$NGINX_SSL_PORT/v1/healthcheck" | grep -q 200
 print_status $? "API server health check (nginx) passed"
 
+# populate DB
+TENANT_NAME="tenant-$$"
+DEVICE_NAME="device-name-$$"
+VALID_DEVICE_ID="device-id-$$"
+VALID_API_KEY="api-key-$$"
+DEVICE_VERSION="v1.2.3"
+OUTPUT=$(dbtool -db $DBPATH -op insert-tenant -tenant-name $TENANT_NAME)
+echo "$OUTPUT"
+TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
+dbtool -db $DBPATH -op insert-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
+dbtool -db $DBPATH -op insert-api-key -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -api-key $VALID_API_KEY
+TEST_FILE_RULES="rules/$TENANT_ID/hndr-rules-r1.2.3.tar.gz"
+
+objupdater -type software -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/hndr-sw-v1.2.3.tar.gz
+objupdater -type rules -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
+objupdater -type threatintel -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/threatintel-2025.04.10.1523.tar.gz
+
 # 5. Test API server authentication (valid credentials)
 echo "Testing API server with valid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/1" | grep -q 200
+curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/$TENANT_ID" | grep -q 200
 print_status $? "API server valid authentication passed"
 # 6. Test API server authentication (invalid credentials)
 echo "Testing API server with invalid credentials..."
-curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/1" | grep -q 401
+curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/$TENANT_ID" | grep -q 401
 print_status $? "API server invalid authentication rejected"
 # 7. Test API server updates API
-curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/$TENANT_ID" | grep -q 200
 print_status $? "API server updates POST passed"
 
 # 8. Test Nginx proxy to MinIO (invalid credentials)
 echo "Testing Nginx proxy to MinIO with invalid credentials..."
-curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 401
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/$TEST_FILE_IMAGE" | grep -q 401
 print_status $? "Nginx proxy to MinIO with invalid credentials rejected"
 # 9. Test Nginx proxy to MinIO (image)
 echo "Testing Nginx proxy to MinIO (images) with valid credentials..."
-curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_IMAGE" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/$TEST_FILE_IMAGE" | grep -q 200
 print_status $? "Nginx download of software passed"
 # 10. Test Nginx proxy to MinIO (threatintel)
 echo "Testing Nginx proxy to MinIO (threatintel) with valid credentials..."
-curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_THREATINTEL" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/$TEST_FILE_THREATINTEL" | grep -q 200
 print_status $? "Nginx download of threatintel passed"
 # 11. Test Nginx proxy to MinIO (rules)
 echo "Testing Nginx proxy to MinIO (rules) with valid credentials..."
-curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/1/$TEST_FILE_RULES" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/$TEST_FILE_RULES" | grep -q 200
 print_status $? "Nginx download of rules passed"
 # Test API server status API
 echo "Testing API server status endpoint ..."
-curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: dev1" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/1" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/$TENANT_ID" | grep -q 200
 print_status $? "API server status end point passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"

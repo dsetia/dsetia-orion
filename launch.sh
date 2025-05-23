@@ -12,6 +12,13 @@ VALID_DEVICE_ID="dev1"
 INVALID_API_KEY="invalid-key"
 TEST_FILE="images/hndr-sw-v1.2.3.tar.gz"
 
+OVERRIDE_OPT=""
+if [[ -n "$1" ]]; then
+  OVERRIDE_OPT="-f $COMPOSE_FILE -f $1"
+else
+  OVERRIDE_OPT="-f $COMPOSE_FILE"
+fi
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -27,15 +34,16 @@ print_status() {
     fi
 }
 
-# 1. Ensure Docker network exists
+# 1. Launch containers
+echo "Starting containers with Docker Compose..."
+sudo docker-compose $OVERRIDE_OPT up -d --build
+print_status $? "Containers started"
+
+# 2. Ensure Docker network exists
 echo "Checking for Docker network: $NETWORK_NAME..."
 sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || sudo docker network create "$NETWORK_NAME"
 print_status $? "Docker network $NETWORK_NAME is ready"
 
-# 2. Launch containers
-echo "Starting containers with Docker Compose..."
-sudo docker-compose -f "$COMPOSE_FILE" up -d --build
-print_status $? "Containers started"
 
 # Wait for containers to be healthy (up to 30 seconds)
 echo "Waiting for containers to be ready..."

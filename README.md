@@ -28,3 +28,10 @@ Known Issues
 Commands
  - docker-compose build
  - docker-compose up -d
+
+
+# test provisioner. This will use testdb postgres which is meant for testing
+./launch.sh provisioner/docker-compose.override.yml
+
+# nomal testing with run_test.sh. This will use pgdb postgres DB meant for "cloud" simulation
+./launch.sh

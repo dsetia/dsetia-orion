@@ -14,8 +14,8 @@ export GOOS GOARCH CGO_ENABLED
 # collect .go files in each package
 APIS_SRCS        := $(wildcard apis/*.go)
 DB_SRCS          := $(wildcard db/*.go)
-UPDATER_SRCS     := $(wildcard updater/*.go)
-OBJUPDATER_SRCS  := $(shell find updater -name '*.go')
+UPDATER_SRCS     := $(shell find updater -name '*.go')
+OBJUPDATER_SRCS  := $(wildcard objupdater/*.go)
 PROVISIONER_SRCS := $(wildcard provisioner/*.go)
 
 # ─── Phony targets ────────────────────────────────────────────────────────────
