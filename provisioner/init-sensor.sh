@@ -58,7 +58,26 @@ else
     mv updater.conf hndr.conf "$CONFIG_DIR/"
 fi
 
-# Check if running in Docker
+wait_for_running() {
+    local process=$1
+    echo "$process: waiting for RUNNING state..."
+    for i in {1..15}; do
+        local status=$(supervisorctl status "$process" 2>/dev/null || echo "stopped")
+        if echo "$status" | grep -q "RUNNING"; then
+            echo "$process: confirmed running"
+            return 0
+        elif echo "$status" | grep -q "STARTING"; then
+            echo "$process: still starting, waiting... ($i/15)"
+            sleep 2
+        else
+            echo "Error: Unexpected status for $process: $status"
+            return 1
+        fi
+    done
+    echo "Error: $process failed to reach RUNNING state within 30 seconds"
+    return 1
+}
+
 if [ -f /.dockerenv ]; then
     echo "Running in Docker, skipping supervisorctl commands"
 else
@@ -66,11 +85,8 @@ else
     if ! systemctl is-active --quiet supervisord; then
         systemctl enable supervisord
         systemctl start supervisord
-        # Wait for supervisord to start (up to 10 seconds)
         for i in {1..10}; do
-            if systemctl is-active --quiet supervisord; then
-                break
-            fi
+            if systemctl is-active --quiet supervisord; then break; fi
             sleep 1
         done
         if ! systemctl is-active --quiet supervisord; then
@@ -79,11 +95,9 @@ else
         fi
     fi
     echo "Supervisord is active"
-    # Reload configs with retry
+
     for i in {1..5}; do
-        if supervisorctl reread && supervisorctl update; then
-            break
-        fi
+        if supervisorctl reread && supervisorctl update; then break; fi
         echo "Retrying supervisorctl reread/update ($i/5)..."
         sleep 2
         if [ $i -eq 5 ]; then
@@ -91,59 +105,29 @@ else
             exit 1
         fi
     done
-    # Start processes only if not already running
+
     for process in updater hndr; do
         status=$(supervisorctl status "$process" 2>/dev/null || echo "stopped")
         if echo "$status" | grep -q "RUNNING"; then
-            echo "$process: already running"
+            echo "$process: already running, restarting..."
+            if ! supervisorctl restart "$process"; then
+                echo "Error: Failed to restart $process"
+                exit 1
+            fi
         elif echo "$status" | grep -q "STOPPED\|no such process"; then
+            echo "$process: starting..."
             if ! supervisorctl start "$process"; then
                 echo "Error: Failed to start $process"
                 exit 1
             fi
-            echo "$process: starting"
-            # Wait for the process to transition from STARTING to RUNNING (up to 30 seconds)
-            for i in {1..15}; do
-                status=$(supervisorctl status "$process" 2>/dev/null || echo "stopped")
-                if echo "$status" | grep -q "RUNNING"; then
-                    echo "$process: confirmed running"
-                    break
-                elif echo "$status" | grep -q "STARTING"; then
-                    echo "$process: still starting, waiting... ($i/15)"
-                    sleep 2
-                else
-                    echo "Error: Unexpected status for $process: $status"
-                    exit 1
-                fi
-                if [ $i -eq 15 ]; then
-                    echo "Error: $process failed to reach RUNNING state within 30 seconds"
-                    exit 1
-                fi
-            done
         elif echo "$status" | grep -q "STARTING"; then
-            echo "$process: already in STARTING state, waiting for RUNNING..."
-            # Wait for the process to transition from STARTING to RUNNING (up to 30 seconds)
-            for i in {1..15}; do
-                status=$(supervisorctl status "$process" 2>/dev/null || echo "stopped")
-                if echo "$status" | grep -q "RUNNING"; then
-                    echo "$process: confirmed running"
-                    break
-                elif echo "$status" | grep -q "STARTING"; then
-                    echo "$process: still starting, waiting... ($i/15)"
-                    sleep 2
-                else
-                    echo "Error: Unexpected status for $process: $status"
-                    exit 1
-                fi
-                if [ $i -eq 15 ]; then
-                    echo "Error: $process failed to reach RUNNING state within 30 seconds"
-                    exit 1
-                fi
-            done
+            echo "$process: already in STARTING state"
         else
             echo "Error: Unknown status for $process: $status"
             exit 1
         fi
+
+        wait_for_running "$process" || exit 1
     done
 fi
 
