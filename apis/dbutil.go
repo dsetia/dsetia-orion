@@ -347,6 +347,21 @@ func (db *DB) ValidateHndrSw(version string) (bool, error) {
     return count > 0, nil
 }
 
+func (db *DB) DeleteHndrSw(version string) (error) {
+    result, err := db.Exec("DELETE FROM hndr_sw WHERE version = $1", version)
+    if err != nil {
+        return fmt.Errorf("failed to delete version: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if version was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no version found with ID %s", version)
+    }
+    return nil
+}
+
 // ListHndrSw retrieves all software versions
 func (db *DB) ListHndrSw() ([]HndrSw, error) {
     rows, err := db.Query("SELECT id, version, size, sha256, updated_at FROM hndr_sw")

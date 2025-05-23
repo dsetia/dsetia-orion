@@ -54,6 +54,7 @@ provisioner/supervisor/updater.conf: updater ssupervisord conf file
 # this will create a new network and launch api server using testdb
 # instead of pgdb
 ./test_provisioner.sh
+./test_provisioner.sh "test-tenant" "test-device"
 
 # Build provisioner package and upload to minio bucket "provisioner"
 cd provisioner

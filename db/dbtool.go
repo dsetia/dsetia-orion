@@ -61,7 +61,7 @@ func main() {
         fmt.Println("  insert-tenant, validate-tenant, list-tenants, delete-tenant")
         fmt.Println("  insert-device, validate-device, list-devices")
         fmt.Println("  insert-api-key, validate-api-key, list-api-keys")
-        fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw")
+        fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw, delete-hndr-sw")
         fmt.Println("  insert-hndr-rules, validate-hndr-rules, list-hndr-rules")
         fmt.Println("  insert-threat-intel, validate-threat-intel, list-threat-intel")
         fmt.Println("  insert-status, list-status")
@@ -257,6 +257,24 @@ func main() {
             fmt.Printf("HndrSw: ID=%d, Version=%s, Size=%d, Sha256=%s\n",
                 s.ID, s.Version, s.Size, s.Sha256)
         }
+
+    case "delete-hndr-sw":
+        if *swVersion == "" {
+            fmt.Println("Error: -sw-version is required for validate-hndr-sw")
+            os.Exit(1)
+        }
+        exists, err := db.ValidateHndrSw(*swVersion)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("HndrSw version %s exists: %v\n", *swVersion, exists)
+        err = db.DeleteHndrSw(*swVersion)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Hndrsw version %s deleted\n", *swVersion)
 
     // HndrRules Operations
     case "insert-hndr-rules":
