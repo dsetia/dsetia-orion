@@ -158,7 +158,7 @@ func main() {
     // Sensor Operations
     case "provision-sensor":
         if *deviceName == "" || *tenantName == "" {
-            log.Fatal("Error: -device-name and -tenant-name are required for provision-sensor")
+            log.Fatal("Error: -device-name and -tenant-name are required for provisioner")
         }
 
         // Step 1: Get Tenant ID

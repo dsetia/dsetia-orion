@@ -17,10 +17,9 @@ TENANT_ID=${3:-"1"}
 
 # Print usage/help
 usage() {
-    echo "Usage: $0 {sensor|provisioner} [minio-config-path] [tenant-id]"
+    echo "Usage: $0 {sensor|provisioner} [tenant-id]"
     echo "  sensor: Build sensor package"
-    echo "  provisioner: Build and upload provisioner package"
-    echo "  minio-config-path: Path to MinIO config JSON (default: $CONFIG_DIR/minio_config.json)"
+    echo "  provisioner: Build provisioner package"
     echo "  tenant-id: Tenant ID for sensor config (default: 1)"
     exit 1
 }
@@ -40,38 +39,11 @@ error() {
 
 # Validate dependencies
 check_deps() {
-    for cmd in jq mc; do
+    for cmd in jq ; do
         if ! command -v "$cmd" &>/dev/null; then
             error "'$cmd' is required but not installed. Please install it (e.g., 'sudo apt-get install $cmd' for jq, or download mc from https://min.io/docs/minio/linux/reference/minio-mc.html)."
         fi
     done
-}
-
-# Validate and load MinIO config
-load_minio_config() {
-    if [[ ! -f "$MINIO_CONFIG" ]]; then
-        error "MinIO config file '$MINIO_CONFIG' does not exist"
-    fi
-
-    ADMIN_USER=$(jq -r '.user // empty' "$MINIO_CONFIG") || error "Failed to parse 'user' from $MINIO_CONFIG"
-    ADMIN_PASS=$(jq -r '.password // empty' "$MINIO_CONFIG") || error "Failed to parse 'password' from $MINIO_CONFIG"
-    ENDPOINT=$(jq -r '.endpoint // empty' "$MINIO_CONFIG") || error "Failed to parse 'endpoint' from $MINIO_CONFIG"
-
-    [[ -z "$ADMIN_USER" ]] && error "MinIO user is empty in $MINIO_CONFIG"
-    [[ -z "$ADMIN_PASS" ]] && error "MinIO password is empty in $MINIO_CONFIG"
-    [[ -z "$ENDPOINT" ]] && error "MinIO endpoint is empty in $MINIO_CONFIG"
-
-    log "INFO" "Loaded MinIO configuration:"
-    log "INFO" "  User     : $ADMIN_USER"
-    log "INFO" "  Endpoint : $ENDPOINT"
-}
-
-# Set up MinIO alias
-setup_minio_alias() {
-    log "INFO" "Setting up MinIO alias '$MINIO_ALIAS'"
-    if ! mc alias set "$MINIO_ALIAS" "http://$ENDPOINT" "$ADMIN_USER" "$ADMIN_PASS" &>/dev/null; then
-        error "Failed to set MinIO alias for http://$ENDPOINT"
-    fi
 }
 
 # Validate tenant ID
@@ -125,12 +97,6 @@ build_provisioner_package() {
     # Create tarball
     tar -czf "$PROVISIONER_PKG" -C "$TMP_DIR" sensor-provision || error "Failed to create tarball $PROVISIONER_PKG"
     log "INFO" "Provisioner tarball created at $PROVISIONER_PKG"
-
-    # Upload to MinIO
-    if ! mc cp "$PROVISIONER_PKG" "$MINIO_ALIAS/provisioner/$PROVISIONER_PKG" &>/dev/null; then
-        error "Failed to upload $PROVISIONER_PKG to MinIO at $MINIO_ALIAS/provisioner/$PROVISIONER_PKG"
-    fi
-    log "INFO" "Provisioner tarball uploaded to MinIO at provisioner/$PROVISIONER_PKG"
 }
 
 # Build sensor package
@@ -141,40 +107,22 @@ build_sensor_package() {
     rm -rf "$TMP_DIR" || error "Failed to clean up $TMP_DIR"
     mkdir -p "$TMP_DIR" || error "Failed to create $TMP_DIR"
 
-    # Download provisioner package
-    if ! mc cp "$MINIO_ALIAS/provisioner/$PROVISIONER_PKG" "$TMP_DIR/$PROVISIONER_PKG" &>/dev/null; then
-        error "Failed to download $PROVISIONER_PKG from MinIO"
-    fi
-
+    # provisioner package should be in current directory
     # Extract provisioner package
-    cd "$TMP_DIR" || error "Failed to change to $TMP_DIR"
-    tar -xzf "$PROVISIONER_PKG" || error "Failed to extract $PROVISIONER_PKG"
+    tar -xzf "$PROVISIONER_PKG" -C "$TMP_DIR" || error "Failed to extract $PROVISIONER_PKG"
 
-    # Download tenant-specific sensor config
+    # tenant-specific sensor config should be in current directory
     local sensor_config="sensor-config.json"
-    if ! mc cp "$MINIO_ALIAS/config/$TENANT_ID/$sensor_config" "sensor-provision/$sensor_config" &>/dev/null; then
-        error "Failed to download sensor-config.json for tenant $TENANT_ID from MinIO"
-    fi
+    cp "$sensor_config" "$TMP_DIR/sensor-provision/" || error "Failed to copy sensor config"
 
     # Create sensor tarball
-    tar -czf "$SENSOR_PKG" sensor-provision || error "Failed to create sensor tarball $SENSOR_PKG"
+    tar -czf "$SENSOR_PKG" -C "$TMP_DIR" sensor-provision || error "Failed to create sensor tarball $SENSOR_PKG"
     log "INFO" "Sensor tarball created at $SENSOR_PKG"
-
-    # Upload to MinIO
-    if ! mc cp "$SENSOR_PKG" "$MINIO_ALIAS/sensor/$TENANT_ID/$SENSOR_PKG" &>/dev/null; then
-        error "Failed to upload $SENSOR_PKG to MinIO at $MINIO_ALIAS/sensor/$TENANT_ID/$SENSOR_PKG"
-    fi
-    log "INFO" "Sensor tarball uploaded to MinIO at sensor/$TENANT_ID/$SENSOR_PKG"
-
-    # Clean up
-    cd - >/dev/null || error "Failed to return to original directory"
 }
 
 # Main logic
 check_deps
 [[ $# -lt 1 ]] && usage
-load_minio_config
-setup_minio_alias
 validate_tenant_id
 
 case "$1" in
