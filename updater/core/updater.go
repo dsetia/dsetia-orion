@@ -26,6 +26,23 @@ import (
     "strings"
 )
 
+// File Stat
+func FileExists(file string) error {
+    fileInfo, err := os.Stat(file)
+    if err != nil {
+        log.Printf("Error: stat file %s: %w", file, err)
+        var pathError *fs.PathError
+        if errors.As(err, &pathError) {
+            log.Println("Operation:", pathError.Op)
+            log.Println("Path:", pathError.Path)
+            log.Println("Error:", pathError.Err)
+        }
+        return err
+    }
+    log.Printf("File '%s' exits, with permissions '%o'", file, fileInfo.Mode().Perm())
+    return nil
+}
+
 // ExtractTarGz extracts a .tar.gz file to a specified directory.
 func ExtractTarGz(tarGzPath, destDir string) error {
     log.Println("Extracting file:", tarGzPath)
@@ -117,8 +134,8 @@ func ExtractTarGz(tarGzPath, destDir string) error {
 
                 // Verify the change
                 fileInfo, ferr := os.Stat(target)
-                if err != nil {
-                    log.Printf("Error: start file %s: %w", target, ferr)
+                if ferr != nil {
+                    log.Printf("Error: stat file %s: %w", target, ferr)
                     var pathError *fs.PathError
                     if errors.As(ferr, &pathError) {
                         log.Println("Operation:", pathError.Op)
@@ -362,9 +379,17 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
         return status, err
     }
 
-    err = ExecuteSupervisorCmd("start", "hndr")
+    err = FileExists(folderToDeploy + "/" + config.HndrCfgFile)
     if err != nil {
-        return status, err
+        // Configuration file suricata.yaml doesn't exists, so don't try
+        // restart the hNDR service.  When the configuration file updated
+        // during rule updates the service will GET STArted.
+        log.Println("Warn: hNDR service NOT started")
+    } else {
+        err = ExecuteSupervisorCmd("start", "hndr")
+        if err != nil {
+            return status, err
+        }
     }
 
     //Read, update and write configuration file with latest version details
