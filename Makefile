@@ -67,6 +67,10 @@ install:
 	sudo cp $(BINDIR)/objupdater /usr/local/bin
 	sudo cp $(BINDIR)/provisioner /usr/local/bin
 
+# ─── Install Utils ─────────────────────────────────────────────────────────────────
+install-utils:
+	sudo cp utils/* /usr/local/bin
+
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 clean:
 	rm -rf $(BINDIR)

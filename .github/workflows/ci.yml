@@ -16,6 +16,7 @@ on:
       - 'populate_db.sh'
       - 'populate_minio.sh'
       - 'updater/**'
+      - 'utils/**'
   pull_request:
     branches:
       - master
@@ -31,6 +32,7 @@ on:
       - 'populate_db.sh'
       - 'populate_minio.sh'
       - 'updater/**'
+      - 'utils/**'
   workflow_dispatch:
 
 jobs:
@@ -75,6 +77,7 @@ jobs:
         run: |
           make all
           make install
+          make install-utils
 
       - name: Install mc
         run: |
@@ -88,10 +91,10 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          ./init_db.sh config/db_dev_config.json <<< "y"
-          ./populate_db.sh config/db_dev_config.json <<< "y"
-          ./init_minio.sh config/minio_config.json <<< "y"
-          ./populate_minio.sh config/db_dev_config.json config/minio_config.json <<< "y"
+          init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
+          populate_db.sh config/db_dev_config.json <<< "y"
+          init_minio.sh config/minio_config.json <<< "y"
+          populate_minio.sh config/db_dev_config.json config/minio_config.json minio <<< "y"
           ./run_test.sh
 
       # Upload test log for debugging
@@ -144,6 +147,7 @@ jobs:
         run: |
           make all
           make install
+          make install-utils
 
       - name: Install mc
         run: |
@@ -157,10 +161,10 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          ./init_db.sh config/db_dev_config.json <<< "y"
-          ./populate_db.sh config/db_dev_config.json <<< "y"
-          ./init_minio.sh config/minio_config.json <<< "y"
-          ./populate_minio.sh config/db_dev_config.json config/minio_config.json <<< "y"
+          init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
+          populate_db.sh config/db_dev_config.json <<< "y"
+          init_minio.sh config/minio_config.json <<< "y"
+          populate_minio.sh config/db_dev_config.json config/minio_config.json minio <<< "y"
 
       # Build provisioner tarball
       - name: Build provisioner tarball

@@ -3,6 +3,16 @@
 CONFIG_DIR="config"
 CONFIG_FILE=${1:-"$CONFIG_DIR/minio_config.json"}
 
+# Print usage/help
+usage() {
+    echo "Usage: $0 [minio-config-path]"
+    echo "  Initialize minio store"
+    echo "  minio-config-path: Path to Minio config (default: $CONFIG_DIR/minio_config.sql)"
+    exit 1
+}
+
+[[ $# -lt 1 ]] && usage
+
 if ! command -v jq &>/dev/null; then
     echo "❌ 'jq' is required but not installed. Please run: sudo apt-get install jq"
     exit 1

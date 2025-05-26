@@ -11,11 +11,11 @@ usage() {
     echo "Usage: $0 [db-config-path] [db-schema-path]"
     echo "  Drop and reinitialize the database"
     echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/apis_config.json)"
-    echo "  db-schema-path: Path to DB schema SQL (default: $DB/schema_pg.sql)"
+    echo "  db-schema-path: Path to DB schema SQL (default: $DB_DIR/schema_pg.sql)"
     exit 1
 }
 
-[[ $# -lt 1 ]] && usage
+[[ $# -lt 2 ]] && usage
 
 if ! command -v jq &>/dev/null; then
     echo "❌ 'jq' is required but not installed. Please run: sudo apt-get install jq"

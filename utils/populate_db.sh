@@ -1,15 +1,26 @@
 #!/bin/bash
 
-# config file
-dbpath=${1:-"config/apis_config.json"}
-
 # Configuration
+CONFIG_DIR="config"
 TENANT_ID=1
 TENANT_NAME="tenant1"
 VALID_API_KEY="key1"
 INVALID_API_KEY="invalid-key"
 DEVICE_ID="dev1"
 DEVICE_NAME="Device 1"
+
+# Print usage/help
+usage() {
+    echo "Usage: $0 [db-config-path]"
+    echo "  Populate the database"
+    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/apis_config.json)"
+    exit 1
+}
+
+[[ $# -lt 1 ]] && usage
+
+# config file
+dbpath=${1:-"$CONFIG/apis_config.json"}
 
 # remember to init the db first 
 # - orion/db/init_db.sh - sqliet3 
