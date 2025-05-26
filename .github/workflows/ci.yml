@@ -168,16 +168,12 @@ jobs:
 
       # Build provisioner tarball
       - name: Build provisioner tarball
-        working-directory: ./provisioner
         run: |
           # sensor to connect with dev docker cloud; provisioning DB access via localhost
-          provisioner -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
-          provisioner -config=./config/provision-dev-config.json -db=../config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=../config/minio_config.json
-          ./create-tarball.sh provisioner
-          mc cp package.tar.gz myminio/provisioner/package.tar.gz
-          mc cp myminio/config/1/sensor-config.json .
-          ./create-tarball.sh sensor 1
-          mc cp sensor-provision.tar.gz myminio/sensor/1/sensor-provision.tar.gz
+          provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-tenant -tenant-name "tenant1"
+          provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio_config.json
+          create-tarball.sh provisioner config
+          create-tarball.sh sensor config 1
 
       # Build sensor image
       - name: Build sensor image

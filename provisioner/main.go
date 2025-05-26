@@ -110,6 +110,15 @@ func main() {
     if err := json.Unmarshal(configData, &config); err != nil {
         log.Fatalf("Failed to parse config file %s: %v", *configFile, err)
     }
+    if !filepath.IsAbs(config.SensorOutput) {
+        config.SensorOutput = filepath.Join("/tmp", config.SensorOutput)
+    }
+    if !filepath.IsAbs(config.UpdaterOutput) {
+        config.UpdaterOutput = filepath.Join("/tmp", config.UpdaterOutput)
+    }
+    if !filepath.IsAbs(config.UpdaterOutput) {
+        config.HndrOutput = filepath.Join("/tmp", config.HndrOutput)
+    }
 
     // Open and read the DB config file
     file, err := os.Open(*dbPath)
@@ -211,7 +220,7 @@ func main() {
         log.Printf("Generated %s successfully", config.SensorOutput)
 
         // Step 5: Generate updater-config.json
-        templateData, err := ioutil.ReadFile("./config/updater-config-template.json")
+        templateData, err := ioutil.ReadFile(filepath.Dir(*configFile)+"/updater-config-template.json")
         if err != nil {
             log.Fatalf("Failed to read updater template: %v", err)
         }
@@ -252,6 +261,14 @@ func main() {
             log.Fatalf("minIO upload failed: %v", err)
         }
         log.Printf("Sensor config uploaded successfully")
+
+	// write other configs to minio
+        err = mc.UploadObject("provisioner", filepath.Base(config.UpdaterOutput), config.UpdaterOutput)
+        if err != nil {
+        err = mc.UploadObject("provisioner", filepath.Base(config.UpdaterOutput), config.UpdaterOutput)
+            log.Fatalf("minIO upload failed: %v", err)
+        }
+        log.Printf("Provsioner config uploaded successfully")
 
     default:
         fmt.Printf("Error: Unknown operation: %s\n", *op)

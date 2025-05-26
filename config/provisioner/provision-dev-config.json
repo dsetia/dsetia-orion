@@ -1,0 +1,8 @@
+{
+    "api_server_url": "https://localhost/",
+    "api_server_port": 443,
+    "certificate_verify_skip": false,
+    "sensor_output": "sensor-config.json",
+    "updater_output": "updater-config.json",
+    "hndr_output": "hndr-config.json"
+}
