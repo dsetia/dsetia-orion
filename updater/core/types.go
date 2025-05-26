@@ -22,6 +22,7 @@ type UpdaterConfig struct {
     FolderTwo             string `json:"folder_two"`
     RulesFolder           string `json:"rules_folder"`
     IDSServiceName        string `json:"ids_service_name"`
+    HndrCfgFile           string `json:"hndr_config_file"`
     ScratchFolder         string `json:"scratch_folder"`
     APIServerURL          string `json:"api_server_url"`
     APIServerPort         int    `json:"api_server_port"`

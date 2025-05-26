@@ -6,6 +6,7 @@
     "folder_two": "/tmp/hndr-2",
     "rules_folder": "var/lib/suricata/rules",
     "ids_service_name": "hndr",
+    "hndr_config_file": "var/lib/suricata/suricata.yaml",
     "scratch_folder": "/tmp",
     "hndr_symlink": "/tmp/hndr",
     "api_server_url": "https://localhost",
