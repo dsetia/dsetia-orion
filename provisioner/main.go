@@ -255,12 +255,12 @@ func main() {
 	if err != nil {
             log.Fatalf("Failed to initialize MinIO client: %v", err)
 	}
-	var bucketPath = strconv.FormatInt(tenantID, 10) + "/" + filepath.Base(config.SensorOutput)
+	var bucketPath = strconv.FormatInt(tenantID, 10) + "/" + finalDeviceID + "/" + filepath.Base(config.SensorOutput)
         err = mc.UploadObject("config", bucketPath, config.SensorOutput)
         if err != nil {
             log.Fatalf("minIO upload failed: %v", err)
         }
-        log.Printf("Sensor config uploaded successfully")
+        fmt.Printf("Sensor config uploaded at %s for device=%s", bucketPath, finalDeviceID)
 
 	// write other configs to minio
         err = mc.UploadObject("provisioner", filepath.Base(config.UpdaterOutput), config.UpdaterOutput)

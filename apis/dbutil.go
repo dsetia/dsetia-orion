@@ -198,7 +198,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
         return "", fmt.Errorf("failed to check device: %w", err)
     }
     if deviceID == "" {
-        deviceID = "dev-" + uuid.New().String()[:8]
+        deviceID = uuid.New().String()[:8]
     }
     _, err = db.Exec(`
         INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)
@@ -266,7 +266,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
         return "", fmt.Errorf("failed to check API key: %w", err)
     }
     if apiKey == "" {
-        apiKey = "key-" + uuid.New().String()
+        apiKey = uuid.New().String()
     }
     _, err = db.Exec(`
         INSERT INTO api_keys (api_key, tenant_id, device_id, is_active, created_at)

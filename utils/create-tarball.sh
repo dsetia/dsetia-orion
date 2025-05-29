@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
+set -eo pipefail
 
 # Constants
 SENSOR_PKG="sensor-provision.tar.gz"
@@ -17,11 +17,12 @@ SUPERVISOR_DIR="$CONFIG_DIR/supervisor"
 
 # Print usage/help
 usage() {
-    echo "Usage: $0 {sensor|provisioner} [cfg-dir] [tenant-id]"
+    echo "Usage: $0 {sensor|provisioner} [cfg-dir] [tenant-id] [device-id]"
     echo "  sensor: Build sensor package"
     echo "  provisioner: Build provisioner package"
     echo "  cfg-dir: Name of config directory"
-    echo "  tenant-id: Tenant ID for sensor config (default: 1)"
+    echo "  tenant-id: Tenant ID for sensor (default: 1)"
+    echo "  device-id: Device ID for sensor"
     exit 1
 }
 
@@ -78,6 +79,16 @@ setup_minio_alias() {
 validate_tenant_id() {
     if ! [[ "$TENANT_ID" =~ ^[0-9]+$ ]] || [[ "$TENANT_ID" -le 0 ]]; then
         error "Invalid tenant ID '$TENANT_ID'; must be a positive integer"
+    fi
+}
+
+# Validate device ID
+validate_device_id() {
+    if [ -z "$DEVICE_ID" ]; then
+        error "Missing device ID"
+    fi
+    if ! [[ "$DEVICE_ID" =~ ^[a-zA-Z0-9]+$ ]]; then
+        error "Invalid device ID '$DEVICE_ID'"
     fi
 }
 
@@ -156,7 +167,7 @@ build_sensor_package() {
 
     # Download tenant-specific sensor config
     local sensor_config="sensor-config.json"
-    if ! mc cp "$MINIO_ALIAS/config/$TENANT_ID/$sensor_config" "sensor-provision/$sensor_config" &>/dev/null; then
+    if ! mc cp "$MINIO_ALIAS/config/$TENANT_ID/$DEVICE_ID/$sensor_config" "sensor-provision/$sensor_config" &>/dev/null; then
         error "Failed to download sensor-config.json for tenant $TENANT_ID from MinIO"
     fi
 
@@ -165,10 +176,10 @@ build_sensor_package() {
     log "INFO" "Sensor tarball created at $SENSOR_PKG"
 
     # Upload to MinIO
-    if ! mc cp "$SENSOR_PKG" "$MINIO_ALIAS/sensor/$TENANT_ID/$SENSOR_PKG" &>/dev/null; then
+    if ! mc cp "$SENSOR_PKG" "$MINIO_ALIAS/sensor/$TENANT_ID/$DEVICE_ID/$SENSOR_PKG" &>/dev/null; then
         error "Failed to upload $SENSOR_PKG to MinIO at $MINIO_ALIAS/sensor/$TENANT_ID/$SENSOR_PKG"
     fi
-    log "INFO" "Sensor tarball uploaded to MinIO at sensor/$TENANT_ID/$SENSOR_PKG"
+    log "INFO" "Sensor tarball uploaded to MinIO at sensor/$TENANT_ID/$DEVICE_ID/$SENSOR_PKG"
 
     # Clean up
     cd - >/dev/null || error "Failed to return to original directory"
@@ -183,6 +194,8 @@ validate_tenant_id
 
 case "$1" in
     sensor)
+        DEVICE_ID=${4:-""}
+        validate_device_id
         build_sensor_package
         ;;
     provisioner)
