@@ -3,7 +3,7 @@ set -e
 
 # Print usage/help
 usage() {
-    echo "Usage: $0 [tenant-name] [device-name]"
+    echo "Usage: $0 [tenant-name] [device-name] [top-level-cfg-dir]"
     echo "  Test deployment for specific tenant and device"
     echo "  tenant-name (default tenant1)"
     echo "  device-name (default dev1)"

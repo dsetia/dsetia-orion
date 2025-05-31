@@ -150,7 +150,7 @@ build_provisioner_package() {
 
 # Build sensor package
 build_sensor_package() {
-    log "INFO" "Building sensor package"
+    log "INFO" "Building sensor package for $TENANT_ID/$DEVICE_ID"
 
     # Clean up temporary directory
     rm -rf "$TMP_DIR" || error "Failed to clean up $TMP_DIR"
