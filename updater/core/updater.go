@@ -18,30 +18,13 @@ import (
     "compress/gzip"
     "errors"
     "io"
-    "io/fs"
     "log"
     "os"
     "os/exec"
+    "orion/common"
     "path/filepath"
     "strings"
 )
-
-// File Stat
-func FileExists(file string) error {
-    fileInfo, err := os.Stat(file)
-    if err != nil {
-        log.Printf("Error: stat file %s: %w", file, err)
-        var pathError *fs.PathError
-        if errors.As(err, &pathError) {
-            log.Println("Operation:", pathError.Op)
-            log.Println("Path:", pathError.Path)
-            log.Println("Error:", pathError.Err)
-        }
-        return err
-    }
-    log.Printf("File '%s' exits, with permissions '%o'", file, fileInfo.Mode().Perm())
-    return nil
-}
 
 // ExtractTarGz extracts a .tar.gz file to a specified directory.
 func ExtractTarGz(tarGzPath, destDir string) error {
@@ -80,25 +63,13 @@ func ExtractTarGz(tarGzPath, destDir string) error {
             err = os.MkdirAll(target, 0755)
             if err != nil {
                 log.Printf("Error: creating directory %s: %w", target, err)
-                var pathError *fs.PathError
-                if errors.As(err, &pathError) {
-                    log.Println("Operation:", pathError.Op)
-                    log.Println("Path:", pathError.Path)
-                    log.Println("Error:", pathError.Err)
-                }
+                common.DescriptiveError(err)
                 return err
             }
         case tar.TypeReg:
             log.Printf("Creating file %s", target)
-            outFile, err := os.Create(target)
+            outFile, err := common.FileCreate(target)
             if err != nil {
-                log.Printf("Error: creating file %s: %w", target, err)
-                var pathError *fs.PathError
-                if errors.As(err, &pathError) {
-                    log.Println("Operation:", pathError.Op)
-                    log.Println("Path:", pathError.Path)
-                    log.Println("Error:", pathError.Err)
-                }
                 return err
             }
             defer outFile.Close()
@@ -107,56 +78,29 @@ func ExtractTarGz(tarGzPath, destDir string) error {
             _, err = io.Copy(outFile, tarReader)
             if err != nil {
                 log.Printf("Error: writing file %s: %w", target, err)
-                var pathError *fs.PathError
-                if errors.As(err, &pathError) {
-                    log.Println("Operation:", pathError.Op)
-                    log.Println("Path:", pathError.Path)
-                    log.Println("Error:", pathError.Err)
-                }
+                common.DescriptiveError(err)
                 return err
             }
 
             if strings.Contains(target, "bin/suricata") {
-                filePermissions := os.FileMode(0755)
                 log.Printf("Change file permissions %s", target)
-                err = os.Chmod(target, filePermissions)
+                err = common.FileChmod(target, 0755)
                 if err != nil {
-                    log.Printf("Error: chmod file %s: %w", target, err)
-                    var pathError *fs.PathError
-                    if errors.As(err, &pathError) {
-                        log.Println("Operation:", pathError.Op)
-                        log.Println("Path:", pathError.Path)
-                        log.Println("Error:", pathError.Err)
-                    }
                     return err
                 }
-                log.Printf("Permissions for '%s' changed to %o", target, filePermissions)
 
                 // Verify the change
-                fileInfo, ferr := os.Stat(target)
-                if ferr != nil {
-                    log.Printf("Error: stat file %s: %w", target, ferr)
-                    var pathError *fs.PathError
-                    if errors.As(ferr, &pathError) {
-                        log.Println("Operation:", pathError.Op)
-                        log.Println("Path:", pathError.Path)
-                        log.Println("Error:", pathError.Err)
-                    }
-                    return ferr
+                err = common.FileExists(target)
+                if err != nil {
+                    return err
                 }
-                log.Printf("Current permissions for '%s': %o", target, fileInfo.Mode().Perm())
             }
 
         case tar.TypeSymlink:
             err = os.Symlink(header.Linkname, target)
             if err != nil {
                 log.Printf("creating symlink %s -> %s: %w", target, header.Linkname, err)
-                var pathError *fs.PathError
-                if errors.As(err, &pathError) {
-                    log.Println("Operation:", pathError.Op)
-                    log.Println("Path:", pathError.Path)
-                    log.Println("Error:", pathError.Err)
-                }
+                common.DescriptiveError(err)
                 return err
             }
         }
@@ -379,7 +323,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
         return status, err
     }
 
-    err = FileExists(folderToDeploy + "/" + config.HndrCfgFile)
+    err = common.FileExists(folderToDeploy + "/" + config.HndrCfgFile)
     if err != nil {
         // Configuration file suricata.yaml doesn't exists, so don't try
         // restart the hNDR service.  When the configuration file updated
