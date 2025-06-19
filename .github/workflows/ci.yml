@@ -173,7 +173,7 @@ jobs:
           OUTPUT=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-tenant -tenant-name "tenant1")
           ODEVID=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio_config.json)
           TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
-          DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9]+' | cut -d= -f2)
+          DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
           create-tarball.sh provisioner config
           create-tarball.sh sensor config $TENANT_ID $DEVICE_ID
           mc cp myminio/sensor/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz provisioner/

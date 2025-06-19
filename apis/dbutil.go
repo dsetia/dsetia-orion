@@ -198,7 +198,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
         return "", fmt.Errorf("failed to check device: %w", err)
     }
     if deviceID == "" {
-        deviceID = uuid.New().String()[:8]
+        deviceID = uuid.New().String()
     }
     _, err = db.Exec(`
         INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)

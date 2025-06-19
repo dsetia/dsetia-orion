@@ -97,7 +97,7 @@ validate_device_id() {
     if [ -z "$DEVICE_ID" ]; then
         error "Missing device ID"
     fi
-    if ! [[ "$DEVICE_ID" =~ ^[a-zA-Z0-9]+$ ]]; then
+    if ! [[ "$DEVICE_ID" =~ ^[a-zA-Z0-9-]+$ ]]; then
         error "Invalid device ID '$DEVICE_ID'"
     fi
 }

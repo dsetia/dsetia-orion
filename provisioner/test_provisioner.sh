@@ -70,7 +70,7 @@ ODEVID=$(provisioner -config=$CFG_DIR/provisioner/provision-config.json -db=$CFG
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
 echo "$ODEVID"
-DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9]+' | cut -d= -f2)
+DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
 
 # echo "Uploading images to minio"
 objupdater -type software -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio_config.json -file ../minio/hndr-sw-v1.2.3.tar.gz
