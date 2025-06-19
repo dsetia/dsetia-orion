@@ -15,8 +15,8 @@ set -e
 # followed by launching hndr and updater services
 
 # Create directories from updater-config.json
-mkdir -p /opt/hndr-1
-mkdir -p /opt/hndr-2
+mkdir -p /opt/hndr-1/bin
+mkdir -p /opt/hndr-2/bin
 ln -sf /opt/hndr-1 /opt/hndr
 mkdir -p /var/lib/suricata/rules
 mkdir -p /var/log/suricata /var/log/updater
@@ -46,26 +46,31 @@ if ! command -v supervisorctl &> /dev/null; then
     sudo dnf install -y supervisor
 fi
 
+# install other dependencies
+if [ ! -f /.dockerenv ]; then
+    sudo dnf install -y libnet hyperscan
+fi
+
 # Move files
 ls -l
-mv sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
-mv updater /opt/updater/bin/
-mv suricata /opt/hndr/bin/
-mv suricata.yaml /opt/hndr/var/lib/suricata/
+cp sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
+cp updater /opt/updater/bin/
+cp suricata /opt/hndr/bin/
+cp suricata.yaml /opt/hndr/var/lib/suricata/
 
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"
 if [ ! -f /.dockerenv ]; then
     CONFIG_DIR="/etc/supervisord.d"
     mkdir -p "$CONFIG_DIR"
-    mv updater.conf "$CONFIG_DIR/updater.ini"
-    mv hndr.conf "$CONFIG_DIR/hndr.ini"
+    cp updater.conf "$CONFIG_DIR/updater.ini"
+    cp hndr.conf "$CONFIG_DIR/hndr.ini"
     # Ensure permissions
     chmod 644 "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini"
     chown root:root "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini"
 else
     mkdir -p "$CONFIG_DIR"
-    mv updater.conf hndr.conf "$CONFIG_DIR/"
+    cp updater.conf hndr.conf "$CONFIG_DIR/"
 fi
 
 wait_for_running() {

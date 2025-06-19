@@ -176,7 +176,7 @@ jobs:
           DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
           create-tarball.sh provisioner config
           create-tarball.sh sensor config $TENANT_ID $DEVICE_ID
-          mc cp myminio/sensor/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz provisioner/
+          curl -k https://localhost/v1/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz -o provisioner/sensor-provision.tar.gz
 
       # Build sensor image
       - name: Build sensor image
