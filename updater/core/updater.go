@@ -109,6 +109,10 @@ func ExtractTarGz(tarGzPath, destDir string) error {
     return nil
 }
 
+func DeleteFile(swFilePath string) {
+    common.FileRemove(swFilePath)
+}
+
 func GetRealPath(symlinkPath string) (string, error) {
     realPath, err := filepath.EvalSymlinks(symlinkPath)
     if err != nil {
@@ -228,7 +232,7 @@ func WriteToFile(content []byte, filepath string) error {
 }
 
 func RemoveUpdateLock(filePath string) error {
-    err := os.Remove(filePath)
+    err := common.FileRemove(filePath)
     if err != nil {
         log.Println("Error removing update lock:", err)
     }
@@ -273,6 +277,8 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     }
 
     swFilepath := config.ScratchFolder + "/" + fileName
+    // Set a defer to remove file
+    defer DeleteFile(swFilepath)
     log.Println("Writing downloaded artifacts at:", swFilepath)
     err = WriteToFile(content, swFilepath)
     if err != nil {
@@ -374,6 +380,8 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
     }
 
     swFilepath := config.ScratchFolder + "/" + fileName
+    // Set a defer to remove file
+    defer DeleteFile(swFilepath)
     log.Println("Writing downloaded artifacts at:", swFilepath)
     err = WriteToFile(content, swFilepath)
     if err != nil {
