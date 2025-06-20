@@ -64,3 +64,14 @@ func FileExists(file string) error {
     log.Printf("File '%s' exits, with permissions '%o'", file, fileInfo.Mode().Perm())
     return nil
 }
+
+// File Remove
+func FileRemove(file string) error {
+    err := os.Remove(file)
+    if err != nil {
+        log.Printf("Error: remove file %s: %w", file, err)
+        DescriptiveError(err)
+        return err
+    }
+    return nil
+}
