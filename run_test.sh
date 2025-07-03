@@ -13,7 +13,7 @@
 
 CONFIG_DIR="config"
 DBPATH=${1:-"$CONFIG_DIR/db_dev_config.json"}
-MINIO_PATH=${1:-"$CONFIG_DIR/minio_config.json"}
+MINIO_PATH=${1:-"$CONFIG_DIR/minio.json"}
 
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
@@ -27,7 +27,7 @@ INVALID_API_KEY="invalid-key"
 TEST_FILE_IMAGE="software/hndr-sw-v1.2.3.tar.gz"
 TEST_FILE_THREATINTEL="threatintel/threatintel-2025.04.10.1523.tar.gz"
 
-MINIO_CONFIG_FILE="config/minio_config.json"
+MINIO_CONFIG_FILE="config/minio.json"
 minioadminuser=$(jq -r '.user' "$MINIO_CONFIG_FILE")
 minioadminpass=$(jq -r '.password' "$MINIO_CONFIG_FILE")
 

@@ -9,8 +9,6 @@
     "hndr_config_file": "var/lib/suricata/suricata.yaml",
     "scratch_folder": "/tmp",
     "hndr_symlink": "/opt/hndr",
-    "api_server_url": "https://localhost",
-    "api_server_port": 443,
     "certificate_verify_skip": true,
     "poll_interval_mins": 10,
     "api_server_timeout": 10,

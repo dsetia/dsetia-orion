@@ -62,4 +62,4 @@ cd provisioner
 
 # build sensor package and upload to minio bucket "sensor"
 # tenant ID is required
-./deploy.sh sensor ../config/minio_config.json 1
+./deploy.sh sensor ../config/minio.json 1

@@ -93,8 +93,8 @@ jobs:
           # init and populate DB from outside the docker network
           init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
           populate_db.sh config/db_dev_config.json <<< "y"
-          init_minio.sh config/minio_config.json <<< "y"
-          populate_minio.sh config/db_dev_config.json config/minio_config.json minio <<< "y"
+          init_minio.sh config/minio.json <<< "y"
+          populate_minio.sh config/db_dev_config.json config/minio.json minio <<< "y"
           ./run_test.sh
 
       # Upload test log for debugging
@@ -163,15 +163,15 @@ jobs:
           # init and populate DB from outside the docker network
           init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
           populate_db.sh config/db_dev_config.json <<< "y"
-          init_minio.sh config/minio_config.json <<< "y"
-          populate_minio.sh config/db_dev_config.json config/minio_config.json minio <<< "y"
+          init_minio.sh config/minio.json <<< "y"
+          populate_minio.sh config/db_dev_config.json config/minio.json minio <<< "y"
 
       # Build provisioner tarball
       - name: Build provisioner tarball
         run: |
           # sensor to connect with dev docker cloud; provisioning DB access via localhost
           OUTPUT=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-tenant -tenant-name "tenant1")
-          ODEVID=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio_config.json)
+          ODEVID=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio.json)
           TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
           DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
           create-tarball.sh provisioner config

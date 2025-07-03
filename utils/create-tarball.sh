@@ -22,7 +22,7 @@ BIN_DIR="/usr/local/bin"
 # Default parameters
 CONFIG_DIR=${2:-"../config"}
 TENANT_ID=${3:-"1"}
-MINIO_CONFIG=$CONFIG_DIR/minio_config.json
+MINIO_CONFIG=$CONFIG_DIR/minio.json
 SUPERVISOR_DIR="$CONFIG_DIR/supervisor"
 
 # Print usage/help

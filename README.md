@@ -35,3 +35,4 @@ Commands
 
 # nomal testing with run_test.sh. This will use pgdb postgres DB meant for "cloud" simulation
 ./launch.sh
+

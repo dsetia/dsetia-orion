@@ -11,13 +11,13 @@
 # This software is proprietary and confidential.
 
 CONFIG_DIR="config"
-MINIO_CONFIG_FILE=${1:-"$CONFIG_DIR/minio_config.json"}
+MINIO_CONFIG_FILE=${1:-"$CONFIG_DIR/minio.json"}
 
 # Print usage/help
 usage() {
     echo "Usage: $0 [minio-config-path]"
     echo "  Cleanup minio store"
-    echo "  minio-config-path: Path to Minio config (default: $CONFIG_DIR/minio_config.sql)"
+    echo "  minio-config-path: Path to Minio config (default: $CONFIG_DIR/minio.json)"
     exit 1
 }
 

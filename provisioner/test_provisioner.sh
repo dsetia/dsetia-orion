@@ -65,7 +65,7 @@ mkdir -p "$LOG_DIR" "$LOG_DIR/suricata" "$LOG_DIR/updater"
 
 echo "Provisioning tenant and sensor"
 OUTPUT=$(provisioner -config=$CFG_DIR/provisioner/provision-config.json -db=$CFG_DIR/db_dev_config.json -op provision-tenant -tenant-name "$TENANT_NAME")
-ODEVID=$(provisioner -config=$CFG_DIR/provisioner/provision-config.json -db=$CFG_DIR/db_dev_config.json -op provision-sensor -tenant-name "$TENANT_NAME" --device-name "$DEVICE_NAME" -minio=$CFG_DIR/minio_config.json)
+ODEVID=$(provisioner -config=$CFG_DIR/provisioner/provision-config.json -db=$CFG_DIR/db_dev_config.json -op provision-sensor -tenant-name "$TENANT_NAME" --device-name "$DEVICE_NAME" -minio=$CFG_DIR/minio.json)
 
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
@@ -73,9 +73,9 @@ echo "$ODEVID"
 DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
 
 # echo "Uploading images to minio"
-objupdater -type software -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio_config.json -file ../minio/hndr-sw-v1.2.3.tar.gz
-objupdater -type rules -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio_config.json -file ../minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
-objupdater -type threatintel -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio_config.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
+objupdater -type software -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-sw-v1.2.3.tar.gz
+objupdater -type rules -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
+objupdater -type threatintel -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
 # Build and upload provisioner and sensor tarball
 echo "Building provisioner packages"
