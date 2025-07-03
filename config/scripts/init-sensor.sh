@@ -56,7 +56,6 @@ ls -l
 cp sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
 cp updater /opt/updater/bin/
 cp suricata /opt/hndr/bin/
-cp suricata.yaml /opt/hndr/var/lib/suricata/
 
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"

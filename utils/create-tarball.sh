@@ -109,7 +109,6 @@ build_provisioner_package() {
     # Validate input files
     local files=(
         "$CONFIG_DIR/provisioner/hndr-config.json"
-        "$CONFIG_DIR/provisioner/suricata.yaml"
         "$BIN_DIR/updater"
         "$CONFIG_DIR/scripts/init-sensor.sh"
         "$SUPERVISOR_DIR/updater.conf"
@@ -140,9 +139,6 @@ build_provisioner_package() {
     cp "$SUPERVISOR_DIR/updater.conf" "$SUPERVISOR_DIR/hndr.conf" "$TMP_DIR/sensor-provision/" || error "Failed to copy supervisor configs"
     cp "$CONFIG_DIR/scripts/hello_world.sh" "$TMP_DIR/sensor-provision/suricata" || error "Failed to copy dummy Suricata binary"
     cp "$CONFIG_DIR/scripts/test_deployment.sh" "$CONFIG_DIR/scripts/clean_deployment.sh" "$TMP_DIR/sensor-provision/" || error "Failed to copy deployment scripts"
-
-    # Copy Suricata config
-    cp "$CONFIG_DIR/provisioner/suricata.yaml" "$TMP_DIR/sensor-provision/" || error "Failed to copy Suricata config"
 
     # Set permissions
     chmod +x "$TMP_DIR/sensor-provision/init-sensor.sh" || error "Failed to set executable permission on init-sensor.sh"
