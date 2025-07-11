@@ -42,7 +42,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ./config/apis_config.json:/app/config.json
+      - ./config/db.json:/app/config.json
     command: ./apis
     networks:
       - securite-net

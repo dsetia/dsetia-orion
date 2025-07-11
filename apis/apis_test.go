@@ -39,7 +39,7 @@ func loadDBConfig(path string) (common.DBConfig, error) {
 
 func cleanupTestDB(t *testing.T) {
     t.Helper()
-    cfg, err := loadDBConfig("../config/apis_config.json")
+    cfg, err := loadDBConfig("../config/db.json")
     if err != nil {
         t.Fatalf("Failed to load config: %v", err)
     }
@@ -58,7 +58,7 @@ func cleanupTestDB(t *testing.T) {
 
 func setupTestDB(t *testing.T) *DB {
     t.Helper()
-    cfg, err := loadDBConfig("../config/apis_config.json")
+    cfg, err := loadDBConfig("../config/db.json")
     if err != nil {
         t.Fatalf("Failed to load config: %v", err)
     }

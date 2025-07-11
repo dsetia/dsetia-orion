@@ -13,14 +13,14 @@
 # config file
 CONFIG_DIR="config"
 DB_DIR="db"
-CONFIG_FILE=${1:-"$CONFIG_DIR/apis_config.json"}
+CONFIG_FILE=${1:-"$CONFIG_DIR/db.json"}
 SCHEMA_FILE=${2:-"$DB_DIR/schema_pg.sql"}
 
 # Print usage/help
 usage() {
     echo "Usage: $0 [db-config-path] [db-schema-path]"
     echo "  Drop and reinitialize the database"
-    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/apis_config.json)"
+    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/db.json)"
     echo "  db-schema-path: Path to DB schema SQL (default: $DB_DIR/schema_pg.sql)"
     exit 1
 }

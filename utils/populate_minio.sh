@@ -11,7 +11,7 @@
 # This software is proprietary and confidential.
 
 CONFIG_DIR="config"
-DB_CONFIG_FILE=${1:-"$CONFIG_DIR/apis_config.json"}
+DB_CONFIG_FILE=${1:-"$CONFIG_DIR/db.json"}
 MINIO_CONFIG_FILE=${2:-"$CONFIG_DIR/minio.json"}
 MINIO_SRC_DIR=${3:-"$CONFIG_DIR/minio"}
 
@@ -19,7 +19,7 @@ MINIO_SRC_DIR=${3:-"$CONFIG_DIR/minio"}
 usage() {
     echo "Usage: $0 [db-config-path] [minio-config-path] [minio-src-dir"
     echo "  Initialize minio store"
-    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/apis_config.json)"
+    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/db.json)"
     echo "  minio-config-path: Path to Minio config (default: $CONFIG_DIR/minio.sql)"
     echo "  minio-src-dir: Path to Minio src dir (default: $CONFIG_DIR/minio)"
     exit 1

@@ -23,14 +23,14 @@ DEVICE_NAME="Device 1"
 usage() {
     echo "Usage: $0 [db-config-path]"
     echo "  Populate the database"
-    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/apis_config.json)"
+    echo "  db-config-path: Path to DB config JSON (default: $CONFIG_DIR/db.json)"
     exit 1
 }
 
 [[ $# -lt 1 ]] && usage
 
 # config file
-dbpath=${1:-"$CONFIG/apis_config.json"}
+dbpath=${1:-"$CONFIG/db.json"}
 
 # remember to init the db first 
 # - orion/db/init_db.sh - sqliet3 
