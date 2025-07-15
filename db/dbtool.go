@@ -72,12 +72,12 @@ func main() {
         fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
         fmt.Println("  insert-tenant, validate-tenant, list-tenants, delete-tenant")
-        fmt.Println("  insert-device, validate-device, list-devices")
-        fmt.Println("  insert-api-key, validate-api-key, list-api-keys")
+        fmt.Println("  insert-device, validate-device, list-devices, delete-device")
+        fmt.Println("  insert-api-key, validate-api-key, list-api-keys, delete-api-key")
         fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw, delete-hndr-sw")
-        fmt.Println("  insert-hndr-rules, validate-hndr-rules, list-hndr-rules")
-        fmt.Println("  insert-threat-intel, validate-threat-intel, list-threat-intel")
-        fmt.Println("  insert-status, list-status")
+        fmt.Println("  insert-hndr-rules, validate-hndr-rules, list-hndr-rules, delete-hndr-rules")
+        fmt.Println("  insert-threat-intel, validate-threat-intel, list-threat-intel, delete-threat-intel")
+        fmt.Println("  insert-status, list-status, delete-status")
         os.Exit(1)
     }
 
@@ -385,6 +385,67 @@ func main() {
             fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s\n",
                 d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel)
         }
+
+    // missing delete operations
+    case "delete-device":
+        if *deviceID == "" || *tenantID == 0 {
+            fmt.Println("Error: -device-id and -tenant-id are required for delete-device")
+            os.Exit(1)
+        }
+        err := db.DeleteDevice(*deviceID, *tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Device %s deleted for tenant %d\n", *deviceID, *tenantID)
+
+    case "delete-api-key":
+        if *apiKey == "" {
+            fmt.Println("Error: -api-key is required for delete-api-key")
+            os.Exit(1)
+        }
+        err := db.DeleteAPIKey(*apiKey)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("API key %s deleted\n", *apiKey)
+
+    case "delete-hndr-rules":
+        if *tenantID == 0 || *rulesVersion == "" {
+            fmt.Println("Error: -tenant-id and -rules-version are required for delete-hndr-rules")
+            os.Exit(1)
+        }
+        err := db.DeleteHndrRules(*tenantID, *rulesVersion)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("HndrRules version %s deleted for tenant %d\n", *rulesVersion, *tenantID)
+
+    case "delete-threat-intel":
+        if *tiVersion == "" {
+            fmt.Println("Error: -ti-version is required for delete-threat-intel")
+            os.Exit(1)
+        }
+        err := db.DeleteThreatIntel(*tiVersion)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("ThreatIntel version %s deleted\n", *tiVersion)
+
+    case "delete-status":
+        if *deviceID == "" || *tenantID == 0 {
+            fmt.Println("Error: -device-id and -tenant-id are required for delete-status")
+            os.Exit(1)
+        }
+        err := db.DeleteStatus(*deviceID, *tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Status deleted for device %s and tenant %d\n", *deviceID, *tenantID)
 
     default:
         fmt.Printf("Error: Unknown operation: %s\n", *op)

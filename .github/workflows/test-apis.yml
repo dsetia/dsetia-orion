@@ -60,15 +60,26 @@ jobs:
           psql -h localhost -p 5432 -U pguser -d pgdb -c "CREATE DATABASE testdb;"
 
       # Run tests with coverage
-      - name: Run tests with coverage
+      - name: Run tests with coverage for apis
         working-directory: ./apis
         run: go test -v -coverprofile=coverage.out ./...
 
-      - name: Upload coverage
+      - name: Upload coverage for apis
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: coverage-report-apis
           path: apis/coverage.out
+
+      # Run DB tests with coverage
+      - name: Run DB tests with coverage for db
+        working-directory: ./db
+        run: go test -v -coverprofile=coverage.out ./...
+
+      - name: Upload coverage for db
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-db
+          path: db/coverage.out
 
       # Optional: Cache Go modules for faster future runs
       - name: Cache Go modules

@@ -636,3 +636,110 @@ func (db *DB) ListStatus() ([]Status, error) {
     return ti, nil
 }
 
+// DeleteDevice deletes a device by ID and tenant ID
+func (db *DB) DeleteDevice(deviceID string, tenantID int64) error {
+    exists, err := db.ValidateDevice(deviceID, tenantID)
+    if err != nil {
+        return fmt.Errorf("failed to validate device: %w", err)
+    }
+    if !exists {
+        return fmt.Errorf("device %s for tenant %d does not exist", deviceID, tenantID)
+    }
+    result, err := db.Exec("DELETE FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID)
+    if err != nil {
+        return fmt.Errorf("failed to delete device: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if device was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no device found with ID %s for tenant %d", deviceID, tenantID)
+    }
+    return nil
+}
+
+// DeleteAPIKey deletes an API key
+func (db *DB) DeleteAPIKey(apiKey string) error {
+    result, err := db.Exec("DELETE FROM api_keys WHERE api_key = $1", apiKey)
+    if err != nil {
+        return fmt.Errorf("failed to delete API key: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if API key was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no API key found with key %s", apiKey)
+    }
+    return nil
+}
+
+// DeleteHndrRules deletes a rule version for a tenant
+func (db *DB) DeleteHndrRules(tenantID int64, version string) error {
+    exists, err := db.ValidateHndrRules(tenantID, version)
+    if err != nil {
+        return fmt.Errorf("failed to validate hndr_rules: %w", err)
+    }
+    if !exists {
+        return fmt.Errorf("rules version %s for tenant %d does not exist", version, tenantID)
+    }
+    result, err := db.Exec("DELETE FROM hndr_rules WHERE tenant_id = $1 AND version = $2", tenantID, version)
+    if err != nil {
+        return fmt.Errorf("failed to delete hndr_rules: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if hndr_rules was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no rules found with version %s for tenant %d", version, tenantID)
+    }
+    return nil
+}
+
+// DeleteThreatIntel deletes a threat intelligence version
+func (db *DB) DeleteThreatIntel(version string) error {
+    exists, err := db.ValidateThreatIntel(version)
+    if err != nil {
+        return fmt.Errorf("failed to validate threatintel: %w", err)
+    }
+    if !exists {
+        return fmt.Errorf("threatintel version %s does not exist", version)
+    }
+    result, err := db.Exec("DELETE FROM threatintel WHERE version = $1", version)
+    if err != nil {
+        return fmt.Errorf("failed to delete threatintel: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if threatintel was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no threatintel found with version %s", version)
+    }
+    return nil
+}
+
+// DeleteStatus deletes a status entry for a device and tenant
+func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
+    exists, err := db.ValidateDevice(deviceID, tenantID)
+    if err != nil {
+        return fmt.Errorf("failed to validate device: %w", err)
+    }
+    if !exists {
+        return fmt.Errorf("device %s for tenant %d does not exist", deviceID, tenantID)
+    }
+    result, err := db.Exec("DELETE FROM status WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID)
+    if err != nil {
+        return fmt.Errorf("failed to delete status: %w", err)
+    }
+    rowsAffected, err := result.RowsAffected()
+    if err != nil {
+        return fmt.Errorf("failed to determine if status was deleted: %w", err)
+    }
+    if rowsAffected == 0 {
+        return fmt.Errorf("no status found for device %s and tenant %d", deviceID, tenantID)
+    }
+    return nil
+}
