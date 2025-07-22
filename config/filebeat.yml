@@ -1,0 +1,34 @@
+filebeat.inputs:
+  - type: filestream
+    id: suricata-eve
+    enabled: true
+    paths:
+      - /var/log/suricata/eve.json
+    parsers:
+      - ndjson:
+          overwrite_keys: true
+    fields_under_root: true
+    fields:
+      dataset: hndr.eve
+      type: log
+      namespace: default
+
+output.elasticsearch:
+  hosts: ["https://elastichost:9200"]
+  api_key: "id:API-Key"
+  ssl:
+    verification_mode: full
+    certificate_authorities: ["/etc/filebeat/certs/ca.crt"]
+
+
+setup.ilm.enabled: true
+setup.template.enabled: true
+setup.template.type: "data_stream"
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644

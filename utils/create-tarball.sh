@@ -116,6 +116,7 @@ build_provisioner_package() {
         "$CONFIG_DIR/scripts/hello_world.sh" # Dummy Suricata binary
         "$CONFIG_DIR/scripts/test_deployment.sh"
         "$CONFIG_DIR/scripts/clean_deployment.sh"
+        "$CONFIG_DIR/filebeat.yml"
     )
     for file in "${files[@]}"; do
         if [[ ! -f "$file" ]]; then
@@ -139,6 +140,7 @@ build_provisioner_package() {
     cp "$SUPERVISOR_DIR/updater.conf" "$SUPERVISOR_DIR/hndr.conf" "$TMP_DIR/sensor-provision/" || error "Failed to copy supervisor configs"
     cp "$CONFIG_DIR/scripts/hello_world.sh" "$TMP_DIR/sensor-provision/suricata" || error "Failed to copy dummy Suricata binary"
     cp "$CONFIG_DIR/scripts/test_deployment.sh" "$CONFIG_DIR/scripts/clean_deployment.sh" "$TMP_DIR/sensor-provision/" || error "Failed to copy deployment scripts"
+    cp "$CONFIG_DIR/filebeat.yml" "$TMP_DIR/sensor-provision/" || error "Failed to copy filebeat.yml"
 
     # Set permissions
     chmod +x "$TMP_DIR/sensor-provision/init-sensor.sh" || error "Failed to set executable permission on init-sensor.sh"

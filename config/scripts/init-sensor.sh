@@ -46,6 +46,17 @@ if ! command -v supervisorctl &> /dev/null; then
     sudo dnf install -y supervisor
 fi
 
+# Install filebeat (if not already installed)
+if [ ! -f /.dockerenv ]; then
+  if ! command -v filebeat &> /dev/null; then
+    echo "Installing filebeat..."
+    sudo yum install -y filebeat
+    sudo cp filebeat.yml /etc/filebeat/filebeat.yml
+    echo "Starting filebeat..."
+    sudo systemctl start filebeat
+  fi
+fi
+
 # install other dependencies
 if [ ! -f /.dockerenv ]; then
     sudo dnf install -y libnet hyperscan
