@@ -261,7 +261,7 @@ func main() {
         if err != nil {
             log.Fatalf("minIO upload failed: %v", err)
         }
-        fmt.Printf("Sensor config uploaded at %s for device=%s", bucketPath, finalDeviceID)
+        fmt.Printf("Sensor config uploaded at %s for device=%s\n", bucketPath, finalDeviceID)
 
 	// write other configs to minio
         err = mc.UploadObject("provisioner", filepath.Base(config.UpdaterOutput), config.UpdaterOutput)
