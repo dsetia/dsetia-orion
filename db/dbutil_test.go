@@ -226,6 +226,31 @@ func TestDeviceOperations(t *testing.T) {
         assert.Equal(t, id, id2)
     })
 
+    t.Run("Insert and Update Device", func(t *testing.T) {
+        deviceName := "test-device-2"
+        deviceID := uuid.New().String()
+        id, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+        assert.NoError(t, err)
+        assert.Equal(t, deviceID, id)
+	device, err := db.GetDeviceEntry(deviceID, tenantID)
+        assert.NoError(t, err)
+        assert.Equal(t, device.HndrSwVersion, "1.0")
+
+	err = db.UpdateDeviceVersion(id, "2.0")
+        assert.NoError(t, err)
+        assert.Equal(t, deviceID, id)
+	device, err = db.GetDeviceEntry(deviceID, tenantID)
+        assert.NoError(t, err)
+        assert.Equal(t, device.HndrSwVersion, "2.0")
+
+	err = db.UpdateDeviceVersion(id, "")
+        assert.NoError(t, err)
+        assert.Equal(t, deviceID, id)
+	device, err = db.GetDeviceEntry(deviceID, tenantID)
+        assert.NoError(t, err)
+        assert.Equal(t, device.HndrSwVersion, "")
+    })
+
     t.Run("Validate Device", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "validate-device"

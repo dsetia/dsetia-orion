@@ -245,6 +245,37 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     return devices, nil
 }
 
+// UpdateDeviceVersion updates an existing device entry with software version number
+func (db *DB) UpdateDeviceVersion(deviceID string, hndrSwVersion string) (error) {
+    res, err := db.Exec(`
+        UPDATE devices
+	SET hndr_sw_version = $1, updated_at = CURRENT_TIMESTAMP
+	WHERE device_id = $2 AND (hndr_sw_version is NULL OR hndr_sw_version <> $1)
+    `, hndrSwVersion, deviceID)
+    if err != nil {
+        return fmt.Errorf("failed to insert device: %w", err)
+    }
+    rows, _ := res.RowsAffected()
+    if rows == 0 {
+        return fmt.Errorf("no update performed (version may already match)")
+    }
+    return nil
+}
+
+// GetDeviceEntry retrieves a single device by device_id and tenant_id
+func (db *DB) GetDeviceEntry(deviceID string, tenantID int64) (*Device, error) {
+    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at FROM devices WHERE device_id = $1 AND tenant_id = $2"
+    var d Device
+    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.CreatedAt, &d.UpdatedAt)
+    if err == sql.ErrNoRows {
+        return nil, fmt.Errorf("device %s not found for tenant %d", deviceID, tenantID)
+    }
+    if err != nil {
+        return nil, fmt.Errorf("failed to get device: %w", err)
+    }
+    return &d, nil
+}
+
 // GetOrInsertAPIKey retrieves an existing API key or inserts a new one
 func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, isActive bool) (string, error) {
     if deviceID == "" {

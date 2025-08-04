@@ -25,6 +25,12 @@ import (
     _ "github.com/lib/pq"
 )
 
+// Global map to track provided flags
+var providedFlags = make(map[string]bool)
+
+func flagProvided(name string) bool {
+    return providedFlags[name]
+}
 
 // Command-line interface
 func main() {
@@ -67,12 +73,17 @@ func main() {
 
     flag.Parse()
 
+    // Populate providedFlags with flags that were explicitly set
+    flag.Visit(func(f *flag.Flag) {
+        providedFlags[f.Name] = true
+    })
+
     if *op == "" || *configPath == "" {
         fmt.Println("Error: -op and -db flags are required")
         fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
         fmt.Println("  insert-tenant, validate-tenant, list-tenants, delete-tenant")
-        fmt.Println("  insert-device, validate-device, list-devices, delete-device")
+        fmt.Println("  insert-device, validate-device, list-devices, delete-device, update-device")
         fmt.Println("  insert-api-key, validate-api-key, list-api-keys, delete-api-key")
         fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw, delete-hndr-sw")
         fmt.Println("  insert-hndr-rules, validate-hndr-rules, list-hndr-rules, delete-hndr-rules")
@@ -197,6 +208,28 @@ func main() {
             fmt.Printf("Device: ID=%s, TenantID=%d, Name=%s, HndrSwVersion=%s\n",
                 d.ID, d.TenantID, d.Name, d.HndrSwVersion)
         }
+
+    case "update-device":
+        if *deviceID == "" || *tenantID == 0 {
+            fmt.Println("Error: -device-id and -tenant-id are required for update-device")
+            os.Exit(1)
+        }
+	if !flagProvided("hndr-sw-version") {
+            fmt.Println("Error: -hndr-sw-version is required for update-device")
+            os.Exit(1)
+	}
+
+        _, err := db.ValidateDevice(*deviceID, *tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+	}
+	err = db.UpdateDeviceVersion(*deviceID, *hndrSwVersion)
+	if err != nil {
+	    fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+	}
+        fmt.Printf("Device Software Version updated to '%s'\n", *hndrSwVersion)
 
     // APIKey Operations
     case "insert-api-key":

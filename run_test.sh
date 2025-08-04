@@ -36,12 +36,26 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 
+# Function to perform cleanup
+cleanup() {
+    echo "Cleaning up"
+    dbtool -db "$DBPATH" -op delete-tenant -tenant-id "$TENANT_ID" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Cleanup completed successfully${NC}"
+    else
+        echo -e "${RED}Cleanup failed${NC}"
+    fi
+}
+
 # Function to print status
 print_status() {
     if [ $1 -eq 0 ]; then
         echo -e "${GREEN}SUCCESS: $2${NC}"
     else
         echo -e "${RED}FAILURE: $2${NC}"
+        if [ -n "$TENANT_ID" ]; then
+            cleanup
+        fi
         exit 1
     fi
 }
@@ -67,7 +81,7 @@ echo "Testing MinIO health endpoint..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$MINIO_API_PORT/minio/health/live" | grep -q 200
 print_status $? "MinIO health check passed"
 echo "Verifying MinIO files..."
-sudo sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 $minioadminuser $minioadminpass && mc ls myminio/$TEST_FILE_IMAGE"
+sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 $minioadminuser $minioadminpass && mc ls myminio/$TEST_FILE_IMAGE"
 print_status $? "MinIO image file exists"
 
 # Test API server healthcheck (direct)
@@ -89,7 +103,8 @@ DEVICE_VERSION="v1.2.3"
 OUTPUT=$(dbtool -db $DBPATH -op insert-tenant -tenant-name $TENANT_NAME)
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
-dbtool -db $DBPATH -op insert-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -device-name $DEVICE_NAME -hndr-sw-version $DEVICE_VERSION
+dbtool -db $DBPATH -op insert-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -device-name $DEVICE_NAME
+dbtool -db $DBPATH -op update-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -hndr-sw-version $DEVICE_VERSION
 dbtool -db $DBPATH -op insert-api-key -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -api-key $VALID_API_KEY
 TEST_FILE_RULES="rules/$TENANT_ID/hndr-rules-r1.2.3.tar.gz"
 
@@ -131,3 +146,4 @@ curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY"
 print_status $? "API server status end point passed"
 
 echo -e "${GREEN}All sanity tests passed!${NC}"
+cleanup

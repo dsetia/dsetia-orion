@@ -63,8 +63,9 @@ Usage of ./dbutil:
 ./dbutil -op list -table api_keys
 ./dbutil -op list -table global_manifest
 ./dbutil -op list -table device_manifest
-# update
-~/securite/db/dbutil -op update -table global_manifest -image-version "v1.2.3"
+
+# update - Note that the tool doesn't validate the availability/existence of the software version
+dbtool -db config/db_dev_config.json -op update-device -hndr-sw-version v1.2.3 -device-id b0a81697-e97e-4c07-94c6-4e06cba0e494 -tenant-id 1
 
 
 # v2
