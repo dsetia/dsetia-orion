@@ -5,7 +5,7 @@ orchestrates the containers.
 
 Dependencies
  - docker
-   - Follow the link for details instruction on installing docker in Ubuntu 
+   - Follow the link for details instruction on installing docker in Ubuntu
      - https://docs.docker.com/engine/install/ubuntu/
      - https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-ubuntu-20-04
  - docker-compose
@@ -20,6 +20,12 @@ Dependencies
      - chmod +x $HOME/minio-binaries/mc
      - export PATH=$PATH:$HOME/minio-binaries/
      - mc --help
+  - psql
+    - sudo apt install postgresql-client
+    - init_db.sh config/db_dev_config.json db/schema_pg.sql
+  - Minio client (mc)
+    - curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
+    - chmod +x mc; sudo mv mc /usr/local/bin
 
 Known Issues
  - The 'launch.sh' script doesn't check for existence of the service on the host machine.  For
