@@ -155,6 +155,33 @@ jobs:
           chmod +x mc
           sudo mv mc /usr/local/bin/
 
+      # start elastic container
+      - name: Start elastic container
+        run: |
+          mkdir -p provisioner/test_logs/certs
+          docker run -d --name es01 --net host -p 9200:9200 docker.elastic.co/elasticsearch/elasticsearch:9.0.3
+          echo "Waiting for Elasticsearch to stabilize..."
+          sleep 120
+
+      # Fetch elastic certificate
+      - name: Fetch elastic certificate
+        run: |
+          echo | openssl s_client -showcerts -servername localhost -connect localhost:9200 > elastic.pem
+          if [ ! -s elastic.pem ]; then
+            echo "Error: Failed to fetch certificate"
+            exit 1
+          fi
+
+      # Fetch elastic password
+      - name: Fetch elastic password, id and key
+        run: |
+          elastic_key.sh
+
+      # Copy certificate
+      - name: Copy certificate
+        run: |
+          cp elastic.pem filebeat.yml provisioner/
+
       # Start backend containers
       - name: Start backend containers
         run: |
@@ -194,7 +221,7 @@ jobs:
             -v "$(pwd)/test_logs/updater:/var/log/updater" \
             -d sensor:latest
           # Wait for sensor to stabilize
-          sleep 20
+          sleep 120
           # Validate sensor logs
           docker logs sensor > test_logs/sensor.log
           grep "Sensor initialization complete" test_logs/sensor.log

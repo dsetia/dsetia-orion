@@ -10,7 +10,7 @@ if [ ! -f "elastic.pem" ]; then
 fi
 
 # Reset elastic password and capture it, stripping newlines and whitespace
-NEW_PASSWORD=$(docker exec -it es01 /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b | grep "New value" | awk '{print $NF}' | tr -d '\r\n' | sed 's/[[:space:]]*$//')
+NEW_PASSWORD=$(docker exec es01 /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b | grep "New value" | awk '{print $NF}' | tr -d '\r\n' | sed 's/[[:space:]]*$//')
 if [ -z "$NEW_PASSWORD" ]; then
   echo "Error: Failed to capture new password"
   exit 1
@@ -63,7 +63,7 @@ output.elasticsearch:
   api_key: "$ID_KEY"
   ssl:
     verification_mode: full
-    certificate_authorities: ["$(pwd)/elastic.pem"]
+    certificate_authorities: ["/etc/filebeat/certs/elastic.pem"]
 
 setup.ilm.enabled: true
 setup.template.enabled: true
@@ -78,3 +78,6 @@ logging.files:
   permissions: 0644
 EOF
 echo "Generated filebeat.yml with API key"
+
+# set permissions so only owner has write access
+chmod go-w filebeat.yml

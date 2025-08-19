@@ -53,13 +53,12 @@ if [ ! -f /.dockerenv ]; then
     sudo yum install -y filebeat
     sudo cp filebeat.yml /etc/filebeat/filebeat.yml
     echo "Starting filebeat..."
-    sudo systemctl start filebeat
   fi
 fi
 
 # install other dependencies
 if [ ! -f /.dockerenv ]; then
-    sudo dnf install -y libnet hyperscan
+    sudo dnf install -y libnet hyperscan libpcap jansson-devel
 fi
 
 # Move files
@@ -75,12 +74,13 @@ if [ ! -f /.dockerenv ]; then
     mkdir -p "$CONFIG_DIR"
     cp updater.conf "$CONFIG_DIR/updater.ini"
     cp hndr.conf "$CONFIG_DIR/hndr.ini"
+    cp filebeat.conf "$CONFIG_DIR/filebeat.ini"
     # Ensure permissions
-    chmod 644 "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini"
-    chown root:root "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini"
+    chmod 644 "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini" "$CONFIG_DIR/filebeat.ini"
+    chown root:root "$CONFIG_DIR/updater.ini" "$CONFIG_DIR/hndr.ini" "$CONFIG_DIR/filebeat.ini"
 else
     mkdir -p "$CONFIG_DIR"
-    cp updater.conf hndr.conf "$CONFIG_DIR/"
+    cp updater.conf hndr.conf filebeat.conf "$CONFIG_DIR/"
 fi
 
 wait_for_running() {

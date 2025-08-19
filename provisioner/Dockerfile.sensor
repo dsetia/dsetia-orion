@@ -7,8 +7,20 @@ RUN dnf install -y epel-release && \
     dnf install -y tar supervisor && \
     dnf clean all
 
+RUN dnf config-manager --set-enable crb && \
+    dnf install -y libnet hyperscan libpcap jansson-devel && \
+    dnf install -y net-tools
+
+COPY elastic.repo /etc/yum.repos.d/elastic.repo
+
+RUN rpm --import https://artifacts.elastic.co/GPG-KEY-elasticsearch && \
+    dnf install -y filebeat
+
 # Set working directory
 WORKDIR /app
+
+COPY filebeat.yml /etc/filebeat/filebeat.yml
+COPY elastic.pem /etc/filebeat/certs/elastic.pem
 
 # Copy the sensor-provision.tar.gz tarball
 COPY sensor-provision.tar.gz .

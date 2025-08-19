@@ -138,9 +138,11 @@ build_provisioner_package() {
     cp "$BIN_DIR/updater" "$TMP_DIR/sensor-provision/" || error "Failed to copy updater binary"
     cp "$CONFIG_DIR/scripts/init-sensor.sh" "$TMP_DIR/sensor-provision/" || error "Failed to copy init-sensor.sh"
     cp "$SUPERVISOR_DIR/updater.conf" "$SUPERVISOR_DIR/hndr.conf" "$TMP_DIR/sensor-provision/" || error "Failed to copy supervisor configs"
+    cp "$SUPERVISOR_DIR/filebeat.conf" "$TMP_DIR/sensor-provision/" || error "Failed to copy supervisor configs"
     cp "$CONFIG_DIR/scripts/hello_world.sh" "$TMP_DIR/sensor-provision/suricata" || error "Failed to copy dummy Suricata binary"
     cp "$CONFIG_DIR/scripts/test_deployment.sh" "$CONFIG_DIR/scripts/clean_deployment.sh" "$TMP_DIR/sensor-provision/" || error "Failed to copy deployment scripts"
     cp "$CONFIG_DIR/filebeat.yml" "$TMP_DIR/sensor-provision/" || error "Failed to copy filebeat.yml"
+    #cp "$CONFIG_DIR/filebeat-dev.yml" "$TMP_DIR/sensor-provision/filebeat.yml" || error "Failed to copy filebeat.yml"
 
     # Set permissions
     chmod +x "$TMP_DIR/sensor-provision/init-sensor.sh" || error "Failed to set executable permission on init-sensor.sh"
