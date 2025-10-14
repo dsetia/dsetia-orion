@@ -82,6 +82,7 @@ func (s *Server) authenticate(r *http.Request) (int64, string, error) {
 
 // handleAuthenticate handles /v1/authenticate/{tenant_id}
 func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
+    log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
     if r.Method != http.MethodGet {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -92,7 +93,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
-	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
+	log.Printf("Unauthorized: Invalid tenant id %s", tenantIDStr)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -107,7 +108,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
-        log.Print("Unauthorized: tenant mismatch")
+        log.Printf("Unauthorized: tenant mismatch, tenant_id=%d, auth_tenant_id=%d", tenantID, authTenantID)
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
@@ -119,6 +120,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdate handles /v1/updates/{tenant-id}
 func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
+    log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
     if r.Method != http.MethodPost {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -129,7 +131,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
-	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
+	log.Printf("Unauthorized: Invalid tenant id %s", tenantIDStr)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -144,7 +146,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
-        log.Print("Unauthorized: tenant mismatch")
+        log.Printf("Unauthorized: tenant mismatch, tenant_id=%d, auth_tenant_id=%d", tenantID, authTenantID)
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
@@ -294,6 +296,7 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
 
 // handleHealthCheck handles /v1/healthcheck
 func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
+    log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
     if r.Method != http.MethodGet {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -308,6 +311,7 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 
 // handleStatus handles /v1/status/{tenant-id}
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+    log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
     if r.Method != http.MethodPost && r.Method != http.MethodGet {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -318,7 +322,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     tenantIDStr := path.Base(r.URL.Path)
     tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
     if err != nil {
-	log.Printf("Unauthorized: Invalid tenant id %d", tenantID)
+	log.Printf("Unauthorized: Invalid tenant id %s", tenantIDStr)
 	http.Error(w, "Unauthorized: Invalid tenant id", http.StatusBadRequest)
         return
     }
@@ -333,7 +337,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
     // Verify tenant_id matches
     if authTenantID != tenantID {
-        log.Print("Unauthorized: tenant mismatch")
+        log.Printf("Unauthorized: tenant mismatch, tenant_id=%d, auth_tenant_id=%d", tenantID, authTenantID)
         http.Error(w, "Unauthorized: tenant mismatch", http.StatusUnauthorized)
         return
     }
