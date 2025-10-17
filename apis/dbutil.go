@@ -17,6 +17,7 @@ import (
     "database/sql"
     "errors"
     "fmt"
+    "log"
     "time"
 
     "github.com/google/uuid"
@@ -98,6 +99,7 @@ type Status struct {
 func NewDB(dbPath string) (*DB, error) {
     db, err := sql.Open("postgres", dbPath)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to open database: %w", err)
     }
     // Enable foreign keys
@@ -119,6 +121,7 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
         return tenantID, nil
     }
     if err != sql.ErrNoRows {
+	log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to check tenant: %w", err)
     }
     err = db.QueryRow(`
@@ -127,6 +130,7 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
 	RETURNING tenant_id
     `, name).Scan(&tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to insert tenant: %w", err)
     }
     return tenantID, nil
@@ -137,6 +141,7 @@ func (db *DB) ValidateTenant(id int64) (bool, error) {
     var count int
     err := db.QueryRow("SELECT COUNT(*) FROM tenants WHERE tenant_id = $1", id).Scan(&count)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, fmt.Errorf("failed to validate tenant: %w", err)
     }
     return count > 0, nil
@@ -146,10 +151,12 @@ func (db *DB) ValidateTenant(id int64) (bool, error) {
 func (db *DB) DeleteTenant(id int64) (error) {
     result, err := db.Exec("DELETE FROM tenants WHERE tenant_id = $1", id)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete tenant: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if tenant was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -162,6 +169,7 @@ func (db *DB) DeleteTenant(id int64) (error) {
 func (db *DB) ListTenants() ([]Tenant, error) {
     rows, err := db.Query("SELECT tenant_id, tenant_name, created_at, updated_at FROM tenants")
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list tenants: %w", err)
     }
     defer rows.Close()
@@ -170,6 +178,7 @@ func (db *DB) ListTenants() ([]Tenant, error) {
     for rows.Next() {
         var t Tenant
         if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan tenant: %w", err)
         }
         tenants = append(tenants, t)
@@ -184,6 +193,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
     }
     exists, err := db.ValidateTenant(tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return "", err
     }
     if !exists {
@@ -195,6 +205,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
         return existingID, nil
     }
     if err != sql.ErrNoRows {
+	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to check device: %w", err)
     }
     if deviceID == "" {
@@ -205,6 +216,7 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `, deviceID, tenantID, deviceName, hndrSwVersion)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to insert device: %w", err)
     }
     return deviceID, nil
@@ -215,6 +227,7 @@ func (db *DB) ValidateDevice(deviceID string, tenantID int64) (bool, error) {
     var count int
     err := db.QueryRow("SELECT COUNT(*) FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID).Scan(&count)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, fmt.Errorf("failed to validate device: %w", err)
     }
     return count > 0, nil
@@ -230,6 +243,7 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     }
     rows, err := db.Query(query, args...)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list devices: %w", err)
     }
     defer rows.Close()
@@ -238,6 +252,7 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     for rows.Next() {
         var d Device
         if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.CreatedAt, &d.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan device: %w", err)
         }
         devices = append(devices, d)
@@ -253,6 +268,7 @@ func (db *DB) UpdateDeviceVersion(deviceID string, hndrSwVersion string) (error)
 	WHERE device_id = $2 AND (hndr_sw_version is NULL OR hndr_sw_version <> $1)
     `, hndrSwVersion, deviceID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to insert device: %w", err)
     }
     rows, _ := res.RowsAffected()
@@ -271,6 +287,7 @@ func (db *DB) GetDeviceEntry(deviceID string, tenantID int64) (*Device, error) {
         return nil, fmt.Errorf("device %s not found for tenant %d", deviceID, tenantID)
     }
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to get device: %w", err)
     }
     return &d, nil
@@ -283,6 +300,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
     }
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return "", err
     }
     if !exists {
@@ -294,6 +312,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
         return existingKey, nil
     }
     if err != sql.ErrNoRows {
+	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to check API key: %w", err)
     }
     if apiKey == "" {
@@ -304,6 +323,7 @@ func (db *DB) GetOrInsertAPIKey(apiKey string, tenantID int64, deviceID string, 
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
     `, apiKey, tenantID, deviceID, isActive)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to insert API key: %w", err)
     }
     return apiKey, nil
@@ -320,6 +340,7 @@ func (db *DB) ValidateAPIKey(apiKey string) (bool, int64, string, error) {
         WHERE api_key = $1
     `, apiKey).Scan(&tenantID, &deviceID, &isActive)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, 0, "", fmt.Errorf("failed to validate API key: %w", err)
     }
     return isActive, tenantID, deviceID, nil
@@ -335,6 +356,7 @@ func (db *DB) ListAPIKeys(tenantID int64) ([]APIKey, error) {
     }
     rows, err := db.Query(query, args...)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list API keys: %w", err)
     }
     defer rows.Close()
@@ -343,6 +365,7 @@ func (db *DB) ListAPIKeys(tenantID int64) ([]APIKey, error) {
     for rows.Next() {
         var k APIKey
         if err := rows.Scan(&k.Key, &k.TenantID, &k.DeviceID, &k.IsActive, &k.CreatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan API key: %w", err)
         }
         keys = append(keys, k)
@@ -362,6 +385,7 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
     // avoid duplicate
     exists, err := db.ValidateHndrSw(version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, err
     }
     if exists {
@@ -376,6 +400,7 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
 	RETURNING id
     `, version, size, sha256).Scan(&id)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to insert hndr_sw: %w", err)
     }
     return id, nil
@@ -386,6 +411,7 @@ func (db *DB) ValidateHndrSw(version string) (bool, error) {
     var count int
     err := db.QueryRow("SELECT COUNT(*) FROM hndr_sw WHERE version = $1", version).Scan(&count)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, fmt.Errorf("failed to validate hndr_sw: %w", err)
     }
     return count > 0, nil
@@ -394,10 +420,12 @@ func (db *DB) ValidateHndrSw(version string) (bool, error) {
 func (db *DB) DeleteHndrSw(version string) (error) {
     result, err := db.Exec("DELETE FROM hndr_sw WHERE version = $1", version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete version: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if version was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -410,6 +438,7 @@ func (db *DB) DeleteHndrSw(version string) (error) {
 func (db *DB) ListHndrSw() ([]HndrSw, error) {
     rows, err := db.Query("SELECT id, version, size, sha256, updated_at FROM hndr_sw")
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list hndr_sw: %w", err)
     }
     defer rows.Close()
@@ -418,6 +447,7 @@ func (db *DB) ListHndrSw() ([]HndrSw, error) {
     for rows.Next() {
         var s HndrSw
         if err := rows.Scan(&s.ID, &s.Version, &s.Size, &s.Sha256, &s.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan hndr_sw: %w", err)
         }
         sw = append(sw, s)
@@ -435,6 +465,7 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
     }
     exists, err := db.ValidateTenant(tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, err
     }
     if !exists {
@@ -444,6 +475,7 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
     // avoid duplicate
     exists, err = db.ValidateHndrRules(tenantID, version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, err
     }
     if exists {
@@ -458,6 +490,7 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
 	RETURNING id
     `, tenantID, version, size, sha256).Scan(&id)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to insert hndr_rules: %w", err)
     }
     return id, nil
@@ -468,6 +501,7 @@ func (db *DB) ValidateHndrRules(tenantID int64, version string) (bool, error) {
     var count int
     err := db.QueryRow("SELECT COUNT(*) FROM hndr_rules WHERE tenant_id = $1 AND version = $2", tenantID, version).Scan(&count)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, fmt.Errorf("failed to validate hndr_rules: %w", err)
     }
     return count > 0, nil
@@ -483,6 +517,7 @@ func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
     }
     rows, err := db.Query(query, args...)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list hndr_rules: %w", err)
     }
     defer rows.Close()
@@ -491,6 +526,7 @@ func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
     for rows.Next() {
         var r HndrRules
         if err := rows.Scan(&r.ID, &r.TenantID, &r.Version, &r.Size, &r.Sha256, &r.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan hndr_rules: %w", err)
         }
         rules = append(rules, r)
@@ -510,6 +546,7 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
     // avoid duplicate
     exists, err := db.ValidateThreatIntel(version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, err
     }
     if exists {
@@ -525,6 +562,7 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
 	RETURNING id
     `, version, size, sha256).Scan(&id)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to insert threatintel: %w", err)
     }
     return id, nil
@@ -535,6 +573,7 @@ func (db *DB) ValidateThreatIntel(version string) (bool, error) {
     var count int
     err := db.QueryRow("SELECT COUNT(*) FROM threatintel WHERE version = $1", version).Scan(&count)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return false, fmt.Errorf("failed to validate threatintel: %w", err)
     }
     return count > 0, nil
@@ -544,6 +583,7 @@ func (db *DB) ValidateThreatIntel(version string) (bool, error) {
 func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
     rows, err := db.Query("SELECT id, version, size, sha256, updated_at FROM threatintel")
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list threatintel: %w", err)
     }
     defer rows.Close()
@@ -552,6 +592,7 @@ func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
     for rows.Next() {
         var t ThreatIntel
         if err := rows.Scan(&t.ID, &t.Version, &t.Size, &t.Sha256, &t.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan threatintel: %w", err)
         }
         ti = append(ti, t)
@@ -567,6 +608,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
 
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return err
     }
     if !exists {
@@ -589,6 +631,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
             deviceID, tenantID, sSoftware, sRules, sThreatIntel,
         )
         if err != nil {
+	    log.Printf("Error: %s", err.Error())
             return fmt.Errorf("Failed to create status: "+err.Error())
         }
     } else {
@@ -612,6 +655,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
             software, rules, threatintel, deviceID, tenantID,
         )
         if err != nil {
+	    log.Printf("Error: %s", err.Error())
             return fmt.Errorf("Failed to update status: "+err.Error())
         }
     }
@@ -622,6 +666,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
 func (db *DB) GetStatus(deviceID string, tenantID int64) (Status, error) {
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return Status{}, err
     }
     if !exists {
@@ -652,6 +697,7 @@ func (db *DB) GetStatus(deviceID string, tenantID int64) (Status, error) {
 func (db *DB) ListStatus() ([]Status, error) {
     rows, err := db.Query("SELECT device_id, tenant_id, software, rules, threatintel, updated_at FROM status")
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list status: %w", err)
     }
     defer rows.Close()
@@ -660,6 +706,7 @@ func (db *DB) ListStatus() ([]Status, error) {
     for rows.Next() {
         var t Status
         if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan status: %w", err)
         }
         ti = append(ti, t)
@@ -671,6 +718,7 @@ func (db *DB) ListStatus() ([]Status, error) {
 func (db *DB) DeleteDevice(deviceID string, tenantID int64) error {
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to validate device: %w", err)
     }
     if !exists {
@@ -678,10 +726,12 @@ func (db *DB) DeleteDevice(deviceID string, tenantID int64) error {
     }
     result, err := db.Exec("DELETE FROM devices WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete device: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if device was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -694,10 +744,12 @@ func (db *DB) DeleteDevice(deviceID string, tenantID int64) error {
 func (db *DB) DeleteAPIKey(apiKey string) error {
     result, err := db.Exec("DELETE FROM api_keys WHERE api_key = $1", apiKey)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete API key: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if API key was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -710,6 +762,7 @@ func (db *DB) DeleteAPIKey(apiKey string) error {
 func (db *DB) DeleteHndrRules(tenantID int64, version string) error {
     exists, err := db.ValidateHndrRules(tenantID, version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to validate hndr_rules: %w", err)
     }
     if !exists {
@@ -717,10 +770,12 @@ func (db *DB) DeleteHndrRules(tenantID int64, version string) error {
     }
     result, err := db.Exec("DELETE FROM hndr_rules WHERE tenant_id = $1 AND version = $2", tenantID, version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete hndr_rules: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if hndr_rules was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -733,6 +788,7 @@ func (db *DB) DeleteHndrRules(tenantID int64, version string) error {
 func (db *DB) DeleteThreatIntel(version string) error {
     exists, err := db.ValidateThreatIntel(version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to validate threatintel: %w", err)
     }
     if !exists {
@@ -740,10 +796,12 @@ func (db *DB) DeleteThreatIntel(version string) error {
     }
     result, err := db.Exec("DELETE FROM threatintel WHERE version = $1", version)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete threatintel: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if threatintel was deleted: %w", err)
     }
     if rowsAffected == 0 {
@@ -756,6 +814,7 @@ func (db *DB) DeleteThreatIntel(version string) error {
 func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to validate device: %w", err)
     }
     if !exists {
@@ -763,10 +822,12 @@ func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
     }
     result, err := db.Exec("DELETE FROM status WHERE device_id = $1 AND tenant_id = $2", deviceID, tenantID)
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to delete status: %w", err)
     }
     rowsAffected, err := result.RowsAffected()
     if err != nil {
+	log.Printf("Error: %s", err.Error())
         return fmt.Errorf("failed to determine if status was deleted: %w", err)
     }
     if rowsAffected == 0 {

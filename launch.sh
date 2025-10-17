@@ -46,12 +46,12 @@ print_status() {
 
 # 1. Launch containers
 echo "Starting containers with Docker Compose..."
-sudo docker-compose $OVERRIDE_OPT up -d --build
+docker-compose $OVERRIDE_OPT up -d --build
 print_status $? "Containers started"
 
 # 2. Ensure Docker network exists
 echo "Checking for Docker network: $NETWORK_NAME..."
-sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || sudo docker network create "$NETWORK_NAME"
+docker network inspect "$NETWORK_NAME" >/dev/null 2>&1 || docker network create "$NETWORK_NAME"
 print_status $? "Docker network $NETWORK_NAME is ready"
 
 
@@ -71,9 +71,11 @@ done
 
 # 3. Verify containers are running
 echo "Checking container status..."
-sudo docker ps --filter "name=nginx" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=nginx" --filter "status=running" -q | grep . >/dev/null
 print_status $? "Nginx container is running"
-sudo docker ps --filter "name=minio" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=minio" --filter "status=running" -q | grep . >/dev/null
 print_status $? "MinIO container is running"
-sudo docker ps --filter "name=apis-container" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=apis-container" --filter "status=running" -q | grep . >/dev/null
 print_status $? "API server container is running"
+docker ps --filter "name=kafka" --filter "status=running" -q | grep . >/dev/null
+print_status $? "Kafka (Redpanda) container is running"
