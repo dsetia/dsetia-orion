@@ -11,8 +11,8 @@
 # This software is proprietary and confidential.
 #
 
-CONFIG_DIR="config"
-DBPATH=${1:-"$CONFIG_DIR/db_dev_config.json"}
+CONFIG_DIR="/opt/config"
+DBPATH=${1:-"$CONFIG_DIR/db_dev.json"}
 MINIO_PATH=${1:-"$CONFIG_DIR/minio.json"}
 
 # Configuration
@@ -39,6 +39,7 @@ NC='\033[0m' # No Color
 # Function to perform cleanup
 cleanup() {
     echo "Cleaning up"
+    echo Deleting tenant "$TENANT_NAME", id "$TENANT_ID"
     dbtool -db "$DBPATH" -op delete-tenant -tenant-id "$TENANT_ID" >/dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Cleanup completed successfully${NC}"
@@ -62,26 +63,28 @@ print_status() {
 
 # Check if docker-compose is running
 echo "Checking docker-compose status..."
-sudo docker-compose -f "$COMPOSE_FILE" ps | grep "Up" >/dev/null
+docker-compose -f "$COMPOSE_FILE" ps | grep "Up" >/dev/null
 print_status $? "Docker-compose services are running"
 
 # 3. Verify containers are running
 echo "Checking container status..."
-sudo docker ps --filter "name=nginx" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=nginx" --filter "status=running" -q | grep . >/dev/null
 print_status $? "Nginx container is running"
-sudo docker ps --filter "name=minio" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=minio" --filter "status=running" -q | grep . >/dev/null
 print_status $? "MinIO container is running"
-sudo docker ps --filter "name=apis-container" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=apis-container" --filter "status=running" -q | grep . >/dev/null
 print_status $? "API server container is running"
-sudo docker ps --filter "name=postgres" --filter "status=running" -q | grep . >/dev/null
+docker ps --filter "name=postgres" --filter "status=running" -q | grep . >/dev/null
 print_status $? "Postgres container is running"
+docker ps --filter "name=kafka" --filter "status=running" -q | grep . >/dev/null
+print_status $? "kafka (Redpanda) container is running"
 
 # 4. Test MinIO health check
 echo "Testing MinIO health endpoint..."
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:$MINIO_API_PORT/minio/health/live" | grep -q 200
 print_status $? "MinIO health check passed"
 echo "Verifying MinIO files..."
-sudo docker exec minio sh -c "mc alias set myminio http://localhost:9000 $minioadminuser $minioadminpass && mc ls myminio/$TEST_FILE_IMAGE"
+docker exec minio sh -c "mc alias set myminio http://localhost:9000 $minioadminuser $minioadminpass && mc ls myminio/$TEST_FILE_IMAGE"
 print_status $? "MinIO image file exists"
 
 # Test API server healthcheck (direct)
@@ -93,6 +96,11 @@ print_status $? "API server health check (direct) passed"
 echo "Testing API server health endpoint (nginx)..."
 curl -k -s -o /dev/null -w "%{http_code}" "https://localhost:$NGINX_SSL_PORT/v1/healthcheck" | grep -q 200
 print_status $? "API server health check (nginx) passed"
+
+# Test Kafka readiness
+echo "Testing Redpanda readiness endpoint..."
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:9644/v1/status/ready" | grep -q 200
+print_status $? "Redpanda admin readiness passed"
 
 # populate DB
 TENANT_NAME="tenant-$$"

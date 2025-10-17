@@ -19,7 +19,7 @@ OBJUPDATER_SRCS  := $(wildcard objupdater/*.go)
 PROVISIONER_SRCS := $(wildcard provisioner/*.go)
 
 # ─── Phony targets ────────────────────────────────────────────────────────────
-.PHONY: all clean apis dbtool updater objupdater provisioner
+.PHONY: all clean apis dbtool updater objupdater provisioner config
 
 all: $(BINDIR) \
      $(BINDIR)/apis \
@@ -66,6 +66,14 @@ install:
 	sudo cp $(BINDIR)/updater /usr/local/bin
 	sudo cp $(BINDIR)/objupdater /usr/local/bin
 	sudo cp $(BINDIR)/provisioner /usr/local/bin
+
+# ─── Config ─────────────────────────────────────────────────────────────────
+config:
+	sudo mkdir -p /opt/config /opt/config/nginx
+	sudo cp config/db.json config/db_dev.json /opt/config/
+	sudo cp config/minio.json /opt/config/
+	sudo cp db/schema_pg.sql /opt/config/
+	sudo cp nginx/nginx.conf /opt/config/nginx/
 
 # ─── Install Utils ─────────────────────────────────────────────────────────────────
 install-utils:
