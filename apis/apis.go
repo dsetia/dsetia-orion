@@ -235,7 +235,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    if isNewerNum(sw.Version, deviceVersions.Software.Version) {
+    if isUpdateNeeded(sw.Version, deviceVersions.Software.Version, sw.Sha256, deviceVersions.Software.Sha256) {
         resp.Software = &common.SoftwareVersion{
             Version: sw.Version,
             Size:    sw.Size,
@@ -244,7 +244,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             DownloadURL: DownloadURLFormat(tenantID, "software", "hndr-sw", sw.Version),
         }
     }
-    if isNewerNum(rules.Version, deviceVersions.Rules.Version) {
+    if isUpdateNeeded(rules.Version, deviceVersions.Rules.Version, rules.Sha256, deviceVersions.Rules.Sha256) {
         resp.Rules = &common.VersionInfo{
             Version:     rules.Version,
             Size:        rules.Size,
@@ -252,7 +252,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             DownloadURL: DownloadURLFormatRules(tenantID, "rules", "hndr-rules", rules.Version),
         }
     }
-    if isNewerNum(ti.Version, deviceVersions.ThreatIntel.Version) {
+    if isUpdateNeeded(ti.Version, deviceVersions.ThreatIntel.Version, ti.Sha256, deviceVersions.ThreatIntel.Sha256) {
         resp.ThreatIntel = &common.VersionInfo{
             Version:     ti.Version,
             Size:        ti.Size,
@@ -292,6 +292,31 @@ func isNewerNum(manifestVersion, deviceVersion string) bool {
 	return false
     }
     return vManifest.GreaterThan(vDevice)
+}
+
+func isUpdateNeeded(manifestVersion, deviceVersion, manifestDigest, deviceDigest string) bool {
+    // force update if version missing from device
+    if deviceVersion == "" {
+        return true
+    }
+    dvTrimmed := strings.TrimLeft(deviceVersion, "vr")
+    mvTrimmed := strings.TrimLeft(manifestVersion, "vr")
+
+    vDevice, err    := version.NewVersion(dvTrimmed)
+    if err != nil {
+	return false
+    }
+    vManifest, err := version.NewVersion(mvTrimmed)
+    if err != nil {
+	return false
+    }
+    if vManifest.GreaterThan(vDevice) {
+        return true
+    }
+    if vManifest.Equal(vDevice) {
+        return manifestDigest != deviceDigest
+    }
+    return false
 }
 
 // handleHealthCheck handles /v1/healthcheck

@@ -266,7 +266,7 @@ func TestUpdate(t *testing.T) {
             apiKey:         "valid-key",
             deviceID:       "dev1",
             tenantID:       "1",
-	    body:           `{"software": {"version":"v1.2.2"},"rules": {"version":"r1.2.3"},"threatintel":{"version":"2025.04.10.153020"}}`,
+	    body:           `{"software": {"version":"v1.2.2"},"rules": {"version":"r1.2.3", "sha256":"rules-sha256"},"threatintel":{"version":"2025.04.10.153020"}}`,
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q}}` + "\n",
@@ -278,7 +278,7 @@ func TestUpdate(t *testing.T) {
             apiKey:         "valid-key",
             deviceID:       "dev1",
             tenantID:       "1",
-	    body:           `{"software": {"version":"v1.2.3"},"rules": {"version":"r1.2.2"},"threatintel":{"version":"2025.04.10.153020"}}`,
+	    body:           `{"software": {"version":"v1.2.3", "sha256":"sw-sha256"},"rules": {"version":"r1.2.2"},"threatintel":{"version":"2025.04.10.153020"}}`,
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"rules":{"version":"r1.2.3","size":512,"sha256":"rules-sha256","download_url":%q}}` + "\n",
@@ -286,11 +286,11 @@ func TestUpdate(t *testing.T) {
 	    ),
         },
         {
-            name:           "threal intel updates needed",
+            name:           "threat intel updates needed",
             apiKey:         "valid-key",
             deviceID:       "dev1",
             tenantID:       "1",
-	    body:           `{"software": {"version":"v1.2.3"},"rules": {"version":"r1.2.3"},"threatintel":{"version":"2025.04.10.153000"}}`,
+	    body:           `{"software": {"version":"v1.2.3", "sha256":"sw-sha256"},"rules": {"version":"r1.2.3", "sha256": "rules-sha256"},"threatintel":{"version":"2025.04.10.153000"}}`,
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"threatintel":{"version":"2025.04.10.153010","size":256,"sha256":"ti-sha256","download_url":%q}}` + "\n",
@@ -329,11 +329,23 @@ func TestUpdate(t *testing.T) {
             apiKey:         "valid-key-2",
             deviceID:       "dev2",
             tenantID:       "1",
-	    body:           `{"software": {"version":"v1.2.2"},"rules": {"version":"r1.2.3"},"threatintel":{"version":"2025.04.10.153020"}}`,
+	    body:           `{"software": {"version":"v1.2.2"},"rules": {"version":"r1.2.3","sha256":"rules-sha256"},"threatintel":{"version":"2025.04.10.153020"}}`,
             expectedStatus: http.StatusOK,
             expectedBody: fmt.Sprintf(
 	        `{"software":{"version":"v1.2.4","size":1234,"sha256":"sw-sha256","source":"latest","download_url":%q}}` + "\n",
                 DownloadURLFormat(1, "software", "hndr-sw", "v1.2.4"),
+	    ),
+        },
+        {
+            name:           "software image updates needed due to digest change",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            tenantID:       "1",
+	    body:           `{"software": {"version":"v1.2.3", "sha256": "foobar"},"rules": {"version":"r1.2.3", "sha256":"rules-sha256"},"threatintel":{"version":"2025.04.10.153020"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody: fmt.Sprintf(
+	        `{"software":{"version":"v1.2.3","size":1024,"sha256":"sw-sha256","source":"device","download_url":%q}}` + "\n",
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
 	    ),
         },
 
