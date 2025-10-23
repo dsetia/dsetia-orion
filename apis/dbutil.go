@@ -373,7 +373,7 @@ func (db *DB) ListAPIKeys(tenantID int64) ([]APIKey, error) {
     return keys, nil
 }
 
-// InsertHndrSw adds a new software version
+// InsertHndrSw adds or updates a software version
 func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, error) {
     if version == "" || sha256 == "" {
         return 0, errors.New("version and sha256 cannot be empty")
@@ -382,25 +382,48 @@ func (db *DB) InsertHndrSw(version string, size int64, sha256 string) (int64, er
         return 0, errors.New("size must be positive")
     }
 
-    // avoid duplicate
-    exists, err := db.ValidateHndrSw(version)
-    if err != nil {
-	log.Printf("Error: %s", err.Error())
-        return 0, err
-    }
-    if exists {
-        fmt.Printf("HndrRules version %s already exists\n", version)
-	return 0, nil
+    // Check if version exists and compare SHA256
+    var existingID int64
+    var existingSha256 string
+    err := db.QueryRow(`
+        SELECT id, sha256
+        FROM hndr_sw
+        WHERE version = $1
+    `, version).Scan(&existingID, &existingSha256)
+    if err == nil {
+        // Version exists, check if SHA256 differs
+        if existingSha256 == sha256 {
+            log.Printf("HndrSw version %s already exists with same SHA256", version)
+            return existingID, nil
+        }
+        // Update existing version with new values
+        err = db.QueryRow(`
+            UPDATE hndr_sw
+            SET size = $1, sha256 = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE version = $3
+            RETURNING id
+        `, size, sha256, version).Scan(&existingID)
+        if err != nil {
+            log.Printf("Error updating hndr_sw: %s", err.Error())
+            return 0, fmt.Errorf("failed to update hndr_sw: %w", err)
+        }
+        log.Printf("Updated hndr_sw version %s with new SHA256", version)
+        return existingID, nil
+    } else if err != sql.ErrNoRows {
+        // Unexpected error
+        log.Printf("Error checking hndr_sw: %s", err.Error())
+        return 0, fmt.Errorf("failed to check hndr_sw: %w", err)
     }
 
+    // Insert new version
     var id int64
     err = db.QueryRow(`
         INSERT INTO hndr_sw (version, size, sha256, updated_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-	RETURNING id
+        RETURNING id
     `, version, size, sha256).Scan(&id)
     if err != nil {
-	log.Printf("Error: %s", err.Error())
+        log.Printf("Error inserting hndr_sw: %s", err.Error())
         return 0, fmt.Errorf("failed to insert hndr_sw: %w", err)
     }
     return id, nil
