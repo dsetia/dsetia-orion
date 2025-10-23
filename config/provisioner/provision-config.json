@@ -1,5 +1,5 @@
 {
-    "api_server_url": "https://34.145.60.54/",
+    "api_server_url": "https://hcc.securite.world/",
     "api_server_port": 443,
     "certificate_verify_skip": false,
     "sensor_output": "sensor-config.json",
