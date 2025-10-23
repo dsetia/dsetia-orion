@@ -580,7 +580,7 @@ func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
     return rules, nil
 }
 
-// InsertThreatIntel adds a new threat intelligence version
+// InsertThreatIntel adds or updates a threat intelligence version
 func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int64, error) {
     if version == "" || sha256 == "" {
         return 0, errors.New("version and sha256 cannot be empty")
@@ -589,26 +589,48 @@ func (db *DB) InsertThreatIntel(version string, size int64, sha256 string) (int6
         return 0, errors.New("size must be positive")
     }
 
-    // avoid duplicate
-    exists, err := db.ValidateThreatIntel(version)
-    if err != nil {
-	log.Printf("Error: %s", err.Error())
-        return 0, err
-    }
-    if exists {
-        fmt.Printf("ThreatIntel version %s already exists\n", version)
-	return 0, nil
+    // Check if version exists and compare SHA256
+    var existingID int64
+    var existingSha256 string
+    err := db.QueryRow(`
+        SELECT id, sha256
+        FROM threatintel
+        WHERE version = $1
+    `, version).Scan(&existingID, &existingSha256)
+    if err == nil {
+        // Version exists, check if SHA256 differs
+        if existingSha256 == sha256 {
+            log.Printf("ThreatIntel version %s already exists with same SHA256", version)
+            return existingID, nil
+        }
+        // Update existing version with new values
+        err = db.QueryRow(`
+            UPDATE threatintel
+            SET size = $1, sha256 = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE version = $3
+            RETURNING id
+        `, size, sha256, version).Scan(&existingID)
+        if err != nil {
+            log.Printf("Error updating threatintel: %s", err.Error())
+            return 0, fmt.Errorf("failed to update threatintel: %w", err)
+        }
+        log.Printf("Updated threatintel version %s with new SHA256", version)
+        return existingID, nil
+    } else if err != sql.ErrNoRows {
+        // Unexpected error
+        log.Printf("Error checking threatintel: %s", err.Error())
+        return 0, fmt.Errorf("failed to check threatintel: %w", err)
     }
 
-    // insert
+    // Insert new version
     var id int64
     err = db.QueryRow(`
         INSERT INTO threatintel (version, size, sha256, updated_at)
         VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-	RETURNING id
+        RETURNING id
     `, version, size, sha256).Scan(&id)
     if err != nil {
-	log.Printf("Error: %s", err.Error())
+        log.Printf("Error inserting threatintel: %s", err.Error())
         return 0, fmt.Errorf("failed to insert threatintel: %w", err)
     }
     return id, nil
