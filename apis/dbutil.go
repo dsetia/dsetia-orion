@@ -478,7 +478,7 @@ func (db *DB) ListHndrSw() ([]HndrSw, error) {
     return sw, nil
 }
 
-// InsertHndrRules adds a new rule version for a tenant
+// InsertHndrRules adds or updates a rule version for a tenant
 func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256 string) (int64, error) {
     if version == "" || sha256 == "" {
         return 0, errors.New("version and sha256 cannot be empty")
@@ -495,25 +495,48 @@ func (db *DB) InsertHndrRules(tenantID int64, version string, size int64, sha256
         return 0, fmt.Errorf("tenant ID %d does not exist", tenantID)
     }
 
-    // avoid duplicate
-    exists, err = db.ValidateHndrRules(tenantID, version)
-    if err != nil {
-	log.Printf("Error: %s", err.Error())
-        return 0, err
-    }
-    if exists {
-        fmt.Printf("HndrRules version %s already exists for tenant %d\n", version, tenantID)
-	return 0, nil
+    // Check if version exists for tenant and compare SHA256
+    var existingID int64
+    var existingSha256 string
+    err = db.QueryRow(`
+        SELECT id, sha256
+        FROM hndr_rules
+        WHERE tenant_id = $1 AND version = $2
+    `, tenantID, version).Scan(&existingID, &existingSha256)
+    if err == nil {
+        // Version exists, check if SHA256 differs
+        if existingSha256 == sha256 {
+            log.Printf("HndrRules version %s for tenant %d already exists with same SHA256", version, tenantID)
+            return existingID, nil
+        }
+        // Update existing version with new values
+        err = db.QueryRow(`
+            UPDATE hndr_rules
+            SET size = $1, sha256 = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE tenant_id = $3 AND version = $4
+            RETURNING id
+        `, size, sha256, tenantID, version).Scan(&existingID)
+        if err != nil {
+            log.Printf("Error updating hndr_rules: %s", err.Error())
+            return 0, fmt.Errorf("failed to update hndr_rules: %w", err)
+        }
+        log.Printf("Updated hndr_rules version %s for tenant %d with new SHA256", version, tenantID)
+        return existingID, nil
+    } else if err != sql.ErrNoRows {
+        // Unexpected error
+        log.Printf("Error checking hndr_rules: %s", err.Error())
+        return 0, fmt.Errorf("failed to check hndr_rules: %w", err)
     }
 
+    // Insert new version
     var id int64
     err = db.QueryRow(`
         INSERT INTO hndr_rules (tenant_id, version, size, sha256, updated_at)
         VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-	RETURNING id
+        RETURNING id
     `, tenantID, version, size, sha256).Scan(&id)
     if err != nil {
-	log.Printf("Error: %s", err.Error())
+        log.Printf("Error inserting hndr_rules: %s", err.Error())
         return 0, fmt.Errorf("failed to insert hndr_rules: %w", err)
     }
     return id, nil
