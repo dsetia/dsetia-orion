@@ -259,7 +259,7 @@ func IsUpdateInProgress(filePath string) error {
 }
 
 // Update the sensor sw using the provided binary
-func UpateSoftwareNow(content []byte, swVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateSoftwareNow(content []byte, swVersion, shaDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "FAILED"
 
     defer RemoveUpdateLock(config.UpdateLock)
@@ -342,13 +342,14 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
         }
     }
 
-    //Read, update and write configuration file with latest version details
+    //Read, update and write configuration file with latest version and digest details
     var hndrCfg HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
     }
     log.Println("hndr config: ", hndrCfg)
     hndrCfg.Software.Version = swVersion
+    hndrCfg.Software.Sha256 = shaDigest
 
     if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
@@ -362,7 +363,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
 }
 
 // Update the sensor Rules using the provided binary
-func UpateRulesNow(content []byte, rulesVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateRulesNow(content []byte, rulesVersion, shaDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "FAILED"
     // The rules must be deployed in the folder that is currently in use.
     defer RemoveUpdateLock(config.UpdateLock)
@@ -420,6 +421,7 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
     }
     log.Println("hndr config: ", hndrCfg)
     hndrCfg.Rules.Version = rulesVersion
+    hndrCfg.Rules.Sha256 = shaDigest 
 
     if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
@@ -433,7 +435,7 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
 }
 
 // Update the  threat intel using the provided binary
-func UpateThreatIntelNow(content []byte, tiVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateThreatIntelNow(content []byte, tiVersion, shaDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "SUCCESS"
     log.Println("---TI UPDATES NOT SUPPORTED YET ---, return SUCCESS")
 
