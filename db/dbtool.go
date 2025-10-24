@@ -125,7 +125,15 @@ func main() {
             fmt.Println("Error: -tenant-name is required for insert-tenant")
             os.Exit(1)
         }
-        id, err := db.GetOrInsertTenant(*tenantName)
+
+        var id int64
+        var err error
+        if *tenantID > 0 {
+            id, err = db.InsertTenantWithSpecificID(*tenantName, *tenantID)
+        } else {
+            id, err = db.GetOrInsertTenant(*tenantName)
+        }
+
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)

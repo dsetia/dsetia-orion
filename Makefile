@@ -69,16 +69,13 @@ install:
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 config:
-	sudo mkdir -p /opt/config /opt/config/nginx /opt/config/scripts /opt/config/supervisor
+	sudo mkdir -p /opt/config /opt/config/nginx /opt/config/scripts /opt/config/supervisor /opt/config/provisioner
 	sudo cp config/db.json config/db_dev.json /opt/config/
 	sudo cp config/minio.json /opt/config/
 	sudo cp config/filebeat.yml /opt/config/
 	sudo cp db/schema_pg.sql /opt/config/
 	sudo cp nginx/nginx.conf /opt/config/nginx/
-	sudo cp config/provisioner/provision-config.json /opt/config/
-	sudo cp config/provisioner/provision-dev-config.json /opt/config/
-	sudo cp config/provisioner/updater-config-template.json /opt/config/
-	sudo cp config/provisioner/hndr-config.json /opt/config/
+	sudo cp config/provisioner/* /opt/config/provisioner/
 	sudo cp config/scripts/* /opt/config/scripts/
 	sudo cp config/supervisor/* /opt/config/supervisor/
 

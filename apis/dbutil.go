@@ -136,6 +136,34 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
     return tenantID, nil
 }
 
+// insertTenantWithSpecificID attempts to insert a tenant with a specific ID.
+// Returns an error if the ID is already taken (Primary Key conflict).
+func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
+    var insertedID int64
+
+    // The INSERT statement now includes the tenant_id column and value
+    err := db.QueryRow(`
+        INSERT INTO tenants (tenant_id, tenant_name, created_at, updated_at)
+        VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING tenant_id
+    `, id, name).Scan(&insertedID)
+
+    if err != nil {
+        log.Printf("Error: %s", err.Error())
+
+        // In PostgreSQL, unique/PK violations often have a specific error code (e.g., "23505").
+        // Checking the specific error type can be complex and database-driver dependent.
+        // A simple check is often to look for the error message itself,
+        // but a more robust Go approach is often to wrap the error or check against known error types.
+        // For simplicity and general use, we'll return a more explicit error message.
+        // If you were using the pq driver, you could check for *pq.Error with Code "23505".
+
+        return 0, fmt.Errorf("failed to insert tenant with ID %d: ID might be taken, or name '%s' might exist: %w", id, name, err)
+    }
+
+    return insertedID, nil
+}
+
 // ValidateTenant checks if a tenant exists by ID
 func (db *DB) ValidateTenant(id int64) (bool, error) {
     var count int
