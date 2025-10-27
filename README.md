@@ -76,3 +76,19 @@ git add .
 git -c user.email=a@b -c user.name=bot commit -m "seed"
 git remote add origin http://admin:$GITEA_TOKEN@localhost:3000/admin/hndr-sc-7.git
 git push -u origin healthcare_protocols
+
+## SecurITe License
+```
+// Copyright (c) 2025 SecurITe
+// All rights reserved.
+//
+// This source code is the property of SecurITe.
+// Unauthorized copying, modification, or distribution of this file,
+// via any medium is strictly prohibited unless explicitly authorized
+// by SecurITe.
+//
+// This software is proprietary and confidential.
+//
+// File Owner:       <email>@securite.world
+// Created On:       MM/DD/YYYY
+```
