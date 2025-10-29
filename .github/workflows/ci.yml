@@ -78,6 +78,7 @@ jobs:
           make all
           make install
           make install-utils
+          make config
 
       - name: Install mc
         run: |
@@ -148,6 +149,7 @@ jobs:
           make all
           make install
           make install-utils
+          make config
 
       - name: Install mc
         run: |
