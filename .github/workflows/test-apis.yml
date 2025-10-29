@@ -45,7 +45,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.19'  # Matching our Dockerfile's Go version
+          go-version: '1.21'  # Matching our Dockerfile's Go version
 
       # Install dependencies
       - name: Install dependencies
