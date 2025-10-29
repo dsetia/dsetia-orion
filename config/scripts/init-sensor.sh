@@ -23,6 +23,7 @@ mkdir -p /var/log/suricata /var/log/updater
 mkdir -p /opt/hndr/bin /opt/hndr/suricata
 mkdir -p /opt/updater/bin /opt/updater/config
 mkdir -p /opt/hndr/var/lib/suricata
+mkdir -p /etc/logrotate.d
 
 # Install supervisor (if not already installed)
 if ! command -v supervisorctl &> /dev/null; then
@@ -66,6 +67,7 @@ ls -l
 cp sensor-config.json updater-config.json hndr-config.json /opt/updater/config/
 cp updater /opt/updater/bin/
 cp suricata /opt/hndr/bin/
+cp logrotate/hndr logrotate/updater logrotate/filebeat /etc/logrotate.d/
 
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"
