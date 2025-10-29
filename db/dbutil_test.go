@@ -392,9 +392,9 @@ func TestHndrSwOperations(t *testing.T) {
         assert.NoError(t, err)
         assert.True(t, id > 0)
 
-        id, err = db.InsertHndrSw(version, 1000, "abc123")
+        id2, err := db.InsertHndrSw(version, 1000, "abc123")
         assert.NoError(t, err)
-        assert.Equal(t, int64(0), id, "should not insert duplicate")
+        assert.Equal(t, id2, id, "should not insert duplicate")
     })
 
     t.Run("Validate HndrSw", func(t *testing.T) {
@@ -443,9 +443,9 @@ func TestHndrRulesOperations(t *testing.T) {
         assert.NoError(t, err)
         assert.True(t, id > 0)
 
-        id, err = db.InsertHndrRules(tenantID, version, 1000, "xyz789")
+        id2, err := db.InsertHndrRules(tenantID, version, 1000, "xyz789")
         assert.NoError(t, err)
-        assert.Equal(t, int64(0), id, "should not insert duplicate")
+        assert.Equal(t, id2, id, "should not insert duplicate")
     })
 
     t.Run("Validate HndrRules", func(t *testing.T) {
@@ -492,9 +492,9 @@ func TestThreatIntelOperations(t *testing.T) {
         assert.NoError(t, err)
         assert.True(t, id > 0)
 
-        id, err = db.InsertThreatIntel(version, 1000, "ti123")
+        id2, err := db.InsertThreatIntel(version, 1000, "ti123")
         assert.NoError(t, err)
-        assert.Equal(t, int64(0), id, "should not insert duplicate")
+        assert.Equal(t, id2, id, "should not insert duplicate")
     })
 
     t.Run("Validate ThreatIntel", func(t *testing.T) {
