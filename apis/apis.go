@@ -184,7 +184,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             SELECT id, version, size, sha256
             FROM hndr_sw
             WHERE version = $1
-        `, device.HndrSwVersion).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Sha256)
+        `, device.HndrSwVersion).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Digest)
         if err != nil {
 	    log.Print("Software version not found: " + device.HndrSwVersion)
             http.Error(w, "Software version not found", http.StatusNotFound)
@@ -198,7 +198,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
             FROM hndr_sw
             ORDER BY id DESC
             LIMIT 1
-        `).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Sha256)
+        `).Scan(&sw.ID, &sw.Version, &sw.Size, &sw.Digest)
         if err != nil {
             log.Print("No software versions available")
             http.Error(w, "No software versions available", http.StatusNotFound)
@@ -214,7 +214,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         WHERE tenant_id = $1
         ORDER BY id DESC
         LIMIT 1
-    `, tenantID).Scan(&rules.ID, &rules.Version, &rules.Size, &rules.Sha256)
+    `, tenantID).Scan(&rules.ID, &rules.Version, &rules.Size, &rules.Digest)
     if err != nil {
         log.Print("No rules available for tenant")
         http.Error(w, "No rules available for tenant", http.StatusNotFound)
@@ -228,35 +228,35 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         FROM threatintel
         ORDER BY id DESC
         LIMIT 1
-    `).Scan(&ti.ID, &ti.Version, &ti.Size, &ti.Sha256)
+    `).Scan(&ti.ID, &ti.Version, &ti.Size, &ti.Digest)
     if err != nil {
         log.Print("No threat intelligence available")
         http.Error(w, "No threat intelligence available", http.StatusNotFound)
         return
     }
 
-    if isUpdateNeeded(sw.Version, deviceVersions.Software.Version, sw.Sha256, deviceVersions.Software.Sha256) {
+    if isUpdateNeeded(sw.Version, deviceVersions.Software.Version, sw.Digest, deviceVersions.Software.Digest) {
         resp.Software = &common.SoftwareVersion{
             Version: sw.Version,
             Size:    sw.Size,
-            Sha256:  sw.Sha256,
+            Digest:  sw.Digest,
             Source:  source,
             DownloadURL: DownloadURLFormat(tenantID, "software", "hndr-sw", sw.Version),
         }
     }
-    if isUpdateNeeded(rules.Version, deviceVersions.Rules.Version, rules.Sha256, deviceVersions.Rules.Sha256) {
+    if isUpdateNeeded(rules.Version, deviceVersions.Rules.Version, rules.Digest, deviceVersions.Rules.Digest) {
         resp.Rules = &common.VersionInfo{
             Version:     rules.Version,
             Size:        rules.Size,
-            Sha256:      rules.Sha256,
+            Digest:      rules.Digest,
             DownloadURL: DownloadURLFormatRules(tenantID, "rules", "hndr-rules", rules.Version),
         }
     }
-    if isUpdateNeeded(ti.Version, deviceVersions.ThreatIntel.Version, ti.Sha256, deviceVersions.ThreatIntel.Sha256) {
+    if isUpdateNeeded(ti.Version, deviceVersions.ThreatIntel.Version, ti.Digest, deviceVersions.ThreatIntel.Digest) {
         resp.ThreatIntel = &common.VersionInfo{
             Version:     ti.Version,
             Size:        ti.Size,
-            Sha256:      ti.Sha256,
+            Digest:      ti.Digest,
             DownloadURL: DownloadURLFormat(tenantID, "threatintel", "threatintel", ti.Version),
         }
     }

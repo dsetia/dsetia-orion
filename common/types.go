@@ -8,15 +8,15 @@ import (
 type DeviceVersions struct {
     Software struct {
         Version string `json:"version"`
-        Sha256  string `json:"sha256"`
+        Digest  string `json:"digest"`
     } `json:"software"`
     Rules struct {
         Version string `json:"version"`
-        Sha256  string `json:"sha256"`
+        Digest  string `json:"digest"`
     } `json:"rules"`
     ThreatIntel struct {
         Version string `json:"version"`
-        Sha256  string `json:"sha256"`
+        Digest  string `json:"digest"`
     } `json:"threatintel"`
 }
 
@@ -55,7 +55,7 @@ func (u UpdateResponse) String() string {
 type SoftwareVersion struct {
     Version string `json:"version"`
     Size    int64  `json:"size"`
-    Sha256  string `json:"sha256"`
+    Digest  string `json:"digest"`
     Source  string `json:"source"` // "device" or "latest"
     DownloadURL string `json:"download_url"`
 }
@@ -64,7 +64,7 @@ type SoftwareVersion struct {
 type VersionInfo struct {
     Version string `json:"version"`
     Size    int64  `json:"size"`
-    Sha256  string `json:"sha256"`
+    Digest  string `json:"digest"`
     DownloadURL string `json:"download_url"`
 }
 
