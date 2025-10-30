@@ -78,7 +78,7 @@ config:
 	sudo cp config/provisioner/* /opt/config/provisioner/
 	sudo cp config/scripts/* /opt/config/scripts/
 	sudo cp config/supervisor/* /opt/config/supervisor/
-	sudo cp config/logrotate/* /opt/config/logrotate/
+	sudo cp config/logrotate/securite /opt/config/logrotate/
 
 # ─── Install Utils ─────────────────────────────────────────────────────────────────
 install-utils:
