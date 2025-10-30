@@ -69,7 +69,7 @@ install:
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 config:
-	sudo mkdir -p /opt/config /opt/config/nginx /opt/config/scripts /opt/config/supervisor /opt/config/provisioner /opt/config/logrotate.d
+	sudo mkdir -p /opt/config/nginx /opt/config/scripts /opt/config/supervisor /opt/config/provisioner /opt/config/logrotate.d
 	sudo cp config/db.json config/db_dev.json /opt/config/
 	sudo cp config/minio.json /opt/config/
 	sudo cp config/filebeat.yml /opt/config/

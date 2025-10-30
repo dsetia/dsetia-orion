@@ -19,7 +19,7 @@ mkdir -p /opt/hndr-1/bin
 mkdir -p /opt/hndr-2/bin
 ln -sf /opt/hndr-1 /opt/hndr
 mkdir -p /var/lib/suricata/rules
-mkdir -p /var/log/suricata /var/log/updater /var/log/filebeat /var/log/apis
+mkdir -p /var/log/securite/suricata /var/log/securite/updater /var/log/securite/filebeat
 mkdir -p /opt/hndr/bin /opt/hndr/suricata
 mkdir -p /opt/updater/bin /opt/updater/config
 mkdir -p /opt/hndr/var/lib/suricata
