@@ -1,14 +1,14 @@
 {
   "software": {
     "version": "0",
-    "sha256": "0"
+    "digest": "0"
   },
   "rules": {
     "version": "0",
-    "sha256": "0"
+    "digest": "0"
   },
   "threatintel": {
     "version": "0",
-    "sha256": "0"
+    "digest": "0"
   }
 }

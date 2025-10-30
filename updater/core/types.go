@@ -48,14 +48,14 @@ type Configuration struct {
 type HndrConfig struct {
     Software struct {
         Version string `json:"version"`
-        Sha256 string `json:"sha256"`
+        Digest string `json:"digest"`
     } `json:"software"`
     Rules struct {
         Version string `json:"version"`
-        Sha256 string `json:"sha256"`
+        Digest string `json:"digest"`
     } `json:"rules"`
     ThreatIntel struct {
         Version string `json:"version"`
-        Sha256 string `json:"sha256"`
+        Digest string `json:"digest"`
     } `json:"threatintel"`
 }
