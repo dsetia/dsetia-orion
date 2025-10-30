@@ -22,12 +22,12 @@ usage() {
 
 init() {
     # DB init directly from outside the docker network
-    ./init_db.sh ./config/db_dev_config.json
+    ./init_db.sh ./config/db_dev.json
 }
 
 populate() {
     # DB populate directly from outside the docker network
-    ./populate_db.sh ./config/db_dev_config.json
+    ./populate_db.sh ./config/db_dev.json
 }
 
 launch() {

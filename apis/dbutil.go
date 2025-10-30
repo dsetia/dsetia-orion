@@ -61,7 +61,7 @@ type HndrSw struct {
     ID        int64
     Version   string
     Size      int64
-    Sha256    string
+    Digest    string
     UpdatedAt time.Time
 }
 
@@ -71,7 +71,7 @@ type HndrRules struct {
     TenantID  int64
     Version   string
     Size      int64
-    Sha256    string
+    Digest    string
     UpdatedAt time.Time
 }
 
@@ -80,7 +80,7 @@ type ThreatIntel struct {
     ID        int64
     Version   string
     Size      int64
-    Sha256    string
+    Digest    string
     UpdatedAt time.Time
 }
 
@@ -497,7 +497,7 @@ func (db *DB) ListHndrSw() ([]HndrSw, error) {
     var sw []HndrSw
     for rows.Next() {
         var s HndrSw
-        if err := rows.Scan(&s.ID, &s.Version, &s.Size, &s.Sha256, &s.UpdatedAt); err != nil {
+        if err := rows.Scan(&s.ID, &s.Version, &s.Size, &s.Digest, &s.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan hndr_sw: %w", err)
         }
@@ -599,7 +599,7 @@ func (db *DB) ListHndrRules(tenantID int64) ([]HndrRules, error) {
     var rules []HndrRules
     for rows.Next() {
         var r HndrRules
-        if err := rows.Scan(&r.ID, &r.TenantID, &r.Version, &r.Size, &r.Sha256, &r.UpdatedAt); err != nil {
+        if err := rows.Scan(&r.ID, &r.TenantID, &r.Version, &r.Size, &r.Digest, &r.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan hndr_rules: %w", err)
         }
@@ -687,7 +687,7 @@ func (db *DB) ListThreatIntel() ([]ThreatIntel, error) {
     var ti []ThreatIntel
     for rows.Next() {
         var t ThreatIntel
-        if err := rows.Scan(&t.ID, &t.Version, &t.Size, &t.Sha256, &t.UpdatedAt); err != nil {
+        if err := rows.Scan(&t.ID, &t.Version, &t.Size, &t.Digest, &t.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan threatintel: %w", err)
         }

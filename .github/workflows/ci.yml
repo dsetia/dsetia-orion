@@ -69,7 +69,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.19'  # Verify with updater/go.mod
+          go-version: '1.21'  # Verify with updater/go.mod
 
       # Install dependencies
       - name: Build Go binaries
@@ -78,6 +78,7 @@ jobs:
           make all
           make install
           make install-utils
+          make config
 
       - name: Install mc
         run: |
@@ -91,10 +92,10 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
-          populate_db.sh config/db_dev_config.json <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
-          populate_minio.sh config/db_dev_config.json config/minio.json minio <<< "y"
+          populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"
           ./run_test.sh
 
       # Upload test log for debugging
@@ -139,7 +140,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.19'
+          go-version: '1.21'
 
       # Install dependencies
       - name: Build Go binaries
@@ -148,6 +149,7 @@ jobs:
           make all
           make install
           make install-utils
+          make config
 
       - name: Install mc
         run: |
@@ -188,17 +190,17 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev_config.json db/schema_pg.sql <<< "y"
-          populate_db.sh config/db_dev_config.json <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
-          populate_minio.sh config/db_dev_config.json config/minio.json minio <<< "y"
+          populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"
 
       # Build provisioner tarball
       - name: Build provisioner tarball
         run: |
           # sensor to connect with dev docker cloud; provisioning DB access via localhost
-          OUTPUT=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-tenant -tenant-name "tenant1")
-          ODEVID=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev_config.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio.json)
+          OUTPUT=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev.json -op provision-tenant -tenant-name "tenant1")
+          ODEVID=$(provisioner -config=config/provisioner/provision-dev-config.json -db=config/db_dev.json -op provision-sensor -tenant-name "tenant1" --device-name "Device 1" -minio=config/minio.json)
           TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
           DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
           create-tarball.sh provisioner config

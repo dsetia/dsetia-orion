@@ -309,7 +309,7 @@ func main() {
         }
         for _, s := range sw {
             fmt.Printf("HndrSw: ID=%d, Version=%s, Size=%d, Sha256=%s\n",
-                s.ID, s.Version, s.Size, s.Sha256)
+                s.ID, s.Version, s.Size, s.Digest)
         }
 
     case "delete-hndr-sw":
@@ -364,7 +364,7 @@ func main() {
         }
         for _, r := range rules {
             fmt.Printf("HndrRules: ID=%d, TenantID=%d, Version=%s, Size=%d, Sha256=%s\n",
-                r.ID, r.TenantID, r.Version, r.Size, r.Sha256)
+                r.ID, r.TenantID, r.Version, r.Size, r.Digest)
         }
 
     // ThreatIntel Operations
@@ -400,7 +400,7 @@ func main() {
         }
         for _, t := range ti {
             fmt.Printf("ThreatIntel: ID=%d, Version=%s, Size=%d, Sha256=%s\n",
-                t.ID, t.Version, t.Size, t.Sha256)
+                t.ID, t.Version, t.Size, t.Digest)
         }
 
     // Status Operations
