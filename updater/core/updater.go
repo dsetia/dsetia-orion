@@ -490,7 +490,7 @@ func UpateRulesNow(content []byte, rulesVersion, rulesDigest, filePath string, c
 }
 
 // Update the  threat intel using the provided binary
-func UpateThreatIntelNow(content []byte, tiVersion, rulesDigest, filePath string, config UpdaterConfig) (string, error) {
+func UpateThreatIntelNow(content []byte, tiVersion, tiDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "SUCCESS"
     log.Println("---TI UPDATES NOT SUPPORTED YET ---, return SUCCESS")
 
