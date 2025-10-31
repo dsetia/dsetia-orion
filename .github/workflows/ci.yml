@@ -214,11 +214,11 @@ jobs:
       # Run updater tests
       - name: Run updater tests
         run: |
-          mkdir -p test_logs/suricata test_logs/updater
+          mkdir -p test_logs/securite/suricata test_logs/securite/updater
           docker run --name sensor \
             --network host \
-            -v "$(pwd)/test_logs/suricata:/var/log/suricata" \
-            -v "$(pwd)/test_logs/updater:/var/log/updater" \
+            -v "$(pwd)/test_logs/securite/suricata:/var/log/securite/suricata" \
+            -v "$(pwd)/test_logs/securite/updater:/var/log/securite/updater" \
             -d sensor:latest
           # Wait for sensor to stabilize
           sleep 120
@@ -228,12 +228,12 @@ jobs:
           grep "hndr entered RUNNING state" test_logs/sensor.log
           grep "updater entered RUNNING state" test_logs/sensor.log
           # Validate suricata logs
-          cat test_logs/suricata/suricata.log | grep "Hello World"
+          cat test_logs/securite/suricata/suricata.log | grep "Hello World"
           # Validate updater logs
-          cat test_logs/updater/updater.log | grep "Status update sent successfully"
+          cat test_logs/securite/updater/updater.log | grep "Status update sent successfully"
           # Check for 404 Not Found errors in updater logs
           echo "Checking for 404 Not Found errors in updater logs..."
-          if grep -i "404 Not Found" test_logs/updater/updater.log; then
+          if grep -i "404 Not Found" test_logs/securite/updater/updater.log; then
             echo "ERROR: Found '404 Not Found' errors in updater.log"
             exit 1
           else
