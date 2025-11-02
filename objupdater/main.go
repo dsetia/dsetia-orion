@@ -14,6 +14,7 @@
 package main
 
 import (
+    "bytes"
     "crypto/sha256"
     "encoding/hex"
     "encoding/json"
@@ -40,6 +41,12 @@ type ObjectInfo struct {
     TenantID  int64 // Only for "rules"
     Bucket    string
     ObjectPath string
+}
+
+// simpleMetadata is what we publish next to the object in MinIO
+type simpleMetadata struct {
+    SHA256 string `json:"sha256"`
+    Size   int64  `json:"size"`
 }
 
 // readConfig reads and parses a JSON config file
@@ -156,6 +163,31 @@ func uploadToMinio(client *minio.Client, info ObjectInfo, filename string) error
     return nil
 }
 
+// uploadMetadataJSON uploads a small JSON blob with sha256 & size next to the tarball
+func uploadMetadataJSON(client *minio.Client, info ObjectInfo, sha string, size int64) error {
+    meta := simpleMetadata{SHA256: sha, Size: size}
+    data, err := json.Marshal(meta)
+    if err != nil {
+        return fmt.Errorf("failed to marshal metadata json: %w", err)
+    }
+
+    // Place the JSON "next to" the object, using the same path with .json suffix
+    metaObjectPath := info.ObjectPath + ".json"
+    reader := bytes.NewReader(data)
+    _, err = client.PutObject(
+        context.Background(),
+        info.Bucket,
+        metaObjectPath,
+        reader,
+        int64(len(data)),
+        minio.PutObjectOptions{ContentType: "application/json"},
+    )
+    if err != nil {
+        return fmt.Errorf("failed to upload metadata to MinIO bucket %s at path %s: %w", info.Bucket, metaObjectPath, err)
+    }
+    return nil
+}
+
 // updateDatabase inserts the object metadata into the appropriate table
 func (db *DB) updateDatabase(info ObjectInfo, size int64, sha256 string) error {
     switch info.Type {
@@ -266,6 +298,13 @@ func main() {
         os.Exit(1)
     }
     fmt.Printf("Successfully uploaded %s to MinIO bucket %s at path %s\n", *filename, info.Bucket, info.ObjectPath)
+
+    // Upload JSON metadata (sha256 + size) right next to the object
+    if err := uploadMetadataJSON(minioClient, info, sha256, size); err != nil {
+        fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+        os.Exit(1)
+    }
+    fmt.Printf("Published metadata JSON to MinIO bucket %s at path %s.json\n", info.Bucket, info.ObjectPath)
 
     // Update database
     if err := db.updateDatabase(info, size, sha256); err != nil {
