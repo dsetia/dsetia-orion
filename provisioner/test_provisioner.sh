@@ -11,11 +11,25 @@
 # This software is proprietary and confidential.
 set -e
 
+# Defaults for optional behavior
+# keep sensor and elastic containers up for debugging
+KEEP_SENSOR=false
+KEEP_ES=false
+
 # Cleanup function to remove containers and temporary files
 cleanup() {
     echo "Performing cleanup..."
-    sudo docker rm -f sensor es01 2>/dev/null || true
-    rm -rf "$LOG_DIR" "$TARBALL_PKG" "$SENSOR_PKG" elastic.pem 2>/dev/null || true
+    if [[ "${KEEP_SENSOR}" != "true" ]]; then
+        sudo docker rm -f sensor 2>/dev/null || true
+    else
+        echo "Keeping container 'sensor' running as requested."
+    fi
+    if [[ "${KEEP_ES}" != "true" ]]; then
+        sudo docker rm -f es01 2>/dev/null || true
+    else
+        echo "Keeping container 'es01' running as requested."
+    fi
+    rm -rf "$LOG_DIR" "$TARBALL_PKG" "$SENSOR_PKG" "$PROVISIONER_PKG" elastic.pem 2>/dev/null || true
     echo "Cleanup completed."
 }
 
@@ -24,13 +38,37 @@ trap cleanup EXIT ERR SIGINT SIGTERM
 
 # Print usage/help
 usage() {
-    echo "Usage: $0 [tenant-name] [device-name] [top-level-cfg-dir]"
+    echo "Usage: $0 [options] [tenant-name] [device-name] [top-level-cfg-dir]"
     echo "  Test deployment for specific tenant and device"
     echo "  tenant-name (default tenant1)"
     echo "  device-name (default dev1)"
     echo "  cfg-dir (default config)"
+    echo ""
+    echo "Options:"
+    echo "  -k, --keep         Keep the 'sensor' container running after tests"
+    echo "      --keep-all     Keep both 'sensor' and 'es01' containers"
+    echo "  -h, --help         Show this help"
     exit 1
 }
+
+# Parse leading options
+OPTS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -k|--keep)
+      KEEP_SENSOR=true; shift ;;
+    --keep-all)
+      KEEP_SENSOR=true; KEEP_ES=true; shift ;;
+    -h|--help)
+      usage ;;
+    --) shift; break ;;
+    -*)
+      echo "Unknown option: $1"; usage ;;
+    *)
+      OPTS+=("$1"); shift ;;
+  esac
+done
+set -- "${OPTS[@]}" "$@"
 
 [[ $# -lt 3 ]] && usage
 TENANT_NAME=${1:-"tenant1"}
@@ -40,7 +78,7 @@ CFG_DIR=${3:-"config"}
 # Configuration
 TARBALL_PKG="sensor-provision.tar.gz"
 SENSOR_IMAGE="sensor:latest"
-LOG_DIR="./test_logs"
+LOG_DIR="./test_logs/securite"
 API_URL="http://localhost:8080"  # Adjust to match nginx or api server port
 SENSOR_PKG="sensor-provision.tar.gz"
 PROVISIONER_PKG="package.tar.gz"
@@ -75,8 +113,8 @@ rm -rf "$LOG_DIR" "$TARBALL_PKG"
 mkdir -p "$LOG_DIR" "$LOG_DIR/suricata" "$LOG_DIR/updater" "$LOG_DIR/certs"
 
 echo "Provisioning tenant and sensor"
-OUTPUT=$(provisioner -config=$CFG_DIR/provisioner/provision-dev-config.json -db=$CFG_DIR/db_dev_config.json -op provision-tenant -tenant-name "$TENANT_NAME")
-ODEVID=$(provisioner -config=$CFG_DIR/provisioner/provision-dev-config.json -db=$CFG_DIR/db_dev_config.json -op provision-sensor -tenant-name "$TENANT_NAME" --device-name "$DEVICE_NAME" -minio=$CFG_DIR/minio.json)
+OUTPUT=$(provisioner -config=$CFG_DIR/provisioner/provision-dev-config.json -db=$CFG_DIR/db_dev.json -op provision-tenant -tenant-name "$TENANT_NAME")
+ODEVID=$(provisioner -config=$CFG_DIR/provisioner/provision-dev-config.json -db=$CFG_DIR/db_dev.json -op provision-sensor -tenant-name "$TENANT_NAME" --device-name "$DEVICE_NAME" -minio=$CFG_DIR/minio.json)
 
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
@@ -84,9 +122,9 @@ echo "$ODEVID"
 DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
 
 # echo "Uploading images to minio"
-objupdater -type software -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-sw-v1.2.3.tar.gz
-objupdater -type rules -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
-objupdater -type threatintel -dbconfig $CFG_DIR/db_dev_config.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
+objupdater -type software -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-sw-v1.2.3.tar.gz
+objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
+objupdater -type threatintel -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
 # Build and upload provisioner and sensor tarball
 echo "Building provisioner packages"
@@ -114,8 +152,8 @@ elastic_key.sh
 echo "Building and starting sensor container..."
 sudo docker build --network host -f Dockerfile.sensor -t "$SENSOR_IMAGE" .
 sudo docker run --name sensor \
-  -v "$(pwd)/test_logs/suricata:/var/log/suricata" \
-  -v "$(pwd)/test_logs/updater:/var/log/updater" \
+  -v "$(pwd)/test_logs/securite/suricata:/var/log/securite/suricata" \
+  -v "$(pwd)/test_logs/securite/updater:/var/log/securite/updater" \
   --network host \
   -d "$SENSOR_IMAGE"
 
@@ -161,3 +199,11 @@ else
 fi
 
 echo "All tests passed successfully!"
+
+# If we kept the sensor up, print quick-ops hints
+if [[ "${KEEP_SENSOR}" == "true" ]]; then
+  echo ""
+  echo "------------------------------------------------------------------------"
+  echo "The 'sensor' container is still running."
+  echo "------------------------------------------------------------------------"
+fi

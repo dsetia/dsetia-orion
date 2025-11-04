@@ -24,6 +24,7 @@ CONFIG_DIR=${2:-"../config"}
 TENANT_ID=${3:-"1"}
 MINIO_CONFIG=$CONFIG_DIR/minio.json
 SUPERVISOR_DIR="$CONFIG_DIR/supervisor"
+LOGROTATE_DIR="$CONFIG_DIR/logrotate.d"
 
 # Print usage/help
 usage() {
@@ -117,6 +118,7 @@ build_provisioner_package() {
         "$CONFIG_DIR/scripts/test_deployment.sh"
         "$CONFIG_DIR/scripts/clean_deployment.sh"
         "$CONFIG_DIR/filebeat.yml"
+        "$LOGROTATE_DIR/securite"
     )
     for file in "${files[@]}"; do
         if [[ ! -f "$file" ]]; then
@@ -142,7 +144,7 @@ build_provisioner_package() {
     cp "$CONFIG_DIR/scripts/hello_world.sh" "$TMP_DIR/sensor-provision/suricata" || error "Failed to copy dummy Suricata binary"
     cp "$CONFIG_DIR/scripts/test_deployment.sh" "$CONFIG_DIR/scripts/clean_deployment.sh" "$TMP_DIR/sensor-provision/" || error "Failed to copy deployment scripts"
     cp "$CONFIG_DIR/filebeat.yml" "$TMP_DIR/sensor-provision/" || error "Failed to copy filebeat.yml"
-    #cp "$CONFIG_DIR/filebeat-dev.yml" "$TMP_DIR/sensor-provision/filebeat.yml" || error "Failed to copy filebeat.yml"
+    cp "$LOGROTATE_DIR/securite" "$TMP_DIR/sensor-provision/" || error "Failed to copy logrotate configs"
 
     # Set permissions
     chmod +x "$TMP_DIR/sensor-provision/init-sensor.sh" || error "Failed to set executable permission on init-sensor.sh"

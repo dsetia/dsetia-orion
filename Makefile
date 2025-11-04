@@ -69,7 +69,7 @@ install:
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 config:
-	sudo mkdir -p /opt/config /opt/config/nginx /opt/config/scripts /opt/config/supervisor /opt/config/provisioner
+	sudo mkdir -p /opt/config/nginx /opt/config/scripts /opt/config/supervisor /opt/config/provisioner /opt/config/logrotate.d
 	sudo cp config/db.json config/db_dev.json /opt/config/
 	sudo cp config/minio.json /opt/config/
 	sudo cp config/filebeat.yml /opt/config/
@@ -78,6 +78,7 @@ config:
 	sudo cp config/provisioner/* /opt/config/provisioner/
 	sudo cp config/scripts/* /opt/config/scripts/
 	sudo cp config/supervisor/* /opt/config/supervisor/
+	sudo cp config/logrotate.d/securite /opt/config/logrotate.d/
 
 # ─── Install Utils ─────────────────────────────────────────────────────────────────
 install-utils:
