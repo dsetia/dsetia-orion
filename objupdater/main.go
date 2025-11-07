@@ -263,10 +263,6 @@ func main() {
         fmt.Errorf("failed to connect to database: %w", err)
 	os.Exit(1)
     }
-    if err := db.Ping(); err != nil {
-        fmt.Errorf("failed to ping database: %w", err)
-	os.Exit(1)
-    }
     defer db.Close()
 
     // Validate tenant ID for rules

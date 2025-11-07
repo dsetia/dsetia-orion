@@ -123,6 +123,10 @@ func NewDB(dbPath string, environment string) (*DB, error) {
 	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to open database: %w", err)
     }
+
+    if err := db.Ping(); err != nil {
+        return nil, fmt.Errorf("failed to ping database: %w", err)
+    }
     return &DB{db, environment}, nil
 }
 
