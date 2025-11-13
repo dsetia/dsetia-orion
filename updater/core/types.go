@@ -48,11 +48,14 @@ type Configuration struct {
 type HndrConfig struct {
     Software struct {
         Version string `json:"version"`
+        Digest string `json:"digest"`
     } `json:"software"`
     Rules struct {
         Version string `json:"version"`
+        Digest string `json:"digest"`
     } `json:"rules"`
     ThreatIntel struct {
         Version string `json:"version"`
+        Digest string `json:"digest"`
     } `json:"threatintel"`
 }

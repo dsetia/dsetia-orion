@@ -16,6 +16,8 @@ package core
 import (
     "archive/tar"
     "compress/gzip"
+    "crypto/sha256"
+    "encoding/hex"
     "errors"
     "io"
     "log"
@@ -231,6 +233,47 @@ func WriteToFile(content []byte, filepath string) error {
     return nil
 }
 
+// ComputeSHA256 computes the SHA256 hash of a file and returns it as a hex string.
+func ComputeSHA256(filepath string) (string, error) {
+    file, err := os.Open(filepath)
+    if err != nil {
+        log.Printf("Error: failed to open file for hash computation: %v", err)
+        return "", err
+    }
+    defer file.Close()
+
+    hasher := sha256.New()
+    if _, err := io.Copy(hasher, file); err != nil {
+        log.Printf("Error: failed to compute hash: %v", err)
+        return "", err
+    }
+
+    hashBytes := hasher.Sum(nil)
+    hashString := hex.EncodeToString(hashBytes)
+    return hashString, nil
+}
+
+// Compute sha256 of file and compare against expected digest
+func VerifyFileHash(filepath string, expectedDigest string) error {
+    log.Println("Computing SHA256 hash of downloaded file")
+    computedHash, err := ComputeSHA256(filepath)
+    if err != nil {
+        log.Printf("Error computing SHA256 hash: %v", err)
+        return err
+    }
+
+    // log.Printf("Computed hash: %s", computedHash)
+    // log.Printf("Expected hash: %s", expectedDigest)
+
+    if computedHash != expectedDigest {
+        log.Printf("Error: SHA256 hash mismatch. Expected %s, got %s - ignore this update", expectedDigest, computedHash)
+        return errors.New("SHA256 hash verification failed")
+    }
+
+    log.Println("SHA256 hash verification successful")
+    return nil
+}
+
 func RemoveUpdateLock(filePath string) error {
     err := common.FileRemove(filePath)
     if err != nil {
@@ -259,7 +302,7 @@ func IsUpdateInProgress(filePath string) error {
 }
 
 // Update the sensor sw using the provided binary
-func UpateSoftwareNow(content []byte, swVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateSoftwareNow(content []byte, swVersion, swDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "FAILED"
 
     defer RemoveUpdateLock(config.UpdateLock)
@@ -283,6 +326,12 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
     err = WriteToFile(content, swFilepath)
     if err != nil {
         log.Printf("Error saving software file: %v", err)
+        return status, err
+    }
+
+    // Verify SHA256 hash matches computed
+    err = VerifyFileHash(swFilepath, swDigest)
+    if err != nil {
         return status, err
     }
 
@@ -342,13 +391,14 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
         }
     }
 
-    //Read, update and write configuration file with latest version details
+    //Read, update and write configuration file with latest version and digest details
     var hndrCfg HndrConfig
     if err = LoadJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
     }
     log.Println("hndr config: ", hndrCfg)
     hndrCfg.Software.Version = swVersion
+    hndrCfg.Software.Digest = swDigest
 
     if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
@@ -362,7 +412,7 @@ func UpateSoftwareNow(content []byte, swVersion, filePath string, config Updater
 }
 
 // Update the sensor Rules using the provided binary
-func UpateRulesNow(content []byte, rulesVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateRulesNow(content []byte, rulesVersion, rulesDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "FAILED"
     // The rules must be deployed in the folder that is currently in use.
     defer RemoveUpdateLock(config.UpdateLock)
@@ -386,6 +436,12 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
     err = WriteToFile(content, swFilepath)
     if err != nil {
         log.Printf("Error saving rules file: %v", err)
+        return status, err
+    }
+
+    // Verify SHA256 hash matches computed 
+    err = VerifyFileHash(swFilepath, rulesDigest)
+    if err != nil {
         return status, err
     }
 
@@ -420,6 +476,7 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
     }
     log.Println("hndr config: ", hndrCfg)
     hndrCfg.Rules.Version = rulesVersion
+    hndrCfg.Rules.Digest = rulesDigest 
 
     if err = SaveJSONConfig(config.HndrConfig, &hndrCfg); err != nil {
         return status, err
@@ -433,7 +490,7 @@ func UpateRulesNow(content []byte, rulesVersion, filePath string, config Updater
 }
 
 // Update the  threat intel using the provided binary
-func UpateThreatIntelNow(content []byte, tiVersion, filePath string, config UpdaterConfig) (string, error) {
+func UpateThreatIntelNow(content []byte, tiVersion, tiDigest, filePath string, config UpdaterConfig) (string, error) {
     status := "SUCCESS"
     log.Println("---TI UPDATES NOT SUPPORTED YET ---, return SUCCESS")
 
