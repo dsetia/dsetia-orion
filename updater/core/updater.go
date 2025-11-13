@@ -262,8 +262,8 @@ func VerifyFileHash(filepath string, expectedDigest string) error {
         return err
     }
 
-    log.Printf("Computed hash: %s", computedHash)
-    log.Printf("Expected hash: %s", expectedDigest)
+    // log.Printf("Computed hash: %s", computedHash)
+    // log.Printf("Expected hash: %s", expectedDigest)
 
     if computedHash != expectedDigest {
         log.Printf("Error: SHA256 hash mismatch. Expected %s, got %s - ignore this update", expectedDigest, computedHash)
