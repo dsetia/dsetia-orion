@@ -138,7 +138,7 @@ func main() {
     // Construct DB path
     log.Println("DB path = ", cfg.ConnString())
 
-    db, err := NewDB(cfg.ConnString())
+    db, err := NewDB(cfg.ConnString(), &cfg)
     if err != nil {
         log.Fatalf("Failed to initialize database: %v", err)
     }

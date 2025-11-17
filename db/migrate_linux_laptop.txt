@@ -1,0 +1,119 @@
+(base) securite@securite-dsetia:~/code/orion/db5$ ./migrate_v1_to_v2.sh
+========================================
+Database Migration: Schema V1 → V2 (Simplified)
+========================================
+This script will migrate your database to support multi-environment tenant management
+
+Database: pgdb@postgres:5432
+Backup directory: /tmp/db_migration_backup
+
+SIMPLIFIED SCHEMA:
+  - Single 'environment' field (no tenant_type)
+  - Environments: private-staging, private-prod, aws-prod, gcloud-prod, azure-prod
+
+Do you want to proceed? (yes/no): yes
+
+➜ Checking prerequisites...
+✓ Prerequisites check passed
+➜ Backing up existing data...
+COPY 2
+COPY 0
+COPY 0
+COPY 0
+COPY 0
+✓ Backup completed at: /tmp/db_migration_backup
+  - Timestamp: 20251117_122947
+➜ Creating tenant_id_blocks table...
+CREATE TABLE
+INSERT 0 5
+✓ tenant_id_blocks table created
+➜ Creating sequences for ID allocation...
+CREATE SEQUENCE
+CREATE SEQUENCE
+CREATE SEQUENCE
+CREATE SEQUENCE
+CREATE SEQUENCE
+✓ Sequences created
+➜ Dropping foreign key constraints...
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+✓ Foreign key constraints dropped
+➜ Migrating tenants table...
+BEGIN
+SELECT 2
+DROP TABLE
+CREATE TABLE
+INSERT 0 2
+COMMIT
+✓ Tenants table migrated
+➜ Altering related tables to use BIGINT...
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+✓ Related tables altered
+➜ Restoring foreign key constraints...
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+ALTER TABLE
+✓ Foreign key constraints restored
+➜ Creating helper functions and triggers...
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE TRIGGER
+✓ Functions and triggers created
+➜ Creating monitoring view...
+CREATE VIEW
+✓ Monitoring view created
+➜ Setting sequence current values...
+ERROR:  setval: value 1000 is out of bounds for sequence "seq_private_prod_tenant_id" (1001..10000)
+CONTEXT:  SQL statement "SELECT setval('seq_private_prod_tenant_id', 1000, true)"
+PL/pgSQL function inline_code_block line 13 at EXECUTE
+✓ Sequence values set
+➜ Verifying migration...
+
+Tenant Allocation Status:
+   environment   | start_id | end_id | total_capacity | allocated_count | remaining_capacity | utilization_percent 
+-----------------+----------+--------+----------------+-----------------+--------------------+---------------------
+ private-staging |        1 |   1000 |           1000 |               0 |               1000 |                0.00
+ private-prod    |     1001 |  10000 |           9000 |               2 |               8998 |                0.02
+ aws-prod        |    11000 |  20000 |           9001 |               0 |               9001 |                0.00
+ gcloud-prod     |    21000 |  30000 |           9001 |               0 |               9001 |                0.00
+ azure-prod      |    31000 |  40000 |           9001 |               0 |               9001 |                0.00
+(5 rows)
+
+
+Tenant Count:
+ environment  | count 
+--------------+-------
+ private-prod |     2
+(1 row)
+
+
+Sample Tenants:
+ tenant_id | tenant_name | environment  
+-----------+-------------+--------------
+         2 | test-tenant | private-prod
+         3 | tenant1     | private-prod
+(2 rows)
+
+✓ Migration verification complete
+➜ Cleaning up temporary tables...
+DROP TABLE
+✓ Cleanup complete
+
+========================================
+Migration Completed Successfully!
+========================================
+
+Next steps:
+1. Update your db.json config file with 'environment' field
+   Example: {"environment": "private-prod"}
+2. Test tenant creation with: dbtool -db /opt/config/db.json -op insert-tenant -tenant-name 'test-tenant'
+3. Verify with: dbtool -db /opt/config/db.json -op list-tenants
+
+Backups saved to: /tmp/db_migration_backup
+
