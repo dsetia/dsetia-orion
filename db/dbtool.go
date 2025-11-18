@@ -135,7 +135,7 @@ func main() {
     log.Println("DB path = ", dbPath)
     log.Printf("Environment: %s", cfg.GetEnvironment())
 
-    db, err := NewDB(dbPath, &cfg)
+    db, err := NewDB(dbPath, cfg.GetEnvironment())
     if err != nil {
         fmt.Printf("Error: %v\n", err)
         os.Exit(1)

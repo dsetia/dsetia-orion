@@ -20,7 +20,6 @@ import (
     "log"
     "time"
 
-    "orion/common"
     "github.com/google/uuid"
     _ "github.com/lib/pq"
 )
@@ -28,7 +27,7 @@ import (
 // DB is the PostgreSQL database handle
 type DB struct {
     *sql.DB
-    cfg *common.DBConfig
+    Environment string
 }
 
 // TenantIDBlock represents a tenant ID allocation block
@@ -107,18 +106,18 @@ type Status struct {
 }
 
 // NewDB initializes a new SQLite database connection
-func NewDB(dbPath string, cfg *common.DBConfig) (*DB, error) {
+func NewDB(dbPath string, environment string) (*DB, error) {
     db, err := sql.Open("postgres", dbPath)
     if err != nil {
 	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to open database: %w", err)
     }
-    return &DB{db, cfg}, nil
+    return &DB{db, environment}, nil
 }
 
 // getNextTenantID gets the next available tenant ID for the configured environment
 func (db *DB) getNextTenantID() (int64, error) {
-    env := db.cfg.GetEnvironment()
+    env := db.Environment
 
     var nextID int64
     err := db.QueryRow(`SELECT get_next_tenant_id($1)`, env).Scan(&nextID)
@@ -132,7 +131,7 @@ func (db *DB) getNextTenantID() (int64, error) {
 
 // validateTenantIDInRange checks if a tenant ID is within the valid range for the environment
 func (db *DB) validateTenantIDInRange(tenantID int64) error {
-    env := db.cfg.GetEnvironment()
+    env := db.Environment
 
     var startID, endID int64
     err := db.QueryRow(`
@@ -163,7 +162,7 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
         return 0, errors.New("tenant name cannot be empty")
     }
 
-    env := db.cfg.GetEnvironment()
+    env := db.Environment
 
     // Check if tenant already exists
     var tenantID int64
@@ -202,7 +201,7 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
 // InsertTenantWithSpecificID inserts a tenant with a specific ID
 // Used for migrations or manual ID assignment
 func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
-    env := db.cfg.GetEnvironment()
+    env := db.Environment
 
     // Validate the ID is in the correct range
     if err := db.validateTenantIDInRange(id); err != nil {

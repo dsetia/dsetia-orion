@@ -258,7 +258,7 @@ func main() {
     }
 
     // Connect to PostgreSQL
-    db, err := NewDB(dbConfig.ConnString(), &dbConfig)
+    db, err := NewDB(dbConfig.ConnString(), dbConfig.GetEnvironment())
     if err != nil {
         fmt.Errorf("failed to connect to database: %w", err)
 	os.Exit(1)

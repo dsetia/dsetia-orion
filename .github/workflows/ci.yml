@@ -91,7 +91,7 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
           populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
           populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"
@@ -188,7 +188,7 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
           populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
           populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"

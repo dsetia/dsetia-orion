@@ -46,8 +46,8 @@ func DownloadURLFormatRules(tenantID int64, resourceType, prefix, version string
 }
 
 // NewServer initializes the API server
-func NewServer(dbPath string, cfg *common.DBConfig) (*Server, error) {
-    db, err := NewDB(dbPath, cfg)
+func NewServer(dbPath string, environment string) (*Server, error) {
+    db, err := NewDB(dbPath, environment)
     if err != nil {
         return nil, fmt.Errorf("failed to initialize database: %w", err)
     }
@@ -435,7 +435,7 @@ func main() {
     )
 
     log.Println("DB path = ", dbPath)
-    server, err := NewServer(dbPath, &cfg)
+    server, err := NewServer(dbPath, cfg.GetEnvironment())
     if err != nil {
         log.Fatalf("Failed to start server: %v", err)
     }
