@@ -54,7 +54,7 @@ if ! printf '%s\n' "${VALID_ENVS[@]}" | grep -Fx "$TARGET_ENV" > /dev/null; then
 fi
 
 export PGPASSWORD
-BACKUP_DIR="/tmp/db_migration_backup_$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="backups/db_migration_backup_$(date +%Y%m%d_%H%M%S)"
 
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
@@ -96,7 +96,7 @@ preview() {
 backup() {
     step "Backing up database..."
     pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" > "$BACKUP_DIR/full_dump.sql"
-    for t in tenants devices api_keys hndr_rules status; do
+    for t in tenants devices api_keys hndr_sw hndr_rules threatintel status; do
         psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -c "\COPY $t TO '$BACKUP_DIR/$t.csv' CSV HEADER" 2>/dev/null || true
     done
     ok "Backup saved to $BACKUP_DIR"
