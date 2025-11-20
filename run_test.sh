@@ -114,11 +114,16 @@ TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
 dbtool -db $DBPATH -op insert-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -device-name $DEVICE_NAME
 dbtool -db $DBPATH -op update-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -hndr-sw-version $DEVICE_VERSION
 dbtool -db $DBPATH -op insert-api-key -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -api-key $VALID_API_KEY
-TEST_FILE_RULES="rules/$TENANT_ID/hndr-rules-r1.2.3.tar.gz"
+
+TEST_FILE_RULES=hndr-rules-tid_$TENANT_ID-r1.2.3.tar.gz
+cp  minio/hndr-rules-r1.2.3.tar.gz minio/$TEST_FILE_RULES
 
 objupdater -type software -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/hndr-sw-v1.2.3.tar.gz
-objupdater -type rules -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
+print_status $? "Updated software bundle"
+objupdater -type rules -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/$TEST_FILE_RULES -tenantid $TENANT_ID
+print_status $? "Updated rules bundle"
 objupdater -type threatintel -dbconfig $DBPATH -minioconfig $MINIO_PATH -file minio/threatintel-2025.04.10.1523.tar.gz
+print_status $? "Updated threatintel bundle"
 
 # 5. Test API server authentication (valid credentials)
 echo "Testing API server with valid credentials..."
@@ -146,7 +151,7 @@ curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-D
 print_status $? "Nginx download of threatintel passed"
 # 11. Test Nginx proxy to MinIO (rules)
 echo "Testing Nginx proxy to MinIO (rules) with valid credentials..."
-curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/$TEST_FILE_RULES" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "https://localhost:$NGINX_SSL_PORT/v1/download/$TENANT_ID/rules/$TENANT_ID/$TEST_FILE_RULES" | grep -q 200
 print_status $? "Nginx download of rules passed"
 # Test API server status API
 echo "Testing API server status endpoint ..."
