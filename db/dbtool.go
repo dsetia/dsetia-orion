@@ -15,6 +15,7 @@ package main
 
 import (
     "encoding/json"
+    "time"
     "flag"
     "fmt"
     "os"
@@ -30,6 +31,27 @@ var providedFlags = make(map[string]bool)
 
 func flagProvided(name string) bool {
     return providedFlags[name]
+}
+
+const (
+    reset  = "\033[0m"
+    green  = "\033[32m"
+    yellow = "\033[33m"
+    red    = "\033[31m"
+)
+
+func timeStrColor(utcTime time.Time) string {
+    duration := time.Since(utcTime)
+    var color string
+    switch {
+    case duration < 5*time.Minute:
+        color = green
+    case duration < 30*time.Minute:
+        color = yellow
+    default:
+        color = red
+    }
+    return color + utcTime.Format("2006-01-02 15:04:05") + " UTC" + reset
 }
 
 // Command-line interface
@@ -177,7 +199,7 @@ func main() {
             os.Exit(1)
         }
         for _, t := range tenants {
-            fmt.Printf("Tenant: ID=%d, Name=%s, Created=%s\n", t.ID, t.Name, t.CreatedAt)
+            fmt.Printf("Tenant: ID=%d, Name=%s, Created=%s\n", t.ID, t.Name, timeStrColor(t.CreatedAt))
         }
 
     // Device Operations
@@ -423,8 +445,8 @@ func main() {
             os.Exit(1)
         }
         for _, d := range statusList {
-            fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s\n",
-                d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel)
+            fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s, UpdatedAt=%s\n",
+                d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel, timeStrColor(d.UpdatedAt))
         }
 
     // missing delete operations
