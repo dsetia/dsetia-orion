@@ -62,6 +62,14 @@ jobs:
         with:
           go-version: '1.21'  # Verify with updater/go.mod
 
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Verify psql installation
+        run: psql --version
+
       # Install dependencies
       - name: Build Go binaries
         working-directory: .
@@ -139,6 +147,14 @@ jobs:
           chmod +x mc
           sudo mv mc /usr/local/bin/
 
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Verify psql installation
+        run: psql --version
+
       # start elastic container
       - name: Start elastic container
         run: |
@@ -191,7 +207,7 @@ jobs:
           # Populate rules file in the new name format
           TEST_FILE_RULES=hndr-rules-tid_$TENANT_ID-r1.2.3.tar.gz
           cp  minio/hndr-rules-r1.2.3.tar.gz /tmp/$TEST_FILE_RULES
-          objupdater -type rules -dbconfig config/db_dev.json -minioconfig minio/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
+          objupdater -type rules -dbconfig config/db_dev.json -minioconfig config/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 
       # Build sensor image
       - name: Build sensor image
