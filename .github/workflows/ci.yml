@@ -188,6 +188,10 @@ jobs:
           create-tarball.sh provisioner config
           create-tarball.sh sensor config $TENANT_ID $DEVICE_ID
           curl -k https://localhost/v1/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz -o provisioner/sensor-provision.tar.gz
+          # Populate rules file in the new name format
+          TEST_FILE_RULES=hndr-rules-tid_$TENANT_ID-r1.2.3.tar.gz
+          cp  minio/hndr-rules-r1.2.3.tar.gz /tmp/$TEST_FILE_RULES
+          objupdater -type rules -dbconfig config/db_dev.json -minioconfig minio/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 
       # Build sensor image
       - name: Build sensor image
