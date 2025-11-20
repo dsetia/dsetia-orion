@@ -45,18 +45,9 @@ jobs:
         uses: actions/checkout@v4
 
       # Install Docker
-      - name: Install Docker
+      - name: Use host Docker
         run: |
-          sudo apt-get update
-          sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
-          sudo apt-get install -y ca-certificates curl gnupg lsb-release
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-          sudo systemctl start docker
-          sudo systemctl enable docker
+          docker version
           sudo usermod -aG docker $USER
 
       # Install Docker Compose
@@ -70,6 +61,14 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'  # Verify with updater/go.mod
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Verify psql installation
+        run: psql --version
 
       # Install dependencies
       - name: Build Go binaries
@@ -116,18 +115,9 @@ jobs:
         uses: actions/checkout@v4
 
       # Install Docker
-      - name: Install Docker
+      - name: Use host Docker
         run: |
-          sudo apt-get update
-          sudo apt-get remove -y docker docker-engine docker.io containerd runc || true
-          sudo apt-get install -y ca-certificates curl gnupg lsb-release
-          sudo mkdir -p /etc/apt/keyrings
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-          sudo systemctl start docker
-          sudo systemctl enable docker
+          docker version
           sudo usermod -aG docker $USER
 
       # Install Docker Compose
@@ -156,6 +146,14 @@ jobs:
           wget https://dl.min.io/client/mc/release/linux-amd64/mc
           chmod +x mc
           sudo mv mc /usr/local/bin/
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Verify psql installation
+        run: psql --version
 
       # start elastic container
       - name: Start elastic container
@@ -206,6 +204,10 @@ jobs:
           create-tarball.sh provisioner config
           create-tarball.sh sensor config $TENANT_ID $DEVICE_ID
           curl -k https://localhost/v1/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz -o provisioner/sensor-provision.tar.gz
+          # Populate rules file in the new name format
+          TEST_FILE_RULES=hndr-rules-tid_$TENANT_ID-r1.2.3.tar.gz
+          cp  minio/hndr-rules-r1.2.3.tar.gz /tmp/$TEST_FILE_RULES
+          objupdater -type rules -dbconfig config/db_dev.json -minioconfig config/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 
       # Build sensor image
       - name: Build sensor image
@@ -248,6 +250,7 @@ jobs:
         run: |
           docker-compose -f docker-compose.yml down -v
           docker rm -f sensor || true
+          docker rm -f es01 || true
 
       # Upload test logs for debugging
       - name: Upload test logs

@@ -42,7 +42,7 @@ func DownloadURLFormat(tenantID int64, resourceType, prefix, version string) str
     return fmt.Sprintf("/v1/download/%d/%s/%s-%s.tar.gz", tenantID, resourceType, prefix, version)
 }
 func DownloadURLFormatRules(tenantID int64, resourceType, prefix, version string) string {
-    return fmt.Sprintf("/v1/download/%d/%s/%d/%s-%s.tar.gz", tenantID, resourceType, tenantID, prefix, version)
+    return fmt.Sprintf("/v1/download/%d/%s/%d/%s-tid_%d-%s.tar.gz", tenantID, resourceType, tenantID, prefix, tenantID, version)
 }
 
 // NewServer initializes the API server

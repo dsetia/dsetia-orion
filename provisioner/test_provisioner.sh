@@ -121,9 +121,12 @@ TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
 echo "$ODEVID"
 DEVICE_ID=$(echo "$ODEVID" | grep -oE 'device=[a-zA-Z0-9-]+' | cut -d= -f2)
 
+TEST_FILE_RULES=hndr-rules-tid_$TENANT_ID-r1.2.3.tar.gz
+cp  ../minio/hndr-rules-r1.2.3.tar.gz /tmp/$TEST_FILE_RULES
+
 # echo "Uploading images to minio"
 objupdater -type software -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-sw-v1.2.3.tar.gz
-objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/hndr-rules-r1.2.3.tar.gz -tenantid $TENANT_ID
+objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 objupdater -type threatintel -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
 # Build and upload provisioner and sensor tarball
