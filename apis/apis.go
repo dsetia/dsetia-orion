@@ -159,14 +159,6 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
         return
     }
 
-    // Update device versions as maintained in the DB
-    err = s.db.InsertVersions(deviceID, tenantID, deviceVersions.Software.Version, deviceVersions.Rules.Version, deviceVersions.ThreatIntel.Version)
-    if err != nil {
-	log.Print("Error updating version for device: "+deviceID)
-        http.Error(w, "Error updating version", http.StatusNotFound)
-        return
-    }
-
     // Get device details
     var device Device
     err = s.db.QueryRow(`

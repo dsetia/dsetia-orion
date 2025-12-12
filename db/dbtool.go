@@ -112,7 +112,6 @@ func main() {
         fmt.Println("  Threat Intel: insert-threat-intel, validate-threat-intel, list-threat-intel, delete-threat-intel")
         fmt.Println("  Status: insert-status, list-status, delete-status")
         fmt.Println("  Tenant ID Blocks: list-tenant-blocks")
-        fmt.Println("  Version: list-versions")
         os.Exit(1)
     }
 
@@ -464,17 +463,6 @@ func main() {
             os.Exit(1)
         }
         for _, d := range statusList {
-            fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s, UpdatedAt=%s\n",
-                d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel, timeStrColor(d.UpdatedAt))
-        }
-
-    case "list-versions":
-        versionList, err := db.ListVersions()
-        if err != nil {
-            fmt.Printf("Error: %v\n", err)
-            os.Exit(1)
-        }
-        for _, d := range versionList {
             fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s, UpdatedAt=%s\n",
                 d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel, timeStrColor(d.UpdatedAt))
         }

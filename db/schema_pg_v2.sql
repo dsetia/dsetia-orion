@@ -114,18 +114,6 @@ CREATE TABLE status (
     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
 );
 
--- Device version table
-CREATE TABLE version (
-    device_id TEXT PRIMARY KEY,
-    tenant_id BIGINT NOT NULL,
-    software TEXT NOT NULL,
-    rules TEXT NOT NULL,
-    threatintel TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
-);
-
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_device_tenant ON devices(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_status_tenant ON status(tenant_id);
@@ -138,7 +126,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_hndr_sw_version ON hndr_sw(version);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hndr_rules_version ON hndr_rules(version, tenant_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_threatintel_version ON threatintel(version);
 CREATE INDEX IF NOT EXISTS idx_tenant_environment ON tenants(environment);
-CREATE INDEX IF NOT EXISTS idx_version_tenant ON version(tenant_id);
 
 -- Function to get next tenant ID for a given environment
 CREATE OR REPLACE FUNCTION get_next_tenant_id(env TEXT)

@@ -15,20 +15,6 @@ CONFIG_DIR="/opt/config"
 DBPATH=${1:-"$CONFIG_DIR/db_dev.json"}
 MINIO_PATH=${1:-"$CONFIG_DIR/minio.json"}
 
-# === -k flag to keep tenant after test for debugging ===
-KEEP_TENANT=false
-while getopts "k" opt; do
-  case $opt in
-    k) KEEP_TENANT=true ;;
-    *) echo "Usage: $0 [-k] [path_to_db_json]"; exit 1 ;;
-  esac
-done
-shift $((OPTIND-1))
-
-# If a positional argument was given after flags, use it
-DBPATH=${1:-"$CONFIG_DIR/db_dev.json"}
-MINIO_PATH=${1:-"$CONFIG_DIR/minio.json"}
-
 # Configuration
 COMPOSE_FILE="docker-compose.yml"
 NETWORK_NAME="securite-net"
@@ -52,16 +38,8 @@ NC='\033[0m' # No Color
 
 # Function to perform cleanup
 cleanup() {
-    if [ "$KEEP_TENANT" = true ]; then
-        echo -e "${GREEN}=== Tenant preserved for debugging ===${NC}"
-        echo "To delete the test tenant later, run:"
-        echo "    dbtool -db \"$DBPATH\" -op delete-tenant -tenant-id $TENANT_ID"
-        echo "====================================="
-        return
-    fi
-
-    echo "Cleaning up..."
-    echo "Deleting tenant \"$TENANT_NAME\", id \"$TENANT_ID\""
+    echo "Cleaning up"
+    echo Deleting tenant "$TENANT_NAME", id "$TENANT_ID"
     dbtool -db "$DBPATH" -op delete-tenant -tenant-id "$TENANT_ID" >/dev/null 2>&1
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}Cleanup completed successfully${NC}"
@@ -69,9 +47,6 @@ cleanup() {
         echo -e "${RED}Cleanup failed${NC}"
     fi
 }
-
-# Trap to ensure cleanup runs on exit (unless -k)
-trap 'cleanup' EXIT
 
 # Function to print status
 print_status() {
@@ -136,10 +111,6 @@ DEVICE_VERSION="v1.2.3"
 OUTPUT=$(dbtool -db $DBPATH -op insert-tenant -tenant-name $TENANT_NAME)
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
-
-# Store TENANT_ID early so cleanup can show the command even on early failure
-export TENANT_ID
-
 dbtool -db $DBPATH -op insert-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -device-name $DEVICE_NAME
 dbtool -db $DBPATH -op update-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -hndr-sw-version $DEVICE_VERSION
 dbtool -db $DBPATH -op insert-api-key -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -api-key $VALID_API_KEY
@@ -163,7 +134,7 @@ echo "Testing API server with invalid credentials..."
 curl -s -o /dev/null -w "%{http_code}" -H "X-API-KEY: $INVALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" "http://localhost:$API_PORT/v1/authenticate/$TENANT_ID" | grep -q 401
 print_status $? "API server invalid authentication rejected"
 # 7. Test API server updates API
-curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" -d '{"software": {"version":"v1.2.2"},"rules":{"version":"2025.03.01"},"threatintel":{"version":"2025.04.01.001"}}' "https://localhost:$NGINX_SSL_PORT/v1/updates/$TENANT_ID" | grep -q 200
+curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" -d '{"image_version":"v1.2.2","rules_version":"2025.03.01","threatfeed_version":"2025.04.01.001"}' "https://localhost:$NGINX_SSL_PORT/v1/updates/$TENANT_ID" | grep -q 200
 print_status $? "API server updates POST passed"
 
 # 8. Test Nginx proxy to MinIO (invalid credentials)
@@ -187,28 +158,5 @@ echo "Testing API server status endpoint ..."
 curl -k -s -o /dev/null -w "%{http_code}" -X POST -H "X-API-KEY: $VALID_API_KEY" -H "X-DEVICE-ID: $VALID_DEVICE_ID" -d '{"software": {"status":"success"},"rules": {"status":"failure"},"threatintel":{"status":"success"}}' "https://localhost:$NGINX_SSL_PORT/v1/status/$TENANT_ID" | grep -q 200
 print_status $? "API server status end point passed"
 
-# Validate that the device versions were correctly recorded in the DB ===
-echo "Validating device versions in database..."
-DB_VERSIONS_OUTPUT=$(dbtool -db "$DBPATH" -op list-versions 2>/dev/null)
-# Extract the line for our device
-DEVICE_LINE=$(echo "$DB_VERSIONS_OUTPUT" | grep "Device: ID=$VALID_DEVICE_ID")
-if [ -z "$DEVICE_LINE" ]; then
-    echo -e "${RED}FAILURE: Device $VALID_DEVICE_ID not found in dbtool list-versions output${NC}"
-    cleanup
-    exit 1
-fi
-# Expected pattern
-EXPECTED="Software=v1.2.2, Rules=2025.03.01, ThreatIntel=2025.04.01.001"
-if echo "$DEVICE_LINE" | grep -q "$EXPECTED"; then
-    echo -e "${GREEN}SUCCESS: Device versions correctly updated in DB${NC}"
-    echo "   → $DEVICE_LINE"
-else
-    echo -e "${RED}FAILURE: Device versions mismatch${NC}"
-    echo "   Got     : $DEVICE_LINE"
-    echo "   Expected: ... $EXPECTED ..."
-    cleanup
-    exit 1
-fi
-
 echo -e "${GREEN}All sanity tests passed!${NC}"
-exit 0
+cleanup
