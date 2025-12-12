@@ -128,7 +128,7 @@ build_provisioner_package() {
 
     # Create temporary directory
     mkdir -p "$TMP_DIR/sensor-provision" || error "Failed to create directory $TMP_DIR/sensor-provision"
-    trap 'rm -rf "$TMP_DIR"; log "INFO" "Cleaned up temporary directory $TMP_DIR"' EXIT
+    # trap 'rm -rf "$TMP_DIR"; log "INFO" "Cleaned up temporary directory $TMP_DIR"' EXIT
 
     # Download updater-config.json from MinIo
     if ! mc cp "$MINIO_ALIAS/provisioner/updater-config.json" "$TMP_DIR/sensor-provision/updater-config.json" &>/dev/null; then
@@ -148,16 +148,6 @@ build_provisioner_package() {
 
     # Set permissions
     chmod +x "$TMP_DIR/sensor-provision/init-sensor.sh" || error "Failed to set executable permission on init-sensor.sh"
-
-    # Create tarball
-    tar -czf "$PROVISIONER_PKG" -C "$TMP_DIR" sensor-provision || error "Failed to create tarball $PROVISIONER_PKG"
-    log "INFO" "Provisioner tarball created at $PROVISIONER_PKG"
-
-    # Upload to MinIO
-    if ! mc cp "$PROVISIONER_PKG" "$MINIO_ALIAS/provisioner/$PROVISIONER_PKG" &>/dev/null; then
-        error "Failed to upload $PROVISIONER_PKG to MinIO at $MINIO_ALIAS/provisioner/$PROVISIONER_PKG"
-    fi
-    log "INFO" "Provisioner tarball uploaded to MinIO at provisioner/$PROVISIONER_PKG"
 }
 
 # Build sensor package
@@ -168,14 +158,9 @@ build_sensor_package() {
     rm -rf "$TMP_DIR" || error "Failed to clean up $TMP_DIR"
     mkdir -p "$TMP_DIR" || error "Failed to create $TMP_DIR"
 
-    # Download provisioner package
-    if ! mc cp "$MINIO_ALIAS/provisioner/$PROVISIONER_PKG" "$TMP_DIR/$PROVISIONER_PKG" &>/dev/null; then
-        error "Failed to download $PROVISIONER_PKG from MinIO"
-    fi
+    build_provisioner_package
 
-    # Extract provisioner package
     cd "$TMP_DIR" || error "Failed to change to $TMP_DIR"
-    tar -xzf "$PROVISIONER_PKG" || error "Failed to extract $PROVISIONER_PKG"
 
     # Download tenant-specific sensor config
     local sensor_config="sensor-config.json"
@@ -211,7 +196,7 @@ case "$1" in
         build_sensor_package
         ;;
     provisioner)
-        build_provisioner_package
+	echo "Provisioner package has been deprecated"
         ;;
     *)
         usage
