@@ -130,8 +130,6 @@ objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/mini
 objupdater -type threatintel -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
 # Build and upload provisioner and sensor tarball
-echo "Building provisioner packages"
-create-tarball.sh provisioner $CFG_DIR
 echo "Building sensor packages"
 create-tarball.sh sensor $CFG_DIR $TENANT_ID $DEVICE_ID
 
