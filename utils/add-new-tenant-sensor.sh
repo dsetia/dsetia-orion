@@ -197,10 +197,9 @@ step1_create_tenant() {
         return 1
     fi
 
-    # Extract tenant ID from output
+    # Extract tenant ID from output and set globally
     if TENANT_ID=$(grep -oP 'ID=\K\d+' "$TENANT_OUTPUT" | head -1); then
         log_success "Tenant provisioned: ID=$TENANT_ID"
-        echo "$TENANT_ID"
         return 0
     else
         log_error "Failed to extract tenant ID from output"
@@ -230,11 +229,10 @@ step2_provision_sensor() {
         return 1
     fi
 
-    # Extract device ID (UUID) from output
+    # Extract device ID (UUID) from output and set globally
     # Looking for pattern: "10/6eacc59d-7dac-4f42-9267-0dd8a3c6772b/sensor-config.json"
     if DEVICE_ID=$(grep -oP '\d+/\K[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$SENSOR_OUTPUT" | head -1); then
         log_success "Sensor provisioned: Device ID=$DEVICE_ID"
-        echo "$DEVICE_ID"
         return 0
     else
         log_error "Failed to extract device ID from output"
@@ -337,15 +335,15 @@ main() {
     log_info "Starting tenant and sensor provisioning workflow..."
     echo ""
 
-    # Step 1: Create tenant
-    if ! TENANT_ID=$(step1_create_tenant); then
+    # Step 1: Create tenant (sets TENANT_ID globally)
+    if ! step1_create_tenant; then
         log_error "Workflow failed at Step 1: Tenant creation"
         exit 1
     fi
     echo ""
 
-    # Step 2: Provision sensor
-    if ! DEVICE_ID=$(step2_provision_sensor "$TENANT_ID"); then
+    # Step 2: Provision sensor (sets DEVICE_ID globally)
+    if ! step2_provision_sensor "$TENANT_ID"; then
         log_error "Workflow failed at Step 2: Sensor provisioning"
         exit 1
     fi
