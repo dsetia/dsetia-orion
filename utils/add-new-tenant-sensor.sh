@@ -31,6 +31,9 @@ TENANT_OUTPUT="$TEMP_DIR/tenant_output.log"
 SENSOR_OUTPUT="$TEMP_DIR/sensor_output.log"
 TARBALL_OUTPUT="$TEMP_DIR/tarball_output.log"
 
+MINIO_ALIAS="myminio_$$" # Unique alias using PID to avoid conflicts
+MINIO_CONFIG="$CONFIG_DIR/minio.json"
+
 # ============================================================================
 # Helper Functions
 # ============================================================================
@@ -175,6 +178,33 @@ validate_commands() {
     return 0
 }
 
+# Validate and load MinIO config
+load_minio_config() {
+    if [[ ! -f "$MINIO_CONFIG" ]]; then
+        log_error "MinIO config file '$MINIO_CONFIG' does not exist"
+    fi
+
+    ADMIN_USER=$(jq -r '.user // empty' "$MINIO_CONFIG") || log_error "Failed to parse 'user' from $MINIO_CONFIG"
+    ADMIN_PASS=$(jq -r '.password // empty' "$MINIO_CONFIG") || log_error "Failed to parse 'password' from $MINIO_CONFIG"
+    ENDPOINT=$(jq -r '.endpoint // empty' "$MINIO_CONFIG") || log_error "Failed to parse 'endpoint' from $MINIO_CONFIG"
+
+    [[ -z "$ADMIN_USER" ]] && log_error "MinIO user is empty in $MINIO_CONFIG"
+    [[ -z "$ADMIN_PASS" ]] && log_error "MinIO password is empty in $MINIO_CONFIG"
+    [[ -z "$ENDPOINT" ]] && log_error "MinIO endpoint is empty in $MINIO_CONFIG"
+
+    log_info "Loaded MinIO configuration:"
+    log_info "  User     : $ADMIN_USER"
+    log_info "  Endpoint : $ENDPOINT"
+}
+
+# Set up MinIO alias
+setup_minio_alias() {
+    log_info "Setting up MinIO alias '$MINIO_ALIAS'"
+    if ! mc alias set "$MINIO_ALIAS" "http://$ENDPOINT" "$ADMIN_USER" "$ADMIN_PASS" &>/dev/null; then
+        log_error "Failed to set MinIO alias for http://$ENDPOINT"
+    fi
+}
+
 # ============================================================================
 # Step Execution Functions
 # ============================================================================
@@ -257,12 +287,16 @@ step3_create_tarball() {
         return 1
     fi
 
-    # Check if tarball was created
-    if [ -f "sensor-provision.tar.gz" ]; then
-        log_success "Sensor tarball created: sensor-provision.tar.gz"
-        return 0
+    # Check if tarball was created and upload to Minio
+    local sensor_pkg="sensor-provision.tar.gz"
+    local minio_path="$MINIO_ALIAS/sensor/$tenant_id/$device_id/$sensor_pkg"
+    if mc stat "$minio_path" &> /dev/null; then
+        log_success "Sensor tarball uploaded successfully to MinIO"
+        log_success "MinIO location: sensor/$tenant_id/$device_id/$sensor_pkg"
+	log_success "Package download path: https://hcc.securite.world/v1/$tenant_id/$device_id/$sensor_pkg"
     else
-        log_error "Tarball file not found after creation"
+        log_error "Tarball not found in MinIO at: sensor/$tenant_id/$device_id/$sensor_pkg"
+        log_error "Upload may have failed. Check create-tarball.sh output above."
         return 1
     fi
 }
@@ -330,6 +364,10 @@ main() {
 
     # Display summary and get confirmation
     display_summary_and_confirm
+
+    # Setup MinIO alias for verification
+    load_minio_config
+    setup_minio_alias
 
     # Execute workflow
     log_info "Starting tenant and sensor provisioning workflow..."
