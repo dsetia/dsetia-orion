@@ -105,6 +105,17 @@ type Status struct {
     UpdatedAt     time.Time
 }
 
+// Status represents the status table
+type Version struct {
+    DeviceID      string
+    TenantID      int64
+    Software      string
+    Rules         string
+    ThreatIntel   string
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+}
+
 // NewDB initializes a new SQLite database connection
 func NewDB(dbPath string, environment string) (*DB, error) {
     db, err := sql.Open("postgres", dbPath)
@@ -890,6 +901,85 @@ func (db *DB) ListStatus() ([]Status, error) {
     var ti []Status
     for rows.Next() {
         var t Status
+        if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return nil, fmt.Errorf("failed to scan status: %w", err)
+        }
+        ti = append(ti, t)
+    }
+    return ti, nil
+}
+
+func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, vRules string, vThreatIntel string) (error) {
+    exists, err := db.ValidateDevice(deviceID, tenantID)
+    if err != nil {
+	log.Printf("Error: %s", err.Error())
+        return err
+    }
+    if !exists {
+        return fmt.Errorf("device ID %s or tenant ID %d does not exist", deviceID, tenantID)
+    }
+
+    // Check if the row exists
+    var cur Version
+    err = db.QueryRow(`
+        SELECT device_id, tenant_id, software, rules, threatintel, created_at
+        FROM version
+        WHERE device_id = $1 AND tenant_id = $2`,
+        deviceID, tenantID).Scan(
+        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.ThreatIntel, &cur.CreatedAt,
+    )
+    if err == sql.ErrNoRows {
+        _, err = db.Exec(`
+            INSERT INTO version (device_id, tenant_id, software, rules, threatintel, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            deviceID, tenantID, vSoftware, vRules, vThreatIntel,
+        )
+        if err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return fmt.Errorf("Failed to create version: "+err.Error())
+        }
+    } else {
+        // update existing row
+	software := cur.Software
+	if vSoftware != "" {
+	    software = vSoftware
+	}
+	rules := cur.Rules
+	if vRules != "" {
+	    rules = vRules
+	}
+	threatintel := cur.ThreatIntel
+	if vThreatIntel != "" {
+	    threatintel = vThreatIntel
+	}
+        _, err = db.Exec(`
+	    UPDATE version
+	    SET software = $1, rules = $2, threatintel = $3, updated_at = CURRENT_TIMESTAMP
+	    WHERE device_id = $4 AND tenant_id = $5`,
+            software, rules, threatintel, deviceID, tenantID,
+        )
+        if err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return fmt.Errorf("Failed to update status: "+err.Error())
+        }
+    }
+
+    return nil
+}
+
+// ListVersions retrieves all versions
+func (db *DB) ListVersions() ([]Version, error) {
+    rows, err := db.Query("SELECT device_id, tenant_id, software, rules, threatintel, updated_at FROM version")
+    if err != nil {
+	log.Printf("Error: %s", err.Error())
+        return nil, fmt.Errorf("failed to list status: %w", err)
+    }
+    defer rows.Close()
+
+    var ti []Version
+    for rows.Next() {
+        var t Version
         if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan status: %w", err)
