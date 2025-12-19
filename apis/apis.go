@@ -21,6 +21,8 @@ import (
     "net/http"
     "flag"
     "path"
+    "bytes"
+    "io"
     "io/ioutil"
     "strconv"
     "strings"
@@ -44,6 +46,21 @@ func DownloadURLFormat(tenantID int64, resourceType, prefix, version string) str
 func DownloadURLFormatRules(tenantID int64, resourceType, prefix, version string) string {
     return fmt.Sprintf("/v1/download/%d/%s/%d/%s-tid_%d-%s.tar.gz", tenantID, resourceType, tenantID, prefix, tenantID, version)
 }
+// helper function to dump the JSON body for debugging
+func (s *Server) logRequestBody(r *http.Request) {
+    if r.Body != nil {
+        bodyBytes, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("Error reading request body: %v", err)
+        } else {
+            if len(bodyBytes) > 0 {
+                log.Printf("Request body: %s", string(bodyBytes))
+            }
+            r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+        }
+    }
+}
+
 
 // NewServer initializes the API server
 func NewServer(dbPath string) (*Server, error) {
@@ -121,6 +138,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
 // handleUpdate handles /v1/updates/{tenant-id}
 func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
+    s.logRequestBody(r)
     if r.Method != http.MethodPost {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -337,6 +355,7 @@ func (s *Server) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 // handleStatus handles /v1/status/{tenant-id}
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     log.Printf("API access: method=%s, path=%s, client_ip=%s", r.Method, r.URL.Path, r.RemoteAddr)
+    s.logRequestBody(r)
     if r.Method != http.MethodPost && r.Method != http.MethodGet {
         log.Printf("Method not allowed")
         http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
