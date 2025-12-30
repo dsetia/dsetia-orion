@@ -96,7 +96,7 @@ preview() {
 backup() {
     step "Backing up database..."
     pg_dump -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" > "$BACKUP_DIR/full_dump.sql"
-    for t in tenants devices api_keys hndr_sw hndr_rules threatintel status; do
+    for t in tenants devices api_keys hndr_sw hndr_rules threatintel status version; do
         psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -c "\COPY $t TO '$BACKUP_DIR/$t.csv' CSV HEADER" 2>/dev/null || true
     done
     ok "Backup saved to $BACKUP_DIR"
@@ -145,6 +145,14 @@ ALTER TABLE IF EXISTS devices    DROP CONSTRAINT IF EXISTS devices_tenant_id_fke
 ALTER TABLE IF EXISTS api_keys   DROP CONSTRAINT IF EXISTS api_keys_tenant_id_fkey;
 ALTER TABLE IF EXISTS hndr_rules DROP CONSTRAINT IF EXISTS hndr_rules_tenant_id_fkey;
 ALTER TABLE IF EXISTS status     DROP CONSTRAINT IF EXISTS status_tenant_id_fkey;
+
+-- Only drop version FK if table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'version') THEN
+        ALTER TABLE version DROP CONSTRAINT IF EXISTS version_tenant_id_fkey;
+    END IF;
+END $$;
 EOF
     ok "FKs dropped"
 }
@@ -175,6 +183,34 @@ EOF
     ok "Tenants migrated"
 }
 
+create_version_table_if_missing() {
+    step "Checking for version table..."
+    local exists=$(psql -t -A -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" -c \
+        "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'version')")
+
+    if [[ "$exists" == "t" ]]; then
+        ok "Version table exists"
+        return
+    fi
+
+    step "Creating missing version table..."
+    psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" <<'EOF'
+CREATE TABLE version (
+    device_id TEXT PRIMARY KEY,
+    tenant_id INTEGER NOT NULL,
+    software TEXT NOT NULL,
+    rules TEXT NOT NULL,
+    threatintel TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index
+CREATE INDEX IF NOT EXISTS idx_version_tenant ON version(tenant_id);
+EOF
+    ok "Version table created"
+}
+
 widen_columns() {
     step "Converting tenant_id columns to BIGINT..."
     psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDB" <<'EOF'
@@ -182,6 +218,14 @@ ALTER TABLE devices    ALTER COLUMN tenant_id TYPE BIGINT;
 ALTER TABLE api_keys   ALTER COLUMN tenant_id TYPE BIGINT;
 ALTER TABLE hndr_rules ALTER COLUMN tenant_id TYPE BIGINT;
 ALTER TABLE status     ALTER COLUMN tenant_id TYPE BIGINT;
+
+-- Only widen version.tenant_id if table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'version') THEN
+        ALTER TABLE version ALTER COLUMN tenant_id TYPE BIGINT;
+    END IF;
+END $$;
 EOF
     ok "Columns widened"
 }
@@ -193,6 +237,14 @@ ALTER TABLE devices    ADD CONSTRAINT devices_tenant_id_fkey    FOREIGN KEY (ten
 ALTER TABLE api_keys   ADD CONSTRAINT api_keys_tenant_id_fkey   FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE;
 ALTER TABLE hndr_rules ADD CONSTRAINT hndr_rules_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE;
 ALTER TABLE status     ADD CONSTRAINT status_tenant_id_fkey     FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE;
+
+-- Only restore version FK if table exists
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'version') THEN
+        ALTER TABLE version ADD CONSTRAINT version_tenant_id_fkey FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE;
+    END IF;
+END $$;
 EOF
     ok "FKs restored"
 }
@@ -227,7 +279,7 @@ CREATE TRIGGER trg_validate_tenant_id_range
 
 -- Monitoring view
 CREATE OR REPLACE VIEW tenant_allocation_status AS
-SELECT 
+SELECT
     b.environment,
     b.start_id,
     b.end_id,
@@ -296,6 +348,7 @@ main() {
     create_sequences
     drop_fks
     migrate_tenants
+    create_version_table_if_missing
     widen_columns
     restore_fks
     create_functions_triggers_view
