@@ -25,7 +25,7 @@ func setupTestDBContainer(t *testing.T) (*DB, func()) {
         postgres.WithDatabase("testdb"),
         postgres.WithUsername("testuser"),
         postgres.WithPassword("testpass"),
-        postgres.WithInitScripts("schema_pg.sql"),
+        postgres.WithInitScripts("schema_pg_v2.sql"),
     )
     if err != nil {
         t.Fatalf("failed to start postgres container: %s", err)
@@ -36,7 +36,7 @@ func setupTestDBContainer(t *testing.T) (*DB, func()) {
         t.Fatalf("failed to get connection string: %s", err)
     }
 
-    db, err := NewDB(connStr)
+    db, err := NewDB(connStr, "private-staging")
     if err != nil {
         t.Fatalf("failed to create DB: %s", err)
     }
@@ -51,12 +51,12 @@ func setupTestDBContainer(t *testing.T) (*DB, func()) {
 
 func setupTestDBOriginal(t *testing.T) (*DB, func()) {
     connStr := "host=localhost port=5432 user=pguser password=pgpass dbname=testdb sslmode=disable"
-    db, err := NewDB(connStr)
+    db, err := NewDB(connStr, "private-staging")
     if err != nil {
         t.Fatalf("failed to create DB: %s", err)
     }
     // Apply schema
-    schema, err := os.ReadFile("schema_pg.sql")
+    schema, err := os.ReadFile("schema_pg_v2.sql")
     if err != nil {
         t.Fatalf("failed to read schema: %s", err)
     }
@@ -105,13 +105,13 @@ func setupTestDB(t *testing.T) (*DB, func()) {
 
     // Step 2: Connect to testdb
     connStr := "host=localhost port=5432 user=pguser password=pgpass dbname=testdb sslmode=disable"
-    db, err := NewDB(connStr)
+    db, err := NewDB(connStr, "private-staging")
     if err != nil {
         t.Fatalf("failed to connect to testdb: %s", err)
     }
 
     // Step 3: Apply schema
-    schema, err := os.ReadFile("schema_pg.sql")
+    schema, err := os.ReadFile("schema_pg_v2.sql")
     if err != nil {
         db.Close()
         t.Fatalf("failed to read schema: %s", err)

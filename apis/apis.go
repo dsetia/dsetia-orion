@@ -63,8 +63,8 @@ func (s *Server) logRequestBody(r *http.Request) {
 
 
 // NewServer initializes the API server
-func NewServer(dbPath string) (*Server, error) {
-    db, err := NewDB(dbPath)
+func NewServer(dbPath string, environment string) (*Server, error) {
+    db, err := NewDB(dbPath, environment)
     if err != nil {
         return nil, fmt.Errorf("failed to initialize database: %w", err)
     }
@@ -174,6 +174,14 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     if err := json.NewDecoder(r.Body).Decode(&deviceVersions); err != nil {
         log.Print("Invalid request body")
         http.Error(w, "Invalid request body", http.StatusBadRequest)
+        return
+    }
+
+    // Update device versions as maintained in the DB
+    err = s.db.InsertVersions(deviceID, tenantID, deviceVersions.Software.Version, deviceVersions.Rules.Version, deviceVersions.ThreatIntel.Version)
+    if err != nil {
+	log.Print("Error updating version for device: "+deviceID)
+        http.Error(w, "Error updating version", http.StatusNotFound)
         return
     }
 
@@ -454,7 +462,7 @@ func main() {
     )
 
     log.Println("DB path = ", dbPath)
-    server, err := NewServer(dbPath)
+    server, err := NewServer(dbPath, cfg.GetEnvironment())
     if err != nil {
         log.Fatalf("Failed to start server: %v", err)
     }

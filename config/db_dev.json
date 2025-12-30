@@ -4,5 +4,6 @@
   "user": "pguser",
   "password": "pgpass",
   "dbname": "pgdb",
-  "sslmode": "disable"
+  "sslmode": "disable",
+  "environment": "private-staging"
 }

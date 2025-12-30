@@ -69,17 +69,22 @@ type VersionInfo struct {
 }
 
 type DBConfig struct {
-    Host     string `json:"host"`
-    Port     int    `json:"port"`
-    User     string `json:"user"`
-    Password string `json:"password"`
-    DBName   string `json:"dbname"`
-    SSLMode  string `json:"sslmode"`
+    Host        string `json:"host"`
+    Port        int    `json:"port"`
+    User        string `json:"user"`
+    Password    string `json:"password"`
+    DBName      string `json:"dbname"`
+    SSLMode     string `json:"sslmode"`
+    Environment string `json:"environment"`
 }
 
 func (c DBConfig) ConnString() string {
     return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
         c.Host, c.Port, c.User, c.Password, c.DBName, c.SSLMode)
+}
+
+func (c *DBConfig) GetEnvironment() string {
+    return c.Environment
 }
 
 type MinioConfig struct {

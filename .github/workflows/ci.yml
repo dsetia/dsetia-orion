@@ -53,7 +53,7 @@ jobs:
       # Install Docker Compose
       - name: Install Docker Compose
         run: |
-          sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
 
       # Set up Go environment
@@ -91,7 +91,7 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
           populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
           populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"
@@ -125,6 +125,14 @@ jobs:
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends postgresql-client
+
+      - name: Verify psql installation
+        run: psql --version
 
       # Set up Go environment
       - name: Set up Go
@@ -188,7 +196,7 @@ jobs:
           docker-compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
-          init_db.sh config/db_dev.json db/schema_pg.sql <<< "y"
+          init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
           populate_db.sh config/db_dev.json <<< "y"
           init_minio.sh config/minio.json <<< "y"
           populate_minio.sh config/db_dev.json config/minio.json minio <<< "y"

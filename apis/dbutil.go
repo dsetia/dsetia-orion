@@ -24,17 +24,27 @@ import (
     _ "github.com/lib/pq"
 )
 
-// DB is the SQLite database handle
+// DB is the PostgreSQL database handle
 type DB struct {
     *sql.DB
+    Environment string
+}
+
+// TenantIDBlock represents a tenant ID allocation block
+type TenantIDBlock struct {
+    Environment string
+    StartID     int64
+    EndID       int64
+    Description string
 }
 
 // Tenant represents the tenants table
 type Tenant struct {
-    ID        int64
-    Name      string
-    CreatedAt time.Time
-    UpdatedAt time.Time
+    ID          int64
+    Name        string
+    Environment string
+    CreatedAt   time.Time
+    UpdatedAt   time.Time
 }
 
 // Device represents the devices table
@@ -95,70 +105,131 @@ type Status struct {
     UpdatedAt     time.Time
 }
 
+// Status represents the status table
+type Version struct {
+    DeviceID      string
+    TenantID      int64
+    Software      string
+    Rules         string
+    ThreatIntel   string
+    CreatedAt     time.Time
+    UpdatedAt     time.Time
+}
+
 // NewDB initializes a new SQLite database connection
-func NewDB(dbPath string) (*DB, error) {
+func NewDB(dbPath string, environment string) (*DB, error) {
     db, err := sql.Open("postgres", dbPath)
     if err != nil {
 	log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to open database: %w", err)
     }
-    // Enable foreign keys
-    //_, err = db.Exec("PRAGMA foreign_keys = ON;")
-    //if err != nil {
-        //return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
-    //}
-    return &DB{db}, nil
+    return &DB{db, environment}, nil
+}
+
+// getNextTenantID gets the next available tenant ID for the configured environment
+func (db *DB) getNextTenantID() (int64, error) {
+    env := db.Environment
+
+    var nextID int64
+    err := db.QueryRow(`SELECT get_next_tenant_id($1)`, env).Scan(&nextID)
+    if err != nil {
+        log.Printf("Error getting next tenant ID: %s", err.Error())
+        return 0, fmt.Errorf("failed to get next tenant ID for environment=%s: %w", env, err)
+    }
+
+    return nextID, nil
+}
+
+// validateTenantIDInRange checks if a tenant ID is within the valid range for the environment
+func (db *DB) validateTenantIDInRange(tenantID int64) error {
+    env := db.Environment
+
+    var startID, endID int64
+    err := db.QueryRow(`
+        SELECT start_id, end_id
+        FROM tenant_id_blocks
+        WHERE environment = $1
+    `, env).Scan(&startID, &endID)
+
+    if err == sql.ErrNoRows {
+        return fmt.Errorf("no ID block defined for environment=%s", env)
+    }
+    if err != nil {
+        return fmt.Errorf("failed to validate ID range: %w", err)
+    }
+
+    if tenantID < startID || tenantID > endID {
+        return fmt.Errorf("tenant ID %d is outside valid range [%d-%d] for environment=%s",
+            tenantID, startID, endID, env)
+    }
+
+    return nil
 }
 
 // GetOrInsertTenant retrieves an existing tenant by name or inserts a new one
+// Automatically allocates ID from the environment's ID block
 func (db *DB) GetOrInsertTenant(name string) (int64, error) {
     if name == "" {
         return 0, errors.New("tenant name cannot be empty")
     }
+
+    env := db.Environment
+
+    // Check if tenant already exists
     var tenantID int64
     err := db.QueryRow("SELECT tenant_id FROM tenants WHERE tenant_name = $1", name).Scan(&tenantID)
     if err == nil {
         return tenantID, nil
     }
     if err != sql.ErrNoRows {
-	log.Printf("Error: %s", err.Error())
+        log.Printf("Error: %s", err.Error())
         return 0, fmt.Errorf("failed to check tenant: %w", err)
     }
-    err = db.QueryRow(`
-        INSERT INTO tenants (tenant_name, created_at, updated_at)
-        VALUES ($1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-	RETURNING tenant_id
-    `, name).Scan(&tenantID)
+
+    // Get next available tenant ID for this environment
+    tenantID, err = db.getNextTenantID()
     if err != nil {
-	log.Printf("Error: %s", err.Error())
-        return 0, fmt.Errorf("failed to insert tenant: %w", err)
+        return 0, err
     }
-    return tenantID, nil
-}
 
-// insertTenantWithSpecificID attempts to insert a tenant with a specific ID.
-// Returns an error if the ID is already taken (Primary Key conflict).
-func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
-    var insertedID int64
-
-    // The INSERT statement now includes the tenant_id column and value
-    err := db.QueryRow(`
-        INSERT INTO tenants (tenant_id, tenant_name, created_at, updated_at)
-        VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    // Insert new tenant with allocated ID
+    err = db.QueryRow(`
+        INSERT INTO tenants (tenant_id, tenant_name, environment, created_at, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         RETURNING tenant_id
-    `, id, name).Scan(&insertedID)
+    `, tenantID, name, env).Scan(&tenantID)
 
     if err != nil {
         log.Printf("Error: %s", err.Error())
+        return 0, fmt.Errorf("failed to insert tenant: %w", err)
+    }
 
-        // In PostgreSQL, unique/PK violations often have a specific error code (e.g., "23505").
-        // Checking the specific error type can be complex and database-driver dependent.
-        // A simple check is often to look for the error message itself,
-        // but a more robust Go approach is often to wrap the error or check against known error types.
-        // For simplicity and general use, we'll return a more explicit error message.
-        // If you were using the pq driver, you could check for *pq.Error with Code "23505".
+    log.Printf("Created tenant '%s' with ID=%d in environment=%s", name, tenantID, env)
 
-        return 0, fmt.Errorf("failed to insert tenant with ID %d: ID might be taken, or name '%s' might exist: %w", id, name, err)
+    return tenantID, nil
+}
+
+// InsertTenantWithSpecificID inserts a tenant with a specific ID
+// Used for migrations or manual ID assignment
+func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
+    env := db.Environment
+
+    // Validate the ID is in the correct range
+    if err := db.validateTenantIDInRange(id); err != nil {
+        return 0, err
+    }
+
+    var insertedID int64
+    err := db.QueryRow(`
+        INSERT INTO tenants (tenant_id, tenant_name, environment, created_at, updated_at)
+        VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING tenant_id
+    `, id, name, env).Scan(&insertedID)
+
+    if err != nil {
+        log.Printf("Error: %s", err.Error())
+        return 0, fmt.Errorf("failed to insert tenant with ID %d: ID might be taken, or name '%s' might exist: %w",
+            id, name, err)
     }
 
     return insertedID, nil
@@ -195,9 +266,13 @@ func (db *DB) DeleteTenant(id int64) (error) {
 
 // ListTenants retrieves all tenants
 func (db *DB) ListTenants() ([]Tenant, error) {
-    rows, err := db.Query("SELECT tenant_id, tenant_name, created_at, updated_at FROM tenants")
+    rows, err := db.Query(`
+        SELECT tenant_id, tenant_name, environment, created_at, updated_at
+        FROM tenants
+        ORDER BY tenant_id
+    `)
     if err != nil {
-	log.Printf("Error: %s", err.Error())
+        log.Printf("Error: %s", err.Error())
         return nil, fmt.Errorf("failed to list tenants: %w", err)
     }
     defer rows.Close()
@@ -205,13 +280,38 @@ func (db *DB) ListTenants() ([]Tenant, error) {
     var tenants []Tenant
     for rows.Next() {
         var t Tenant
-        if err := rows.Scan(&t.ID, &t.Name, &t.CreatedAt, &t.UpdatedAt); err != nil {
-	    log.Printf("Error: %s", err.Error())
+        if err := rows.Scan(&t.ID, &t.Name, &t.Environment, &t.CreatedAt, &t.UpdatedAt); err != nil {
+            log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan tenant: %w", err)
         }
         tenants = append(tenants, t)
     }
     return tenants, nil
+}
+
+// ListTenantIDBlocks retrieves all tenant ID blocks
+func (db *DB) ListTenantIDBlocks() ([]TenantIDBlock, error) {
+    rows, err := db.Query(`
+        SELECT environment, start_id, end_id, description
+        FROM tenant_id_blocks
+        ORDER BY start_id
+    `)
+    if err != nil {
+        log.Printf("Error: %s", err.Error())
+        return nil, fmt.Errorf("failed to list tenant ID blocks: %w", err)
+    }
+    defer rows.Close()
+
+    var blocks []TenantIDBlock
+    for rows.Next() {
+        var b TenantIDBlock
+        if err := rows.Scan(&b.Environment, &b.StartID, &b.EndID, &b.Description); err != nil {
+            log.Printf("Error: %s", err.Error())
+            return nil, fmt.Errorf("failed to scan tenant ID block: %w", err)
+        }
+        blocks = append(blocks, b)
+    }
+    return blocks, nil
 }
 
 // GetOrInsertDevice retrieves an existing device or inserts a new one
@@ -801,6 +901,85 @@ func (db *DB) ListStatus() ([]Status, error) {
     var ti []Status
     for rows.Next() {
         var t Status
+        if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return nil, fmt.Errorf("failed to scan status: %w", err)
+        }
+        ti = append(ti, t)
+    }
+    return ti, nil
+}
+
+func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, vRules string, vThreatIntel string) (error) {
+    exists, err := db.ValidateDevice(deviceID, tenantID)
+    if err != nil {
+	log.Printf("Error: %s", err.Error())
+        return err
+    }
+    if !exists {
+        return fmt.Errorf("device ID %s or tenant ID %d does not exist", deviceID, tenantID)
+    }
+
+    // Check if the row exists
+    var cur Version
+    err = db.QueryRow(`
+        SELECT device_id, tenant_id, software, rules, threatintel, created_at
+        FROM version
+        WHERE device_id = $1 AND tenant_id = $2`,
+        deviceID, tenantID).Scan(
+        &cur.DeviceID, &cur.TenantID, &cur.Software, &cur.Rules, &cur.ThreatIntel, &cur.CreatedAt,
+    )
+    if err == sql.ErrNoRows {
+        _, err = db.Exec(`
+            INSERT INTO version (device_id, tenant_id, software, rules, threatintel, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+            deviceID, tenantID, vSoftware, vRules, vThreatIntel,
+        )
+        if err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return fmt.Errorf("Failed to create version: "+err.Error())
+        }
+    } else {
+        // update existing row
+	software := cur.Software
+	if vSoftware != "" {
+	    software = vSoftware
+	}
+	rules := cur.Rules
+	if vRules != "" {
+	    rules = vRules
+	}
+	threatintel := cur.ThreatIntel
+	if vThreatIntel != "" {
+	    threatintel = vThreatIntel
+	}
+        _, err = db.Exec(`
+	    UPDATE version
+	    SET software = $1, rules = $2, threatintel = $3, updated_at = CURRENT_TIMESTAMP
+	    WHERE device_id = $4 AND tenant_id = $5`,
+            software, rules, threatintel, deviceID, tenantID,
+        )
+        if err != nil {
+	    log.Printf("Error: %s", err.Error())
+            return fmt.Errorf("Failed to update status: "+err.Error())
+        }
+    }
+
+    return nil
+}
+
+// ListVersions retrieves all versions
+func (db *DB) ListVersions() ([]Version, error) {
+    rows, err := db.Query("SELECT device_id, tenant_id, software, rules, threatintel, updated_at FROM version")
+    if err != nil {
+	log.Printf("Error: %s", err.Error())
+        return nil, fmt.Errorf("failed to list status: %w", err)
+    }
+    defer rows.Close()
+
+    var ti []Version
+    for rows.Next() {
+        var t Version
         if err := rows.Scan(&t.DeviceID, &t.TenantID, &t.Software, &t.Rules, &t.ThreatIntel, &t.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan status: %w", err)

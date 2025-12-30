@@ -45,7 +45,7 @@ func cleanupTestDB(t *testing.T) {
     }
 
     cfg.Host = "localhost" // test running outside docker network
-    db2, err := NewDB(cfg.ConnString())
+    db2, err := NewDB(cfg.ConnString(), cfg.GetEnvironment())
     if err != nil {
         t.Fatalf("Failed to connect to DB: %v", err)
     }
@@ -65,13 +65,13 @@ func setupTestDB(t *testing.T) *DB {
 
     cfg.Host = "localhost" // test running outside docker network
     cfg.DBName = "testdb"
-    db, err := NewDB(cfg.ConnString())
+    db, err := NewDB(cfg.ConnString(), cfg.GetEnvironment())
     if err != nil {
         t.Fatalf("Failed to connect to DB: %v", err)
     }
 
     // Create schema
-    schemaFile := "../db/schema_pg.sql"
+    schemaFile := "../db/schema_pg_v2.sql"
     schemaSQL, err := ioutil.ReadFile(schemaFile)
     if err != nil {
         t.Fatalf("Failed to create schema: %v", err)

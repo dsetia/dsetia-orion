@@ -102,15 +102,17 @@ func main() {
 
     if *op == "" || *configPath == "" {
         fmt.Println("Error: -op and -db flags are required")
-        fmt.Println("Usage: ./dbutil -db <path> -op <operation> [args]")
+        fmt.Println("Usage: ./dbtool -db <path> -op <operation> [args]")
         fmt.Println("Operations:")
-        fmt.Println("  insert-tenant, validate-tenant, list-tenants, delete-tenant")
-        fmt.Println("  insert-device, validate-device, list-devices, delete-device, update-device")
-        fmt.Println("  insert-api-key, validate-api-key, list-api-keys, delete-api-key")
-        fmt.Println("  insert-hndr-sw, validate-hndr-sw, list-hndr-sw, delete-hndr-sw")
-        fmt.Println("  insert-hndr-rules, validate-hndr-rules, list-hndr-rules, delete-hndr-rules")
-        fmt.Println("  insert-threat-intel, validate-threat-intel, list-threat-intel, delete-threat-intel")
-        fmt.Println("  insert-status, list-status, delete-status")
+        fmt.Println("  Tenant: insert-tenant, validate-tenant, list-tenants, delete-tenant")
+        fmt.Println("  Device: insert-device, validate-device, list-devices, delete-device, update-device")
+        fmt.Println("  API Key: insert-api-key, validate-api-key, list-api-keys, delete-api-key")
+        fmt.Println("  Software: insert-hndr-sw, validate-hndr-sw, list-hndr-sw, delete-hndr-sw")
+        fmt.Println("  Rules: insert-hndr-rules, validate-hndr-rules, list-hndr-rules, delete-hndr-rules")
+        fmt.Println("  Threat Intel: insert-threat-intel, validate-threat-intel, list-threat-intel, delete-threat-intel")
+        fmt.Println("  Status: insert-status, list-status, delete-status")
+        fmt.Println("  Tenant ID Blocks: list-tenant-blocks")
+        fmt.Println("  Version: list-versions")
         os.Exit(1)
     }
 
@@ -132,8 +134,9 @@ func main() {
     // Construct DB path
     dbPath := cfg.ConnString()
     log.Println("DB path = ", dbPath)
+    log.Printf("Environment: %s", cfg.GetEnvironment())
 
-    db, err := NewDB(dbPath)
+    db, err := NewDB(dbPath, cfg.GetEnvironment())
     if err != nil {
         fmt.Printf("Error: %v\n", err)
         os.Exit(1)
@@ -198,8 +201,24 @@ func main() {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
         }
+        fmt.Printf("%-10s %-30s %-20s %-25s\n", "ID", "Name", "Environment", "Created")
+        fmt.Println("------------------------------------------------------------------------------------")
         for _, t := range tenants {
-            fmt.Printf("Tenant: ID=%d, Name=%s, Created=%s\n", t.ID, t.Name, timeStrColor(t.CreatedAt))
+            fmt.Printf("%-10d %-30s %-20s %-25s\n",
+                t.ID, t.Name, t.Environment, t.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
+
+    case "list-tenant-blocks":
+        blocks, err := db.ListTenantIDBlocks()
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-20s %-10s %-10s %-50s\n", "Environment", "Start", "End", "Description")
+        fmt.Println("------------------------------------------------------------------------------------")
+        for _, b := range blocks {
+            fmt.Printf("%-20s %-10d %-10d %-50s\n",
+                b.Environment, b.StartID, b.EndID, b.Description)
         }
 
     // Device Operations
@@ -445,6 +464,17 @@ func main() {
             os.Exit(1)
         }
         for _, d := range statusList {
+            fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s, UpdatedAt=%s\n",
+                d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel, timeStrColor(d.UpdatedAt))
+        }
+
+    case "list-versions":
+        versionList, err := db.ListVersions()
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        for _, d := range versionList {
             fmt.Printf("Device: ID=%s, TenantID=%d, Software=%s, Rules=%s, ThreatIntel=%s, UpdatedAt=%s\n",
                 d.DeviceID, d.TenantID, d.Software, d.Rules, d.ThreatIntel, timeStrColor(d.UpdatedAt))
         }
