@@ -3,7 +3,7 @@ filebeat.inputs:
     id: suricata-eve
     enabled: true
     paths:
-      - /var/log/suricata/eve.json
+      - /var/log/securite/suricata/eve.json
     parsers:
       - ndjson:
           overwrite_keys: true
