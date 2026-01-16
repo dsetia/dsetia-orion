@@ -129,6 +129,9 @@ objupdater -type software -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/m
 objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 objupdater -type threatintel -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
+# pin test software image to the device
+dbtool -db $CFG_DIR/db_dev.json -op update-device -device-id $DEVICE_ID -tenant-id $TENANT_ID -hndr-sw-version "v1.2.3"
+
 # Build and upload provisioner and sensor tarball
 echo "Building sensor packages"
 create-tarball.sh sensor $CFG_DIR $TENANT_ID $DEVICE_ID
