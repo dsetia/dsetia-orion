@@ -129,6 +129,9 @@ objupdater -type software -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/m
 objupdater -type rules -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file /tmp/$TEST_FILE_RULES -tenantid $TENANT_ID
 objupdater -type threatintel -dbconfig $CFG_DIR/db_dev.json -minioconfig $CFG_DIR/minio.json -file ../minio/threatintel-2025.04.10.1523.tar.gz
 
+# pin test software image to the device
+dbtool -db $CFG_DIR/db_dev.json -op update-device -device-id $DEVICE_ID -tenant-id $TENANT_ID -hndr-sw-version "v1.2.3"
+
 # Build and upload provisioner and sensor tarball
 echo "Building sensor packages"
 create-tarball.sh sensor $CFG_DIR $TENANT_ID $DEVICE_ID
@@ -139,14 +142,6 @@ curl -k https://localhost/v1/$TENANT_ID/$DEVICE_ID/sensor-provision.tar.gz -o se
 # may need to increase this limit for elastic container to come up
 sudo sysctl -w vm.max_map_count=262144
 
-# start elastic container
-echo "Starting elastic container"
-docker run -d --name es01 --net host -p 9200:9200 docker.elastic.co/elasticsearch/elasticsearch:9.0.3
-echo "Waiting for elastic container to stabilize..."
-sleep 120
-echo "Fetching elastic certificate"
-echo quite | openssl s_client -showcerts -servername elastic -connect localhost:9200 > elastic.pem
-echo "Fetching elastic id/key"
 elastic_key.sh
 
 # Build and start sensor container

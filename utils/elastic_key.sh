@@ -2,6 +2,15 @@
 
 # This is used to fetch API key from Elastic container for testing
 # It also generates a sample filebeat.yml in the current directory
+# start elastic container
+
+echo "Starting elastic container"
+docker run -d --name es01 --net host -p 9200:9200 docker.elastic.co/elasticsearch/elasticsearch:9.0.3
+echo "Waiting for elastic container to stabilize..."
+sleep 120
+echo "Fetching elastic certificate"
+echo quite | openssl s_client -showcerts -servername elastic -connect localhost:9200 > elastic.pem
+echo "Fetching elastic id/key"
 
 # Ensure elastic.pem exists in the current directory
 if [ ! -f "elastic.pem" ]; then
