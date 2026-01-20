@@ -211,6 +211,7 @@ echo -e "${BLUE}Migration Plan${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo -e "${YELLOW}Changes to be made:${NC}"
+echo -e "  0. Temporarily rename old tenant to avoid name conflict"
 echo -e "  1. Create new tenant record (ID: ${GREEN}$NEW_TENANT_ID${NC}, Env: ${GREEN}$TARGET_ENV${NC})"
 echo -e "  2. Update ${BLUE}$DEVICE_COUNT${NC} device(s)"
 echo -e "  3. Update ${BLUE}$APIKEY_COUNT${NC} API key(s)"
@@ -248,9 +249,18 @@ echo ""
 MIGRATION_SQL=$(cat <<EOF
 BEGIN;
 
+-- Step 0: Temporarily rename old tenant to avoid UNIQUE constraint violation
+UPDATE tenants
+SET tenant_name = tenant_name || '-migrating-$TENANT_ID-to-$NEW_TENANT_ID'
+WHERE tenant_id = $TENANT_ID;
+
 -- Step 1: Create new tenant record
 INSERT INTO tenants (tenant_id, tenant_name, environment, created_at, updated_at)
-SELECT $NEW_TENANT_ID, tenant_name, '$TARGET_ENV', created_at, updated_at
+SELECT $NEW_TENANT_ID,
+       REPLACE(tenant_name, '-migrating-$TENANT_ID-to-$NEW_TENANT_ID', ''),
+       '$TARGET_ENV',
+       created_at,
+       updated_at
 FROM tenants
 WHERE tenant_id = $TENANT_ID;
 
@@ -279,7 +289,7 @@ UPDATE version
 SET tenant_id = $NEW_TENANT_ID 
 WHERE tenant_id = $TENANT_ID;
 
--- Step 7: Delete old tenant record
+-- Step 7: Delete old tenant record (with temporary name)
 DELETE FROM tenants WHERE tenant_id = $TENANT_ID;
 
 COMMIT;
