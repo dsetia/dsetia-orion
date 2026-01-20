@@ -80,14 +80,14 @@ parse_db_config() {
         DB_PORT=$(jq -r '.port // 5432' "$config_file")
         DB_USER=$(jq -r '.user // "postgres"' "$config_file")
         DB_PASS=$(jq -r '.password // ""' "$config_file")
-        DB_NAME=$(jq -r '.database // "postgres"' "$config_file")
+        DB_NAME=$(jq -r '.dbname // "postgres"' "$config_file")
     else
         # Fallback to grep/sed
         DB_HOST=$(grep -o '"host"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "localhost")
         DB_PORT=$(grep -o '"port"[[:space:]]*:[[:space:]]*[0-9]*' "$config_file" | sed 's/.*:[[:space:]]*\([0-9]*\).*/\1/' || echo "5432")
         DB_USER=$(grep -o '"user"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
         DB_PASS=$(grep -o '"password"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "")
-        DB_NAME=$(grep -o '"database"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
+        DB_NAME=$(grep -o '"dbname"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
     fi
     
     export PGHOST="$DB_HOST"

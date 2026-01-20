@@ -46,13 +46,13 @@ if command -v jq &> /dev/null; then
     DB_PORT=$(jq -r '.port // 5432' "$DB_CONFIG")
     DB_USER=$(jq -r '.user // "postgres"' "$DB_CONFIG")
     DB_PASS=$(jq -r '.password // ""' "$DB_CONFIG")
-    DB_NAME=$(jq -r '.database // "postgres"' "$DB_CONFIG")
+    DB_NAME=$(jq -r '.dbname // "postgres"' "$DB_CONFIG")
 else
     DB_HOST=$(grep -o '"host"[[:space:]]*:[[:space:]]*"[^"]*"' "$DB_CONFIG" | sed 's/.*"\([^"]*\)".*/\1/' || echo "localhost")
     DB_PORT=$(grep -o '"port"[[:space:]]*:[[:space:]]*[0-9]*' "$DB_CONFIG" | sed 's/.*:[[:space:]]*\([0-9]*\).*/\1/' || echo "5432")
     DB_USER=$(grep -o '"user"[[:space:]]*:[[:space:]]*"[^"]*"' "$DB_CONFIG" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
     DB_PASS=$(grep -o '"password"[[:space:]]*:[[:space:]]*"[^"]*"' "$DB_CONFIG" | sed 's/.*"\([^"]*\)".*/\1/' || echo "")
-    DB_NAME=$(grep -o '"database"[[:space:]]*:[[:space:]]*"[^"]*"' "$DB_CONFIG" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
+    DB_NAME=$(grep -o '"dbname"[[:space:]]*:[[:space:]]*"[^"]*"' "$DB_CONFIG" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
 fi
 
 export PGHOST="$DB_HOST"
