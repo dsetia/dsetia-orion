@@ -232,7 +232,7 @@ fi
 echo -e "${YELLOW}Warning: This operation will change the tenant ID from $TENANT_ID to $NEW_TENANT_ID${NC}"
 echo -e "${YELLOW}All related records will be updated to reference the new tenant ID.${NC}"
 echo ""
-read -p "Do you want to proceed? (yes/no): " CONFIRM
+read -p "Do you want to proceed with migrating tenant ID from $TENANT_ID to $NEW_TENANT_ID? (yes/no): " CONFIRM
 
 if [[ "$CONFIRM" != "yes" ]]; then
     echo -e "${YELLOW}Migration cancelled${NC}"
