@@ -138,7 +138,7 @@ download_release() {
     if wget -q --show-progress \
             --auth-no-challenge \
             --header="Accept: application/octet-stream" \
-            "https://$GITHUB_TOKEN@api.github.com/repos/$repo/releases/assets/$asset_id" \
+            "https://$GITHUB_TOKEN:@api.github.com/repos/$repo/releases/assets/$asset_id" \
             -O "$output"; then
         ok "Download complete: $output"
 

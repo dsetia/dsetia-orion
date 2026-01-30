@@ -4,7 +4,7 @@ set -e
 # Script metadata
 SCRIPT_NAME="$(basename "$0")"
 VERSION="1.0.0"
-BACKUP_DIR="backups/$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="backups/orion_$(date +%Y%m%d_%H%M%S)"
 
 # Colors
 RED='\033[0;31m'
@@ -56,7 +56,7 @@ NOTES:
   - Backups are always saved to: backups/YYYYMMDD_HHMMSS/
   - Script must be run from the extracted tarball directory
   - Root/sudo privileges required for copying to /opt and /usr/local/bin
-  - MinIO configuration read from: opt/config/minio.json
+  - MinIO configuration read from: /opt/config/minio.json
 
 EOF
     exit 0
@@ -86,8 +86,8 @@ preflight_checks() {
     step "Running pre-flight checks..."
 
     # Check if running from correct directory
-    if [[ ! -d "opt/config" ]] || [[ ! -d "opt/bin" ]]; then
-        error_exit "Must run from extracted tarball directory (opt/config and opt/bin not found)"
+    if [[ ! -d "opt/bin" ]]; then
+        error_exit "Must run from extracted tarball directory (opt/bin not found)"
     fi
 
     # Check for required tools
@@ -107,12 +107,6 @@ preflight_checks() {
         error_exit "Missing required tools: ${missing_tools[*]}"
     fi
 
-    # Check if target directories exist
-    if [[ ! -d "/opt/config" ]]; then
-        info "Creating /opt/config directory"
-        mkdir -p /opt/config
-    fi
-
     ok "Pre-flight checks passed"
 }
 
@@ -122,8 +116,6 @@ backup_mgmt() {
     mkdir -p "$BACKUP_DIR"
 
     local files=(
-        "/opt/config/db.json"
-        "/opt/config/minio.json"
         "/usr/local/bin/dbtool"
         "/usr/local/bin/objupdater"
     )
@@ -131,7 +123,8 @@ backup_mgmt() {
     local backed_up=0
     for file in "${files[@]}"; do
         if [[ -f "$file" ]]; then
-            cp "$file" "$BACKUP_DIR/" && ((backed_up++))
+            cp "$file" "$BACKUP_DIR/"
+	    backed_up=$((backed_up + 1))
             info "  Backed up: $file"
         fi
     done
@@ -148,14 +141,14 @@ backup_apis() {
     mkdir -p "$BACKUP_DIR"
 
     local files=(
-        "/opt/config/db.json"
         "/usr/local/bin/apis"
     )
 
     local backed_up=0
     for file in "${files[@]}"; do
         if [[ -f "$file" ]]; then
-            cp "$file" "$BACKUP_DIR/" && ((backed_up++))
+            cp "$file" "$BACKUP_DIR/"
+	    backed_up=$((backed_up + 1))
             info "  Backed up: $file"
         fi
     done
@@ -171,7 +164,7 @@ backup_apis() {
 configure_minio_alias() {
     step "Configuring MinIO alias..."
 
-    local minio_config="opt/config/minio.json"
+    local minio_config="/opt/config/minio.json"
 
     if [[ ! -f "$minio_config" ]]; then
         err "MinIO configuration not found: $minio_config"
@@ -207,12 +200,8 @@ configure_minio_alias() {
 install_mgmt() {
     header "Installing Management Components"
 
-    step "Copying configuration files..."
-    cp opt/config/db.json opt/config/minio.json /opt/config/
-    ok "Configuration files copied"
-
     step "Installing binaries..."
-    cp opt/bin/utils /usr/local/bin/
+    cp opt/bin/* /usr/local/bin/
     ok "Binaries installed"
 
     # Check if mc (MinIO Client) is available
@@ -229,10 +218,6 @@ install_mgmt() {
 # Install API server components
 install_apis() {
     header "Installing API Server Components"
-
-    step "Copying configuration files..."
-    cp opt/config/db.json /opt/config/
-    ok "Configuration files copied"
 
     if [[ "$SKIP_SERVICES" != "true" ]]; then
         step "Stopping apis service..."
@@ -294,24 +279,18 @@ dry_run() {
     case "$role" in
         mgmt)
             echo "1. Backup existing files to: $BACKUP_DIR"
-            echo "   - /opt/config/db.json"
-            echo "   - /opt/config/minio.json"
             echo "   - /usr/local/bin/dbtool"
             echo "   - /usr/local/bin/objupdater"
             echo ""
-            echo "2. Copy configuration files:"
-            echo "   opt/config/db.json → /opt/config/"
-            echo "   opt/config/minio.json → /opt/config/"
-            echo ""
-            echo "3. Install binaries:"
+            echo "2. Install binaries:"
             echo "   opt/bin/dbtool → /usr/local/bin/"
             echo "   opt/bin/objupdater → /usr/local/bin/"
             echo ""
-            echo "4. Configure MinIO alias from opt/config/minio.json:"
-            if [[ -f "opt/config/minio.json" ]]; then
-                local endpoint=$(jq -r '.endpoint' "opt/config/minio.json")
-                local user=$(jq -r '.user' "opt/config/minio.json")
-                local usessl=$(jq -r '.usessl' "opt/config/minio.json")
+            echo "3. Configure MinIO alias from /opt/config/minio.json:"
+            if [[ -f "/opt/config/minio.json" ]]; then
+                local endpoint=$(jq -r '.endpoint' "/opt/config/minio.json")
+                local user=$(jq -r '.user' "/opt/config/minio.json")
+                local usessl=$(jq -r '.usessl' "/opt/config/minio.json")
                 local protocol="http"
                 [[ "$usessl" == "true" ]] && protocol="https"
                 echo "   mc alias set myminio ${protocol}://${endpoint} ${user} ********"
@@ -321,18 +300,14 @@ dry_run() {
             ;;
         apis)
             echo "1. Backup existing files to: $BACKUP_DIR"
-            echo "   - /opt/config/db.json"
             echo "   - /usr/local/bin/apis"
             echo ""
-            echo "2. Copy configuration files:"
-            echo "   opt/config/db.json → /opt/config/"
+            echo "2. Stop apis service (supervisorctl stop apis)"
             echo ""
-            echo "3. Stop apis service (supervisorctl stop apis)"
-            echo ""
-            echo "4. Install binary:"
+            echo "3. Install binary:"
             echo "   opt/bin/apis → /usr/local/bin/"
             echo ""
-            echo "5. Start apis service (supervisorctl start apis)"
+            echo "4. Start apis service (supervisorctl start apis)"
             ;;
     esac
 
