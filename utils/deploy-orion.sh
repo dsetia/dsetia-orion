@@ -256,6 +256,14 @@ install() {
 
     preflight_checks
 
+    echo ""
+    read -p "Do you want to proceed with deploying as $role role? (yes/no): " CONFIRM
+    if [[ "$CONFIRM" != "yes" ]]; then
+        echo -e "${YELLOW}Deployment cancelled${NC}"
+        exit 0
+    fi
+    echo ""
+
     case "$role" in
         mgmt)
             backup_mgmt
