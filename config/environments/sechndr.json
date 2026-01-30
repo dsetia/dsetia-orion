@@ -1,0 +1,10 @@
+{
+  "db": {
+    "host": "sechndrdb01"
+  },
+  "minio": {
+    "user": "myadmin",
+    "password": "mypassword",
+    "endpoint": "sechndrstor01:9000"
+  }
+}

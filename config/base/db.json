@@ -1,0 +1,9 @@
+{
+  "host": "postgres",
+  "port": 5432,
+  "user": "pguser",
+  "password": "pgpass",
+  "dbname": "pgdb",
+  "sslmode": "disable",
+  "environment": "private-staging"
+}
