@@ -1,4 +1,18 @@
 #!/bin/bash
+#
+# Copyright (c) 2026 SecurITe
+# All rights reserved.
+#
+# This source code is the property of SecurITe.
+# Unauthorized copying, modification, or distribution of this file,
+# via any medium is strictly prohibited unless explicitly authorized
+# by SecurITe.
+#
+# This software is proprietary and confidential.
+#
+# File Owner:       deepinder@securite.world
+# Created On:       01/30/2026
+
 set -e
 
 # Script metadata
