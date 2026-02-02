@@ -47,7 +47,7 @@ PGPASSWORD=$(jq -r '.password // "pgpass"' "$CONFIG_FILE")
 PGDB=$(jq -r '.dbname // "pgdb"' "$CONFIG_FILE")
 TARGET_ENV=$(jq -r '.environment' "$CONFIG_FILE")
 
-VALID_ENVS=("private-staging" "private-prod" "aws-prod" "gcloud-prod" "azure-prod")
+VALID_ENVS=("private-staging" "private-prod" "aws-prod" "gcloud-prod" "azure-prod" "private-prod-at")
 if ! printf '%s\n' "${VALID_ENVS[@]}" | grep -Fx "$TARGET_ENV" > /dev/null; then
     echo "Invalid environment: $TARGET_ENV"
     exit 1
@@ -89,6 +89,7 @@ preview() {
         aws-prod)         range="11000–20000";;
         gcloud-prod)      range="21000–30000";;
         azure-prod)       range="31000–40000";;
+        private-prod-at)  range="41000–50000";;
     esac
     echo -e "Reserved range for $TARGET_ENV: $range"
 }
@@ -120,7 +121,8 @@ INSERT INTO tenant_id_blocks (environment, start_id, end_id, description) VALUES
     ('private-prod',     1001,  10000,  'Private production tenants'),
     ('aws-prod',         11000, 20000,  'AWS production tenants'),
     ('gcloud-prod',      21000, 30000,  'GCloud production tenants'),
-    ('azure-prod',       31000, 40000,  'Azure production tenants')
+    ('azure-prod',       31000, 40000,  'Azure production tenants'),
+    ('private-prod-at',  41000, 50000,  'AT production tenants')
 ON CONFLICT (environment) DO NOTHING;
 EOF
     ok "tenant_id_blocks created"
@@ -134,6 +136,7 @@ CREATE SEQUENCE IF NOT EXISTS seq_private_prod_tenant_id    MINVALUE 1001 MAXVAL
 CREATE SEQUENCE IF NOT EXISTS seq_aws_prod_tenant_id        MINVALUE 11000 MAXVALUE 20000 START 11000;
 CREATE SEQUENCE IF NOT EXISTS seq_gcloud_prod_tenant_id     MINVALUE 21000 MAXVALUE 30000 START 21000;
 CREATE SEQUENCE IF NOT EXISTS seq_azure_prod_tenant_id      MINVALUE 31000 MAXVALUE 40000 START 31000;
+CREATE SEQUENCE IF NOT EXISTS seq_private_prod_at_tenant_id MINVALUE 41000 MAXVALUE 50000 START 41000;
 EOF
     ok "Sequences ready"
 }
