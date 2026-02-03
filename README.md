@@ -1,4 +1,18 @@
-# securite
+## SecurITe License
+```
+// Copyright (c) 2025 SecurITe
+// All rights reserved.
+//
+// This source code is the property of SecurITe.
+// Unauthorized copying, modification, or distribution of this file,
+// via any medium is strictly prohibited unless explicitly authorized
+// by SecurITe.
+//
+// This software is proprietary and confidential.
+//
+// File Owner:       <email>@securite.world
+// Created On:       MM/DD/YYYY
+```
 
 The 'orion.sh' script will pull all nginx, minio and postgres containers. Using docker compose
 orchestrates the containers.
@@ -27,68 +41,26 @@ Dependencies
     - curl https://dl.min.io/client/mc/release/linux-amd64/mc -o mc
     - chmod +x mc; sudo mv mc /usr/local/bin
 
-Known Issues
- - The 'launch.sh' script doesn't check for existence of the service on the host machine.  For
-   example it doesn't check if 'postgres' is running and stop the starting of the container.
-
-Commands
- - docker-compose build
- - docker-compose up -d
-
-
-# test provisioner. This will use testdb postgres which is meant for testing
-./launch.sh provisioner/docker-compose.override.yml
-
-# nomal testing with run_test.sh. This will use pgdb postgres DB meant for "cloud" simulation
-./launch.sh
-
-# gitea for github
-docker-compose -f docker-compose-git.yml up -d
-# copy the printed token; call it GITEA_TOKEN
-docker exec -u git -it gitea bash -lc   'gitea admin user create \
-     --username admin \
-     --password admin123 \
-     --email admin@example.com \
-     --admin \
-     --must-change-password=false || true'
-New user 'admin' has been successfully created!
-# Generate a token
-docker exec -u git -it gitea bash -lc   'gitea admin user generate-access-token \
-     --username admin \
-     --token-name e2e \
-     --scopes write:repository,write:user,read:user \
-     --raw'
-4661143b043e18909d2cffceb3561931299f956f
-export GITEA_TOKEN=4661143b043e18909d2cffceb3561931299f956f
-export GITEA_URL=http://localhost:3000
-# verify the token works:
-curl -fsSL -H "Authorization: token $GITEA_TOKEN" \
-     "$GITEA_URL/api/v1/user" | jq .
-# create repo; remove -f to see error detail if any such as 403
-curl -fsSL -H "Authorization: token $GITEA_TOKEN" -H "Content-Type: application/json"   -d '{"name":"hndr-sc-7","private":true}'   "$GITEA_URL/api/v1/user/repos"
-# initial branches
-git init hndr-sc-7 && cd hndr-sc-7
-git checkout -b healthcare_protocols
-echo "6.0.1" > version.txt
-mkdir -p .github/workflows
-# (optional) add your flip-prerelease workflow if you want to simulate it later
-git add .
-git -c user.email=a@b -c user.name=bot commit -m "seed"
-git remote add origin http://admin:$GITEA_TOKEN@localhost:3000/admin/hndr-sc-7.git
-git push -u origin healthcare_protocols
-
-## SecurITe License
+# Deploy management services using docker containers
 ```
-// Copyright (c) 2025 SecurITe
-// All rights reserved.
-//
-// This source code is the property of SecurITe.
-// Unauthorized copying, modification, or distribution of this file,
-// via any medium is strictly prohibited unless explicitly authorized
-// by SecurITe.
-//
-// This software is proprietary and confidential.
-//
-// File Owner:       <email>@securite.world
-// Created On:       MM/DD/YYYY
+git pull
+make all
+make instal
+make install-utils
+make config
+
+./orion.sh launch
+
+init_minio.sh /opt/config/minio.json
+init_db.sh /opt/config/db.json /opt/config/schema_pg_v2.sql
+```
+
+To populate minio with data for testing:
+```
+populate_minio.sh /opt/config/db.json /opt/config/minio.json minio/
+```
+
+Sanity test: 
+```
+./orion.sh test
 ```
