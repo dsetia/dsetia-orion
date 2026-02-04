@@ -32,6 +32,7 @@ rm -rf $DEPLOY_DIR
 mkdir -p $DEPLOY_DIR/opt/db
 mkdir -p $DEPLOY_DIR/opt/bin
 mkdir -p $DEPLOY_DIR/opt/nginx
+mkdir -p $DEPLOY_DIR/opt/docker
 
 make all
 
@@ -45,5 +46,8 @@ cp $SRCDIR/db/tenant-info.sh $DEPLOY_DIR/opt/bin/
 # schema
 cp $SRCDIR/db/schema_pg.sql $DEPLOY_DIR/opt/db
 cp $SRCDIR/db/schema_pg_v2.sql $DEPLOY_DIR/opt/db
+
+# docker deployment
+cp $SRCDIR/docker-compose.yml $DEPLOY_DIR/opt/docker/
 
 tar cvzf deployment-code.tar.gz -C $DEPLOY_DIR .
