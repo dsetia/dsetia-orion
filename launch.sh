@@ -46,7 +46,7 @@ print_status() {
 
 # 1. Launch containers
 echo "Starting containers with Docker Compose..."
-docker-compose $OVERRIDE_OPT up -d --build
+docker compose $OVERRIDE_OPT up -d --build
 print_status $? "Containers started"
 
 # 2. Ensure Docker network exists

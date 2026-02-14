@@ -88,7 +88,7 @@ print_status() {
 
 # Check if docker-compose is running
 echo "Checking docker-compose status..."
-docker-compose -f "$COMPOSE_FILE" ps | grep "Up" >/dev/null
+docker compose -f "$COMPOSE_FILE" ps | grep "Up" >/dev/null
 print_status $? "Docker-compose services are running"
 
 # 3. Verify containers are running

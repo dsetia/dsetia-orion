@@ -89,7 +89,7 @@ jobs:
       # Run sanity tests
       - name: Run sanity tests
         run: |
-          docker-compose -f docker-compose.yml up -d
+          docker compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
           init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
@@ -196,7 +196,7 @@ jobs:
       # Start backend containers
       - name: Start backend containers
         run: |
-          docker-compose -f docker-compose.yml up -d
+          docker compose -f docker-compose.yml up -d
           sleep 10
           # init and populate DB from outside the docker network
           init_db.sh config/db_dev.json db/schema_pg_v2.sql <<< "y"
@@ -258,7 +258,7 @@ jobs:
       - name: Clean up
         if: always()
         run: |
-          docker-compose -f docker-compose.yml down -v
+          docker compose -f docker-compose.yml down -v
           docker rm -f sensor || true
           docker rm -f es01 || true
 
@@ -274,6 +274,6 @@ jobs:
       - name: Show Docker logs on failure
         if: failure()
         run: |
-          docker-compose -f docker-compose.yml logs
+          docker compose -f docker-compose.yml logs
           docker logs sensor || true
 
