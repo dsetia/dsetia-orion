@@ -22,7 +22,8 @@ INSERT INTO tenant_id_blocks (environment, start_id, end_id, description) VALUES
     ('private-prod',     1001,  10000,  'Private production tenants (1001-10000)'),
     ('aws-prod',         11000, 20000,  'AWS production tenants (11000-20000)'),
     ('gcloud-prod',      21000, 30000,  'GCloud production tenants (21000-30000)'),
-    ('azure-prod',       31000, 40000,  'Azure production tenants (31000-40000)')
+    ('azure-prod',       31000, 40000,  'Azure production tenants (31000-40000)'),
+    ('private-prod-at',  41000, 50000,  'production tenants AT')
 ON CONFLICT (environment) DO NOTHING;
 
 -- Create sequences for each environment
@@ -40,6 +41,9 @@ CREATE SEQUENCE IF NOT EXISTS seq_gcloud_prod_tenant_id
 
 CREATE SEQUENCE IF NOT EXISTS seq_azure_prod_tenant_id
     START WITH 31000 INCREMENT BY 1 MINVALUE 31000 MAXVALUE 40000 NO CYCLE;
+
+CREATE SEQUENCE IF NOT EXISTS seq_private_prod_at_tenant_id
+    START WITH 41000 INCREMENT BY 1 MINVALUE 41000 MAXVALUE 50000 NO CYCLE;
 
 -- Tenants Table (DYNAMIC - Different per environment)
 CREATE TABLE tenants (

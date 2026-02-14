@@ -3,7 +3,7 @@
 # ===================================================================
 # move-tenant.sh - Move a tenant to a different environment ID block
 # ===================================================================
-# Usage: move-tenant.sh --db <db-config-path> --tenant-id <id> --environment <env> [--dry-run]
+# Usage: move-tenant.sh --db <db-config-path> --minio <minio-config-path> --tenant-id <id> --environment <env> [--dry-run]
 # ===================================================================
 
 set -euo pipefail
@@ -17,15 +17,21 @@ NC='\033[0m' # No Color
 
 # Default values
 DB_CONFIG=""
+MINIO_CONFIG=""
 TENANT_ID=""
 TARGET_ENV=""
 DRY_RUN=false
+MINIO_ALIAS="myminio"
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         --db)
             DB_CONFIG="$2"
+            shift 2
+            ;;
+        --minio)
+            MINIO_CONFIG="$2"
             shift 2
             ;;
         --tenant-id)
@@ -48,19 +54,20 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate required parameters
-if [[ -z "$DB_CONFIG" || -z "$TENANT_ID" || -z "$TARGET_ENV" ]]; then
+if [[ -z "$DB_CONFIG" || -z "$MINIO_CONFIG" || -z "$TENANT_ID" || -z "$TARGET_ENV" ]]; then
     echo -e "${RED}Error: Missing required parameters${NC}"
     echo ""
-    echo "Usage: $0 --db <db-config-path> --tenant-id <id> --environment <env> [--dry-run]"
+    echo "Usage: $0 --db <db-config-path> --minio <minio-config-path> --tenant-id <id> --environment <env> [--dry-run]"
     echo ""
     echo "Options:"
     echo "  --db <path>           Path to database config JSON file"
+    echo "  --minio <path>        Path to MinIO config JSON file"
     echo "  --tenant-id <id>      ID of tenant to move"
     echo "  --environment <env>   Target environment (e.g., private-prod, aws-prod)"
     echo "  --dry-run             Show what would be done without making changes"
     echo ""
     echo "Example:"
-    echo "  $0 --db /opt/config/db.json --tenant-id 7 --environment private-prod"
+    echo "  $0 --db /opt/config/db.json --minio /opt/config/minio.json --tenant-id 7 --environment private-prod"
     exit 1
 fi
 
@@ -70,10 +77,16 @@ if [[ ! -f "$DB_CONFIG" ]]; then
     exit 1
 fi
 
+# Validate MinIO config file exists
+if [[ ! -f "$MINIO_CONFIG" ]]; then
+    echo -e "${RED}Error: MinIO config file not found: $MINIO_CONFIG${NC}"
+    exit 1
+fi
+
 # Parse database configuration
 parse_db_config() {
     local config_file="$1"
-    
+
     # Try jq first (more reliable)
     if command -v jq &> /dev/null; then
         DB_HOST=$(jq -r '.host // "localhost"' "$config_file")
@@ -89,7 +102,7 @@ parse_db_config() {
         DB_PASS=$(grep -o '"password"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "")
         DB_NAME=$(grep -o '"dbname"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "postgres")
     fi
-    
+
     export PGHOST="$DB_HOST"
     export PGPORT="$DB_PORT"
     export PGUSER="$DB_USER"
@@ -105,6 +118,57 @@ psql_exec() {
 # Execute SQL and return result
 psql_query() {
     psql -t -A -c "$1"
+}
+
+# Parse MinIO configuration
+parse_minio_config() {
+    local config_file="$1"
+
+    # Try jq first (more reliable)
+    if command -v jq &> /dev/null; then
+        MINIO_USER=$(jq -r '.user // "minioadmin"' "$config_file")
+        MINIO_PASS=$(jq -r '.password // "minioadmin"' "$config_file")
+        MINIO_ENDPOINT=$(jq -r '.endpoint // "localhost:9000"' "$config_file")
+        MINIO_USESSL=$(jq -r '.usessl // false' "$config_file")
+    else
+        # Fallback to grep/sed
+        MINIO_USER=$(grep -o '"user"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "minioadmin")
+        MINIO_PASS=$(grep -o '"password"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "minioadmin")
+        MINIO_ENDPOINT=$(grep -o '"endpoint"[[:space:]]*:[[:space:]]*"[^"]*"' "$config_file" | sed 's/.*"\([^"]*\)".*/\1/' || echo "localhost:9000")
+        MINIO_USESSL=$(grep -o '"usessl"[[:space:]]*:[[:space:]]*[a-z]*' "$config_file" | sed 's/.*:[[:space:]]*\([a-z]*\).*/\1/' || echo "false")
+    fi
+}
+
+# Setup MinIO client
+setup_minio() {
+    # Check if mc command exists
+    if ! command -v mc &> /dev/null; then
+        echo -e "${RED}Error: MinIO client (mc) not found. Please install it first.${NC}"
+        echo "Installation: https://min.io/docs/minio/linux/reference/minio-mc.html"
+        exit 1
+    fi
+
+    # Determine protocol
+    local protocol="http"
+    if [[ "$MINIO_USESSL" == "true" ]]; then
+        protocol="https"
+    fi
+
+    # Configure mc alias
+    echo -e "${YELLOW}Configuring MinIO client...${NC}"
+
+    if mc alias set "$MINIO_ALIAS" "$protocol://$MINIO_ENDPOINT" "$MINIO_USER" "$MINIO_PASS" &> /dev/null; then
+        echo -e "${GREEN}✓ MinIO client configured${NC}"
+    else
+        echo -e "${RED}Error: Failed to configure MinIO client${NC}"
+        exit 1
+    fi
+}
+
+# Get list of rules for a tenant
+get_tenant_rules() {
+    local tenant_id=$1
+    psql_query "SELECT id, tenant_id, version FROM hndr_rules WHERE tenant_id = $tenant_id ORDER BY id"
 }
 
 echo -e "${BLUE}========================================${NC}"
@@ -128,6 +192,18 @@ if ! psql -c "SELECT 1" &> /dev/null; then
 fi
 
 echo -e "${GREEN}✓ Database connection successful${NC}"
+echo ""
+
+# Parse and setup MinIO
+parse_minio_config "$MINIO_CONFIG"
+
+echo -e "${YELLOW}MinIO Configuration:${NC}"
+echo "  Endpoint: $MINIO_ENDPOINT"
+echo "  User: $MINIO_USER"
+echo "  SSL: $MINIO_USESSL"
+echo ""
+
+setup_minio
 echo ""
 
 # Get current tenant information
@@ -186,6 +262,22 @@ echo "  Status Records: $STATUS_COUNT"
 echo "  Version Records: $VERSION_COUNT"
 echo ""
 
+# Get list of rules packages for MinIO migration
+echo -e "${YELLOW}Fetching rules packages for MinIO migration...${NC}"
+
+RULES_LIST=$(get_tenant_rules "$TENANT_ID")
+RULES_PACKAGE_COUNT=$(echo "$RULES_LIST" | grep -c . || echo "0")
+
+if [[ $RULES_PACKAGE_COUNT -gt 0 ]]; then
+    echo -e "  Found ${BLUE}$RULES_PACKAGE_COUNT${NC} rules package(s) in MinIO to migrate:"
+    while IFS='|' read -r rule_id rule_tenant_id version; do
+        echo "    - Version $version (rules/$TENANT_ID/hndr-rules-tid_$TENANT_ID-$version.tar.gz.json)"
+    done <<< "$RULES_LIST"
+else
+    echo -e "  ${YELLOW}No rules packages found${NC}"
+fi
+echo ""
+
 # Get new tenant ID from target environment
 echo -e "${YELLOW}Allocating new tenant ID from target environment...${NC}"
 
@@ -210,7 +302,7 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Migration Plan${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
-echo -e "${YELLOW}Changes to be made:${NC}"
+echo -e "${YELLOW}Database changes to be made:${NC}"
 echo -e "  0. Temporarily rename old tenant to avoid name conflict"
 echo -e "  1. Create new tenant record (ID: ${GREEN}$NEW_TENANT_ID${NC}, Env: ${GREEN}$TARGET_ENV${NC})"
 echo -e "  2. Update ${BLUE}$DEVICE_COUNT${NC} device(s)"
@@ -220,6 +312,19 @@ echo -e "  5. Update ${BLUE}$STATUS_COUNT${NC} status record(s)"
 echo -e "  6. Update ${BLUE}$VERSION_COUNT${NC} version record(s)"
 echo -e "  7. Delete old tenant record (ID: ${RED}$TENANT_ID${NC})"
 echo ""
+
+if [[ $RULES_PACKAGE_COUNT -gt 0 ]]; then
+    echo -e "${YELLOW}MinIO operations to be made:${NC}"
+    MINIO_OP_NUM=1
+    while IFS='|' read -r rule_id rule_tenant_id version; do
+        SOURCE_PATH="$MINIO_ALIAS/rules/$TENANT_ID/hndr-rules-tid_$TENANT_ID-$version.tar.gz.json"
+        DEST_PATH="$MINIO_ALIAS/rules/$NEW_TENANT_ID/hndr-rules-tid_$NEW_TENANT_ID-$version.tar.gz.json"
+        echo -e "  $MINIO_OP_NUM. Copy $SOURCE_PATH"
+        echo -e "     → $DEST_PATH"
+        MINIO_OP_NUM=$((MINIO_OP_NUM + 1))
+    done <<< "$RULES_LIST"
+    echo ""
+fi
 
 if [[ "$DRY_RUN" == true ]]; then
     echo -e "${YELLOW}DRY RUN MODE - No changes will be made${NC}"
@@ -265,28 +370,28 @@ FROM tenants
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 2: Update devices
-UPDATE devices 
-SET tenant_id = $NEW_TENANT_ID 
+UPDATE devices
+SET tenant_id = $NEW_TENANT_ID
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 3: Update api_keys
-UPDATE api_keys 
-SET tenant_id = $NEW_TENANT_ID 
+UPDATE api_keys
+SET tenant_id = $NEW_TENANT_ID
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 4: Update hndr_rules
-UPDATE hndr_rules 
-SET tenant_id = $NEW_TENANT_ID 
+UPDATE hndr_rules
+SET tenant_id = $NEW_TENANT_ID
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 5: Update status
-UPDATE status 
-SET tenant_id = $NEW_TENANT_ID 
+UPDATE status
+SET tenant_id = $NEW_TENANT_ID
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 6: Update version
-UPDATE version 
-SET tenant_id = $NEW_TENANT_ID 
+UPDATE version
+SET tenant_id = $NEW_TENANT_ID
 WHERE tenant_id = $TENANT_ID;
 
 -- Step 7: Delete old tenant record (with temporary name)
@@ -300,23 +405,57 @@ echo -e "${YELLOW}Executing migration transaction...${NC}"
 
 if psql -c "$MIGRATION_SQL"; then
     echo ""
-    echo -e "${GREEN}✓ Migration completed successfully${NC}"
+    echo -e "${GREEN}✓ Database migration completed successfully${NC}"
     echo ""
-    
+
+    # Migrate MinIO rules packages
+    if [[ $RULES_PACKAGE_COUNT -gt 0 ]]; then
+        echo -e "${YELLOW}Migrating MinIO rules packages...${NC}"
+
+        MINIO_SUCCESS=true
+        MIGRATED_COUNT=0
+
+        while IFS='|' read -r rule_id rule_tenant_id version; do
+            SOURCE_PATH="$MINIO_ALIAS/rules/$TENANT_ID/hndr-rules-tid_$TENANT_ID-$version.tar.gz.json"
+            DEST_PATH="$MINIO_ALIAS/rules/$NEW_TENANT_ID/hndr-rules-tid_$NEW_TENANT_ID-$version.tar.gz.json"
+
+            echo -e "  Copying $version..."
+
+            if mc cp "$SOURCE_PATH" "$DEST_PATH" &> /dev/null; then
+                echo -e "  ${GREEN}✓${NC} $version → rules/$NEW_TENANT_ID/"
+                MIGRATED_COUNT=$((MIGRATED_COUNT + 1))
+            else
+                echo -e "  ${RED}✗${NC} Failed to copy $version"
+                MINIO_SUCCESS=false
+            fi
+        done <<< "$RULES_LIST"
+
+        echo ""
+
+        if [[ "$MINIO_SUCCESS" == true ]]; then
+            echo -e "${GREEN}✓ All MinIO rules packages migrated successfully ($MIGRATED_COUNT/$RULES_PACKAGE_COUNT)${NC}"
+        else
+            echo -e "${YELLOW}⚠ Warning: Some MinIO rules packages failed to migrate${NC}"
+            echo -e "${YELLOW}  Migrated: $MIGRATED_COUNT/$RULES_PACKAGE_COUNT${NC}"
+            echo -e "${YELLOW}  Database migration was successful, but manual MinIO cleanup may be needed${NC}"
+        fi
+        echo ""
+    fi
+
     # Verify migration
     echo -e "${YELLOW}Verifying migration...${NC}"
-    
+
     NEW_TENANT_INFO=$(psql_query "SELECT tenant_id, tenant_name, environment FROM tenants WHERE tenant_id = $NEW_TENANT_ID")
-    
+
     if [[ -n "$NEW_TENANT_INFO" ]]; then
         echo -e "${GREEN}✓ New tenant record verified${NC}"
-        
+
         NEW_DEVICE_COUNT=$(psql_query "SELECT COUNT(*) FROM devices WHERE tenant_id = $NEW_TENANT_ID")
         NEW_APIKEY_COUNT=$(psql_query "SELECT COUNT(*) FROM api_keys WHERE tenant_id = $NEW_TENANT_ID")
         NEW_RULES_COUNT=$(psql_query "SELECT COUNT(*) FROM hndr_rules WHERE tenant_id = $NEW_TENANT_ID")
         NEW_STATUS_COUNT=$(psql_query "SELECT COUNT(*) FROM status WHERE tenant_id = $NEW_TENANT_ID")
         NEW_VERSION_COUNT=$(psql_query "SELECT COUNT(*) FROM version WHERE tenant_id = $NEW_TENANT_ID")
-        
+
         echo ""
         echo -e "${YELLOW}Post-migration record counts:${NC}"
         echo "  Devices: $NEW_DEVICE_COUNT (expected: $DEVICE_COUNT)"
@@ -325,7 +464,7 @@ if psql -c "$MIGRATION_SQL"; then
         echo "  Status Records: $NEW_STATUS_COUNT (expected: $STATUS_COUNT)"
         echo "  Version Records: $NEW_VERSION_COUNT (expected: $VERSION_COUNT)"
         echo ""
-        
+
         # Verify counts match
         if [[ "$NEW_DEVICE_COUNT" == "$DEVICE_COUNT" ]] && \
            [[ "$NEW_APIKEY_COUNT" == "$APIKEY_COUNT" ]] && \
@@ -339,7 +478,7 @@ if psql -c "$MIGRATION_SQL"; then
     else
         echo -e "${RED}⚠ Warning: Could not verify new tenant record${NC}"
     fi
-    
+
     # Verify old tenant is gone
     OLD_TENANT_CHECK=$(psql_query "SELECT COUNT(*) FROM tenants WHERE tenant_id = $TENANT_ID")
     if [[ "$OLD_TENANT_CHECK" == "0" ]]; then
@@ -347,7 +486,28 @@ if psql -c "$MIGRATION_SQL"; then
     else
         echo -e "${RED}⚠ Warning: Old tenant record still exists${NC}"
     fi
-    
+
+    # Verify MinIO packages
+    if [[ $RULES_PACKAGE_COUNT -gt 0 ]]; then
+        echo ""
+        echo -e "${YELLOW}Verifying MinIO packages...${NC}"
+
+        VERIFIED_COUNT=0
+        while IFS='|' read -r rule_id rule_tenant_id version; do
+            DEST_PATH="$MINIO_ALIAS/rules/$NEW_TENANT_ID/hndr-rules-tid_$NEW_TENANT_ID-$version.tar.gz.json"
+
+            if mc stat "$DEST_PATH" &> /dev/null; then
+                VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
+            fi
+        done <<< "$RULES_LIST"
+
+        if [[ $VERIFIED_COUNT -eq $RULES_PACKAGE_COUNT ]]; then
+            echo -e "${GREEN}✓ All MinIO packages verified ($VERIFIED_COUNT/$RULES_PACKAGE_COUNT)${NC}"
+        else
+            echo -e "${RED}⚠ Warning: MinIO package verification incomplete ($VERIFIED_COUNT/$RULES_PACKAGE_COUNT)${NC}"
+        fi
+    fi
+
     echo ""
     echo -e "${BLUE}========================================${NC}"
     echo -e "${GREEN}Migration Summary${NC}"
@@ -356,9 +516,14 @@ if psql -c "$MIGRATION_SQL"; then
     echo -e "  Tenant Name: ${BLUE}$CURRENT_NAME${NC}"
     echo -e "  Old Tenant ID: ${RED}$TENANT_ID${NC} (${RED}$CURRENT_ENV${NC})"
     echo -e "  New Tenant ID: ${GREEN}$NEW_TENANT_ID${NC} (${GREEN}$TARGET_ENV${NC})"
+
+    if [[ $RULES_PACKAGE_COUNT -gt 0 ]]; then
+        echo -e "  Rules Packages Migrated: ${GREEN}$RULES_PACKAGE_COUNT${NC}"
+    fi
+
     echo ""
     echo -e "${GREEN}✓ Tenant successfully moved to $TARGET_ENV environment${NC}"
-    
+
 else
     echo ""
     echo -e "${RED}✗ Migration failed${NC}"
