@@ -59,6 +59,8 @@ fi
 
 # install other dependencies
 if [ ! -f /.dockerenv ]; then
+    sudo dnf config-manager --set-enabled crb
+    sudo dnf makecache
     sudo dnf install -y libnet hyperscan libpcap jansson-devel
 fi
 
