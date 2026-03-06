@@ -16,6 +16,7 @@ package main
 import (
     "database/sql"
     "errors"
+    "strings"
     "fmt"
     "log"
     "time"
@@ -53,6 +54,7 @@ type Device struct {
     TenantID      int64
     Name          string
     HndrSwVersion string
+    Location      string
     CreatedAt     time.Time
     UpdatedAt     time.Time
 }
@@ -319,7 +321,7 @@ func (db *DB) ListTenantIDBlocks() ([]TenantIDBlock, error) {
 }
 
 // GetOrInsertDevice retrieves an existing device or inserts a new one
-func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName string, hndrSwVersion string) (string, error) {
+func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName string, hndrSwVersion string, location string) (string, error) {
     if deviceName == "" {
         return "", errors.New("device name cannot be empty")
     }
@@ -344,9 +346,9 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
         deviceID = uuid.New().String()
     }
     _, err = db.Exec(`
-        INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `, deviceID, tenantID, deviceName, hndrSwVersion)
+        INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `, deviceID, tenantID, deviceName, hndrSwVersion, location)
     if err != nil {
 	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to insert device: %w", err)
@@ -367,7 +369,7 @@ func (db *DB) ValidateDevice(deviceID string, tenantID int64) (bool, error) {
 
 // ListDevices retrieves all devices, optionally filtered by tenant_id
 func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
-    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at FROM devices"
+    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at FROM devices"
     args := []interface{}{}
     if tenantID > 0 {
         query += " WHERE tenant_id = $1"
@@ -383,7 +385,7 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     var devices []Device
     for rows.Next() {
         var d Device
-        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.CreatedAt, &d.UpdatedAt); err != nil {
+        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt); err != nil {
 	    log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan device: %w", err)
         }
@@ -410,11 +412,81 @@ func (db *DB) UpdateDeviceVersion(deviceID string, hndrSwVersion string) (error)
     return nil
 }
 
+// UpdateDeviceEntry updates an existing device entry with software version number or location
+func (db *DB) UpdateDeviceEntry(deviceID string, updates string) (error) {
+    res, err := db.Exec(`
+        UPDATE devices
+	SET %s, updated_at = CURRENT_TIMESTAMP
+	WHERE device_id = $1)
+    `, updates, deviceID)
+    if err != nil {
+	log.Printf("Error: %s", err.Error())
+        return fmt.Errorf("failed to insert device: %w", err)
+    }
+    rows, _ := res.RowsAffected()
+    if rows == 0 {
+        return fmt.Errorf("no update performed (version/location may already match)")
+    }
+    return nil
+}
+
+// UpdateDeviceFields updates any combination of updatable device fields
+func (db *DB) UpdateDeviceFields(deviceID string, tenantID int64, changes map[string]interface{}) error {
+    if len(changes) == 0 {
+        return errors.New("no fields to update")
+    }
+
+    allowed := map[string]bool{
+        "hndr_sw_version": true,
+        "location":        true,
+        "device_name":     false,
+        "tenant_id":       false,
+    }
+    for field := range changes {
+        if !allowed[field] {
+            return fmt.Errorf("cannot update field: %s (not allowed)", field)
+        }
+    }
+
+    var sets []string
+    var args []interface{}
+    argIdx := 1
+
+    for field, value := range changes {
+        sets = append(sets, fmt.Sprintf("%s = $%d", field, argIdx))
+        args = append(args, value)
+        argIdx++
+    }
+
+    // always update timestamp
+    sets = append(sets, "updated_at = CURRENT_TIMESTAMP")
+
+    query := fmt.Sprintf(`
+        UPDATE devices
+        SET %s
+        WHERE device_id = $%d AND tenant_id = $%d
+    `, strings.Join(sets, ", "), argIdx, argIdx+1)
+
+    args = append(args, deviceID, tenantID)
+
+    res, err := db.Exec(query, args...)
+    if err != nil {
+        return fmt.Errorf("update failed: %w", err)
+    }
+
+    rows, _ := res.RowsAffected()
+    if rows == 0 {
+        return fmt.Errorf("no device found with id %s and tenant %d (or no changes applied)", deviceID, tenantID)
+    }
+
+    return nil
+}
+
 // GetDeviceEntry retrieves a single device by device_id and tenant_id
 func (db *DB) GetDeviceEntry(deviceID string, tenantID int64) (*Device, error) {
-    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, created_at, updated_at FROM devices WHERE device_id = $1 AND tenant_id = $2"
+    query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at FROM devices WHERE device_id = $1 AND tenant_id = $2"
     var d Device
-    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.CreatedAt, &d.UpdatedAt)
+    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt)
     if err == sql.ErrNoRows {
         return nil, fmt.Errorf("device %s not found for tenant %d", deviceID, tenantID)
     }

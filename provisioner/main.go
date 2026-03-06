@@ -81,6 +81,7 @@ func main() {
     dbPath := flag.String("db", "", "Path to postgres database config file")
     minioPath := flag.String("minio", "", "Path to Minio config file")
     op := flag.String("op", "", "Operation to perform (e.g., provision-tenant, provision-sensor)")
+    location := flag.String("location", "", "Device location (city, site, rack, etc)")
 
     // tenant provision
     tenantName := flag.String("tenant-name", "", "Tenant name")
@@ -192,7 +193,7 @@ func main() {
 
         // Step 2: Create device ID
 	var finalDeviceID string
-        finalDeviceID, err = db.GetOrInsertDevice("", tenantID, *deviceName, "")
+        finalDeviceID, err = db.GetOrInsertDevice("", tenantID, *deviceName, "", *location)
         if err != nil {
             log.Fatalf("Failed to get or insert device %s: %v", finalDeviceID, err)
         }
