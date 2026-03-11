@@ -10,10 +10,19 @@
 #
 # This software is proprietary and confidential.
 #
+# File Owner:       deepinder@securite.world
+# Created On:       01/30/2026
+
 set -e
 
-DEPLOY_DIR="/tmp/deploy"
+# Print usage/help
+usage() {
+    echo "Usage: $0 environment"
+    echo "  Build Orion code tarball"
+    exit 1
+}
 
+DEPLOY_DIR="/tmp/deploy"
 BINDIR=$HOME/go/bin
 SRCDIR=$HOME/code/orion
 
@@ -22,18 +31,23 @@ rm -rf $DEPLOY_DIR
 
 mkdir -p $DEPLOY_DIR/opt/db
 mkdir -p $DEPLOY_DIR/opt/bin
-mkdir -p $DEPLOY_DIR/opt/config
+mkdir -p $DEPLOY_DIR/opt/nginx
 mkdir -p $DEPLOY_DIR/opt/docker
-mkdir -p $DEPLOY_DIR/etc/supervisord.d/
+
+make all
 
 # binaries and utils
 cp $BINDIR/* $DEPLOY_DIR/opt/bin/
 cp $SRCDIR/utils/* $DEPLOY_DIR/opt/bin/
+cp $SRCDIR/db/migrate_v1_to_v2.sh $DEPLOY_DIR/opt/bin/
+cp $SRCDIR/db/move-tenant.sh $DEPLOY_DIR/opt/bin/
+cp $SRCDIR/db/tenant-info.sh $DEPLOY_DIR/opt/bin/
 
-# config
-cp -r $SRCDIR/config/  $DEPLOY_DIR/opt/
+# schema
 cp $SRCDIR/db/schema_pg.sql $DEPLOY_DIR/opt/db
+cp $SRCDIR/db/schema_pg_v2.sql $DEPLOY_DIR/opt/db
 
+# docker deployment
 cp $SRCDIR/docker-compose.yml $DEPLOY_DIR/opt/docker/
 
-tar cvzf deployment.tar.gz -C $DEPLOY_DIR .
+tar cvzf deployment-code.tar.gz -C $DEPLOY_DIR .
