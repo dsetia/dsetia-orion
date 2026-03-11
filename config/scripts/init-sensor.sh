@@ -74,7 +74,6 @@ cp securite /etc/logrotate.d/
 # Use /etc/supervisord.d/ for AlmaLinux 9, /etc/supervisor/conf.d/ for Docker
 CONFIG_DIR="/etc/supervisor/conf.d"
 if [ ! -f /.dockerenv ]; then
-    CONFIG_DIR="/etc/supervisord.d"
     mkdir -p "$CONFIG_DIR"
     cp updater.conf "$CONFIG_DIR/updater.ini"
     cp hndr.conf "$CONFIG_DIR/hndr.ini"
