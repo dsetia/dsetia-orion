@@ -37,7 +37,7 @@ launch() {
 
 stop() {
     echo "[stop] Stopping services"
-    docker-compose down
+    docker compose down
 }
 
 restart() {
