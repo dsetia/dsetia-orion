@@ -71,7 +71,7 @@ func setupTestDB(t *testing.T) *DB {
     }
 
     // Create schema
-    schemaFile := "../db/schema_pg_v2.sql"
+    schemaFile := "../db/schema_pg_v3.sql"
     schemaSQL, err := ioutil.ReadFile(schemaFile)
     if err != nil {
         t.Fatalf("Failed to create schema: %v", err)
