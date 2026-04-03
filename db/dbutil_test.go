@@ -217,11 +217,17 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Insert and Get Device", func(t *testing.T) {
         deviceName := "test-device"
         deviceID := uuid.New().String()
-        id, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0", "Frankfurt")
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, deviceID, id)
 
-        id2, err := db.GetOrInsertDevice("", tenantID, deviceName, "1.0", "Frankfurt")
+        id2, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, id, id2)
     })
@@ -229,7 +235,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Insert and Update Device", func(t *testing.T) {
         deviceName := "test-device-2"
         deviceID := uuid.New().String()
-        id, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0", "Frankfurt")
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, deviceID, id)
 	device, err := db.GetDeviceEntry(deviceID, tenantID)
@@ -255,7 +264,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Validate Device", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "validate-device"
-        _, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0", "Wien")
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         exists, err := db.ValidateDevice(deviceID, tenantID)
@@ -270,7 +282,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("List Devices", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "list-device"
-        _, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0", "Wien")
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         devices, err := db.ListDevices(tenantID)
@@ -281,7 +296,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Delete Device", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "delete-device"
-	_, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0", "Wien")
+	_, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         err = db.DeleteDevice(deviceID, tenantID)
@@ -290,6 +308,25 @@ func TestDeviceOperations(t *testing.T) {
         exists, err := db.ValidateDevice(deviceID, tenantID)
         assert.NoError(t, err)
         assert.False(t, exists)
+    })
+
+    t.Run("Auto-generated Device ID when DeviceID is empty", func(t *testing.T) {
+        // Only required fields supplied; DeviceID, HndrSwVersion, and Location
+        // are intentionally omitted to exercise zero-value defaults.
+        params := DeviceParams{TenantID: tenantID, DeviceName: "auto-id-device"}
+        id, err := db.GetOrInsertDevice(params)
+        assert.NoError(t, err)
+        assert.NotEmpty(t, id, "a UUID should be generated when DeviceID is empty")
+
+        // Second call with same name must return the same ID (idempotency).
+        id2, err := db.GetOrInsertDevice(DeviceParams{TenantID: tenantID, DeviceName: "auto-id-device"})
+        assert.NoError(t, err)
+        assert.Equal(t, id, id2, "repeated call should return the existing device ID")
+    })
+
+    t.Run("Empty DeviceName returns error", func(t *testing.T) {
+        _, err := db.GetOrInsertDevice(DeviceParams{TenantID: tenantID})
+        assert.Error(t, err, "missing DeviceName should produce an error")
     })
 }
 
@@ -300,7 +337,10 @@ func TestAPIKeyOperations(t *testing.T) {
     tenantID, err := db.GetOrInsertTenant("api-key-tenant")
     assert.NoError(t, err)
     deviceID := uuid.New().String()
-    _, err = db.GetOrInsertDevice(deviceID, tenantID, "api-device", "1.0", "Frankfurt")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "api-device",
+        HndrSwVersion: "1.0", Location: "Frankfurt",
+    })
     assert.NoError(t, err)
 
     /*
@@ -539,7 +579,10 @@ func TestStatusOperations(t *testing.T) {
     tenantID, err := db.GetOrInsertTenant("status-tenant")
     assert.NoError(t, err)
     deviceID := uuid.New().String()
-    _, err = db.GetOrInsertDevice(deviceID, tenantID, "status-device", "1.0", "Wien")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "status-device",
+        HndrSwVersion: "1.0", Location: "Wien",
+    })
     assert.NoError(t, err)
 
     t.Run("Insert Status", func(t *testing.T) {
@@ -594,7 +637,10 @@ func TestDeviceLocation(t *testing.T) {
     loc2 := "Pleasanton DC-3 Row 5"
 
     // Insert with location
-    _, err = db.GetOrInsertDevice(deviceID, tenantID, "location-test-device", "1.5.0", loc1)
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "location-test-device",
+        HndrSwVersion: "1.5.0", Location: loc1,
+    })
     assert.NoError(t, err)
 
     // Verify

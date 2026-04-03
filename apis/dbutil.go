@@ -59,6 +59,17 @@ type Device struct {
     UpdatedAt     time.Time
 }
 
+// DeviceParams holds the caller-supplied fields for GetOrInsertDevice.
+// DeviceID may be left empty; a UUID will be generated automatically.
+// HndrSwVersion and Location are optional and default to empty string.
+type DeviceParams struct {
+    DeviceID      string
+    TenantID      int64
+    DeviceName    string
+    HndrSwVersion string
+    Location      string
+}
+
 // APIKey represents the api_keys table
 type APIKey struct {
     Key       string
@@ -320,21 +331,24 @@ func (db *DB) ListTenantIDBlocks() ([]TenantIDBlock, error) {
     return blocks, nil
 }
 
-// GetOrInsertDevice retrieves an existing device or inserts a new one
-func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName string, hndrSwVersion string, location string) (string, error) {
-    if deviceName == "" {
+// GetOrInsertDevice retrieves an existing device or inserts a new one.
+// All input fields are supplied via DeviceParams. DeviceParams.DeviceID may be
+// empty, in which case a UUID is generated. HndrSwVersion and Location are
+// optional and default to empty string when omitted.
+func (db *DB) GetOrInsertDevice(params DeviceParams) (string, error) {
+    if params.DeviceName == "" {
         return "", errors.New("device name cannot be empty")
     }
-    exists, err := db.ValidateTenant(tenantID)
+    exists, err := db.ValidateTenant(params.TenantID)
     if err != nil {
 	log.Printf("Error: %s", err.Error())
         return "", err
     }
     if !exists {
-        return "", fmt.Errorf("tenant ID %d does not exist", tenantID)
+        return "", fmt.Errorf("tenant ID %d does not exist", params.TenantID)
     }
     var existingID string
-    err = db.QueryRow("SELECT device_id FROM devices WHERE device_name = $1 AND tenant_id = $2", deviceName, tenantID).Scan(&existingID)
+    err = db.QueryRow("SELECT device_id FROM devices WHERE device_name = $1 AND tenant_id = $2", params.DeviceName, params.TenantID).Scan(&existingID)
     if err == nil {
         return existingID, nil
     }
@@ -342,13 +356,14 @@ func (db *DB) GetOrInsertDevice(deviceID string, tenantID int64, deviceName stri
 	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to check device: %w", err)
     }
+    deviceID := params.DeviceID
     if deviceID == "" {
         deviceID = uuid.New().String()
     }
     _, err = db.Exec(`
         INSERT INTO devices (device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at)
         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `, deviceID, tenantID, deviceName, hndrSwVersion, location)
+    `, deviceID, params.TenantID, params.DeviceName, params.HndrSwVersion, params.Location)
     if err != nil {
 	log.Printf("Error: %s", err.Error())
         return "", fmt.Errorf("failed to insert device: %w", err)

@@ -88,7 +88,10 @@ func setupTestDB(t *testing.T) *DB {
     if err != nil {
         t.Fatalf("Failed to insert tenant: %v", err)
     }
-    _, err = db.GetOrInsertDevice("dev1", tenantID, "Test Device", "v1.2.3", "")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: "dev1", TenantID: tenantID, DeviceName: "Test Device",
+        HndrSwVersion: "v1.2.3",
+    })
     if err != nil {
         t.Fatalf("Failed to insert device: %v", err)
     }
@@ -110,7 +113,9 @@ func setupTestDB(t *testing.T) *DB {
     }
 
     // 2nd device to use global software
-    _, err = db.GetOrInsertDevice("dev2", tenantID, "Test Device 2", "", "")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: "dev2", TenantID: tenantID, DeviceName: "Test Device 2",
+    })
     if err != nil {
         t.Fatalf("Failed to insert device: %v", err)
     }

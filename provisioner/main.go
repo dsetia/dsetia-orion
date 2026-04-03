@@ -193,7 +193,11 @@ func main() {
 
         // Step 2: Create device ID
 	var finalDeviceID string
-        finalDeviceID, err = db.GetOrInsertDevice("", tenantID, *deviceName, "", *location)
+        finalDeviceID, err = db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: *deviceName,
+            Location:   *location,
+        })
         if err != nil {
             log.Fatalf("Failed to get or insert device %s: %v", finalDeviceID, err)
         }

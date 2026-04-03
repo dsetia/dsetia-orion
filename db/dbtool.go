@@ -228,7 +228,13 @@ func main() {
             fmt.Println("Error: -device-name and -tenant-id are required for insert-device")
             os.Exit(1)
         }
-        id, err := db.GetOrInsertDevice(*deviceID, *tenantID, *deviceName, *hndrSwVersion, *location)
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID:      *deviceID,
+            TenantID:      *tenantID,
+            DeviceName:    *deviceName,
+            HndrSwVersion: *hndrSwVersion,
+            Location:      *location,
+        })
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
