@@ -412,24 +412,6 @@ func (db *DB) UpdateDeviceVersion(deviceID string, hndrSwVersion string) (error)
     return nil
 }
 
-// UpdateDeviceEntry updates an existing device entry with software version number or location
-func (db *DB) UpdateDeviceEntry(deviceID string, updates string) (error) {
-    res, err := db.Exec(`
-        UPDATE devices
-	SET %s, updated_at = CURRENT_TIMESTAMP
-	WHERE device_id = $1)
-    `, updates, deviceID)
-    if err != nil {
-	log.Printf("Error: %s", err.Error())
-        return fmt.Errorf("failed to insert device: %w", err)
-    }
-    rows, _ := res.RowsAffected()
-    if rows == 0 {
-        return fmt.Errorf("no update performed (version/location may already match)")
-    }
-    return nil
-}
-
 // UpdateDeviceFields updates any combination of updatable device fields
 func (db *DB) UpdateDeviceFields(deviceID string, tenantID int64, changes map[string]interface{}) error {
     if len(changes) == 0 {
