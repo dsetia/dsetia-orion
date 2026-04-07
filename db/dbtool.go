@@ -68,6 +68,7 @@ func main() {
     deviceID := flag.String("device-id", "", "Device ID")
     deviceName := flag.String("device-name", "", "Device name")
     hndrSwVersion := flag.String("hndr-sw-version", "", "Handr software version")
+    location := flag.String("location", "", "Device location (city, site, rack, etc)")
 
     // APIKey flags
     apiKey := flag.String("api-key", "", "API key")
@@ -227,7 +228,13 @@ func main() {
             fmt.Println("Error: -device-name and -tenant-id are required for insert-device")
             os.Exit(1)
         }
-        id, err := db.GetOrInsertDevice(*deviceID, *tenantID, *deviceName, *hndrSwVersion)
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID:      *deviceID,
+            TenantID:      *tenantID,
+            DeviceName:    *deviceName,
+            HndrSwVersion: *hndrSwVersion,
+            Location:      *location,
+        })
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
@@ -254,8 +261,8 @@ func main() {
             os.Exit(1)
         }
         for _, d := range devices {
-            fmt.Printf("Device: ID=%s, TenantID=%d, Name=%s, HndrSwVersion=%s\n",
-                d.ID, d.TenantID, d.Name, d.HndrSwVersion)
+            fmt.Printf("Device: ID=%s, TenantID=%d, Name=%s, HndrSwVersion=%s, Location=%s\n",
+                d.ID, d.TenantID, d.Name, d.HndrSwVersion, d.Location)
         }
 
     case "update-device":
@@ -263,22 +270,33 @@ func main() {
             fmt.Println("Error: -device-id and -tenant-id are required for update-device")
             os.Exit(1)
         }
-	if !flagProvided("hndr-sw-version") {
-            fmt.Println("Error: -hndr-sw-version is required for update-device")
+
+	changes := make(map[string]interface{})
+
+        if flagProvided("hndr-sw-version") {
+            changes["hndr_sw_version"] = *hndrSwVersion
+        }
+        if flagProvided("location") {
+            changes["location"] = *location
+        }
+        // add more fields later the same way
+
+        if len(changes) == 0 {
+            fmt.Println("Error: at least one field must be provided (-hndr-sw-version, -location, ...)")
             os.Exit(1)
-	}
+        }
 
         _, err := db.ValidateDevice(*deviceID, *tenantID)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
 	}
-	err = db.UpdateDeviceVersion(*deviceID, *hndrSwVersion)
+	err = db.UpdateDeviceFields(*deviceID, *tenantID, changes)
 	if err != nil {
 	    fmt.Printf("Error: %v\n", err)
             os.Exit(1)
 	}
-        fmt.Printf("Device Software Version updated to '%s'\n", *hndrSwVersion)
+        fmt.Printf("Device updated successfully\n")
 
     // APIKey Operations
     case "insert-api-key":

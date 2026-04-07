@@ -25,7 +25,7 @@ func setupTestDBContainer(t *testing.T) (*DB, func()) {
         postgres.WithDatabase("testdb"),
         postgres.WithUsername("testuser"),
         postgres.WithPassword("testpass"),
-        postgres.WithInitScripts("schema_pg_v2.sql"),
+        postgres.WithInitScripts("schema_pg_v3.sql"),
     )
     if err != nil {
         t.Fatalf("failed to start postgres container: %s", err)
@@ -56,7 +56,7 @@ func setupTestDBOriginal(t *testing.T) (*DB, func()) {
         t.Fatalf("failed to create DB: %s", err)
     }
     // Apply schema
-    schema, err := os.ReadFile("schema_pg_v2.sql")
+    schema, err := os.ReadFile("schema_pg_v3.sql")
     if err != nil {
         t.Fatalf("failed to read schema: %s", err)
     }
@@ -111,7 +111,7 @@ func setupTestDB(t *testing.T) (*DB, func()) {
     }
 
     // Step 3: Apply schema
-    schema, err := os.ReadFile("schema_pg_v2.sql")
+    schema, err := os.ReadFile("schema_pg_v3.sql")
     if err != nil {
         db.Close()
         t.Fatalf("failed to read schema: %s", err)
@@ -217,11 +217,17 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Insert and Get Device", func(t *testing.T) {
         deviceName := "test-device"
         deviceID := uuid.New().String()
-        id, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, deviceID, id)
 
-        id2, err := db.GetOrInsertDevice("", tenantID, deviceName, "1.0")
+        id2, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, id, id2)
     })
@@ -229,12 +235,16 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Insert and Update Device", func(t *testing.T) {
         deviceName := "test-device-2"
         deviceID := uuid.New().String()
-        id, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Frankfurt",
+        })
         assert.NoError(t, err)
         assert.Equal(t, deviceID, id)
 	device, err := db.GetDeviceEntry(deviceID, tenantID)
         assert.NoError(t, err)
         assert.Equal(t, device.HndrSwVersion, "1.0")
+        assert.Equal(t, device.Location, "Frankfurt")
 
 	err = db.UpdateDeviceVersion(id, "2.0")
         assert.NoError(t, err)
@@ -254,7 +264,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Validate Device", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "validate-device"
-        _, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         exists, err := db.ValidateDevice(deviceID, tenantID)
@@ -269,7 +282,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("List Devices", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "list-device"
-        _, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         devices, err := db.ListDevices(tenantID)
@@ -280,7 +296,10 @@ func TestDeviceOperations(t *testing.T) {
     t.Run("Delete Device", func(t *testing.T) {
         deviceID := uuid.New().String()
         deviceName := "delete-device"
-        _, err := db.GetOrInsertDevice(deviceID, tenantID, deviceName, "1.0")
+	_, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID: deviceID, TenantID: tenantID, DeviceName: deviceName,
+            HndrSwVersion: "1.0", Location: "Wien",
+        })
         assert.NoError(t, err)
 
         err = db.DeleteDevice(deviceID, tenantID)
@@ -289,6 +308,25 @@ func TestDeviceOperations(t *testing.T) {
         exists, err := db.ValidateDevice(deviceID, tenantID)
         assert.NoError(t, err)
         assert.False(t, exists)
+    })
+
+    t.Run("Auto-generated Device ID when DeviceID is empty", func(t *testing.T) {
+        // Only required fields supplied; DeviceID, HndrSwVersion, and Location
+        // are intentionally omitted to exercise zero-value defaults.
+        params := DeviceParams{TenantID: tenantID, DeviceName: "auto-id-device"}
+        id, err := db.GetOrInsertDevice(params)
+        assert.NoError(t, err)
+        assert.NotEmpty(t, id, "a UUID should be generated when DeviceID is empty")
+
+        // Second call with same name must return the same ID (idempotency).
+        id2, err := db.GetOrInsertDevice(DeviceParams{TenantID: tenantID, DeviceName: "auto-id-device"})
+        assert.NoError(t, err)
+        assert.Equal(t, id, id2, "repeated call should return the existing device ID")
+    })
+
+    t.Run("Empty DeviceName returns error", func(t *testing.T) {
+        _, err := db.GetOrInsertDevice(DeviceParams{TenantID: tenantID})
+        assert.Error(t, err, "missing DeviceName should produce an error")
     })
 }
 
@@ -299,7 +337,10 @@ func TestAPIKeyOperations(t *testing.T) {
     tenantID, err := db.GetOrInsertTenant("api-key-tenant")
     assert.NoError(t, err)
     deviceID := uuid.New().String()
-    _, err = db.GetOrInsertDevice(deviceID, tenantID, "api-device", "1.0")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "api-device",
+        HndrSwVersion: "1.0", Location: "Frankfurt",
+    })
     assert.NoError(t, err)
 
     /*
@@ -538,7 +579,10 @@ func TestStatusOperations(t *testing.T) {
     tenantID, err := db.GetOrInsertTenant("status-tenant")
     assert.NoError(t, err)
     deviceID := uuid.New().String()
-    _, err = db.GetOrInsertDevice(deviceID, tenantID, "status-device", "1.0")
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "status-device",
+        HndrSwVersion: "1.0", Location: "Wien",
+    })
     assert.NoError(t, err)
 
     t.Run("Insert Status", func(t *testing.T) {
@@ -581,3 +625,56 @@ func TestStatusOperations(t *testing.T) {
     })
 }
 
+func TestDeviceLocation(t *testing.T) {
+    db, cleanup := setupTestDB(t)
+    defer cleanup()
+
+    tenantID, err := db.GetOrInsertTenant("loc-test-tenant")
+    assert.NoError(t, err)
+
+    deviceID := uuid.New().String()
+    loc1 := "San Jose - Rack 42"
+    loc2 := "Pleasanton DC-3 Row 5"
+
+    // Insert with location
+    _, err = db.GetOrInsertDevice(DeviceParams{
+        DeviceID: deviceID, TenantID: tenantID, DeviceName: "location-test-device",
+        HndrSwVersion: "1.5.0", Location: loc1,
+    })
+    assert.NoError(t, err)
+
+    // Verify
+    dev, err := db.GetDeviceEntry(deviceID, tenantID) // assume you have this helper or use direct query
+    assert.NoError(t, err)
+    assert.Equal(t, loc1, dev.Location)
+
+    // Update location and sw version
+    changes := make(map[string]interface{})
+    changes["location"] = loc2
+    changes["hndr_sw_version"] = "1.6.0"
+    err = db.UpdateDeviceFields(deviceID, tenantID, changes)
+    assert.NoError(t, err)
+
+    dev, err = db.GetDeviceEntry(deviceID, tenantID)
+    assert.NoError(t, err)
+    assert.Equal(t, loc2, dev.Location)
+    assert.Equal(t, "1.6.0", dev.HndrSwVersion)
+
+    // List and check
+    devices, err := db.ListDevices(tenantID)
+    assert.NoError(t, err)
+    found := false
+    for _, d := range devices {
+        if d.ID == deviceID {
+            assert.Equal(t, loc2, d.Location)
+            found = true
+            break
+        }
+    }
+    assert.True(t, found, "device should be in listDevices")
+
+    // validate some fields can't be updated
+    changes["tenant_id"] = 1001
+    err = db.UpdateDeviceFields(deviceID, tenantID, changes)
+    assert.Error(t, err)
+}

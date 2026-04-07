@@ -53,5 +53,5 @@ fi
 mc alias set myminio http://$endpoint $adminuser $adminpass
 
 objupdater -type software -dbconfig $DB_CONFIG_FILE -minioconfig $MINIO_CONFIG_FILE -file $MINIO_SRC_DIR/hndr-sw-v1.2.3.tar.gz 
-objupdater -type rules -dbconfig $DB_CONFIG_FILE -minioconfig $MINIO_CONFIG_FILE -file $MINIO_SRC_DIR/hndr-rules-r1.2.3.tar.gz -tenantid 1
+objupdater -type rules -dbconfig $DB_CONFIG_FILE -minioconfig $MINIO_CONFIG_FILE -file $MINIO_SRC_DIR/hndr-rules-tid_1-r1.2.3.tar.gz -tenantid 1
 objupdater -type threatintel -dbconfig $DB_CONFIG_FILE -minioconfig $MINIO_CONFIG_FILE -file $MINIO_SRC_DIR/threatintel-2025.04.10.1523.tar.gz

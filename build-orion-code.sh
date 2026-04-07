@@ -39,13 +39,13 @@ make all
 # binaries and utils
 cp $BINDIR/* $DEPLOY_DIR/opt/bin/
 cp $SRCDIR/utils/* $DEPLOY_DIR/opt/bin/
-cp $SRCDIR/db/migrate_v1_to_v2.sh $DEPLOY_DIR/opt/bin/
+cp $SRCDIR/db/migrate_v2_to_v3.sh $DEPLOY_DIR/opt/bin/
 cp $SRCDIR/db/move-tenant.sh $DEPLOY_DIR/opt/bin/
 cp $SRCDIR/db/tenant-info.sh $DEPLOY_DIR/opt/bin/
 
 # schema
 cp $SRCDIR/db/schema_pg.sql $DEPLOY_DIR/opt/db
-cp $SRCDIR/db/schema_pg_v2.sql $DEPLOY_DIR/opt/db
+cp $SRCDIR/db/schema_pg_v3.sql $DEPLOY_DIR/opt/db
 
 # docker deployment
 cp $SRCDIR/docker-compose.yml $DEPLOY_DIR/opt/docker/

@@ -133,6 +133,9 @@ DEVICE_NAME="device-name-$$"
 VALID_DEVICE_ID="device-id-$$"
 VALID_API_KEY="api-key-$$"
 DEVICE_VERSION="v1.2.3"
+LOCATION_INITIAL="Pleasanton-DC1-Rack17"
+LOCATION_UPDATED="Sunnyvale-Edge-DC3-Row5"
+
 OUTPUT=$(dbtool -db $DBPATH -op insert-tenant -tenant-name $TENANT_NAME)
 echo "$OUTPUT"
 TENANT_ID=$(echo "$OUTPUT" | grep -oE 'ID=[0-9]+' | cut -d= -f2)
@@ -206,6 +209,56 @@ else
     echo -e "${RED}FAILURE: Device versions mismatch${NC}"
     echo "   Got     : $DEVICE_LINE"
     echo "   Expected: ... $EXPECTED ..."
+    cleanup
+    exit 1
+fi
+
+# Update location only
+echo "Updating device location only..."
+dbtool -db $DBPATH -op update-device -tenant-id $TENANT_ID -device-id $VALID_DEVICE_ID -location "$LOCATION_UPDATED"
+print_status $? "Device location updated (standalone)"
+
+# Verify location after standalone update
+echo "Validating location after standalone update..."
+LOCATION_CHECK=$(dbtool -db "$DBPATH" -op list-devices -tenant-id "$TENANT_ID" 2>/dev/null | grep "$VALID_DEVICE_ID" | grep -oP '(?<=Location=)[^,]+' || true)
+if [[ "$LOCATION_CHECK" == *"$LOCATION_UPDATED"* ]]; then
+    echo -e "${GREEN}SUCCESS: Location correctly updated to $LOCATION_UPDATED${NC}"
+else
+    echo -e "${RED}FAILURE: Location not updated correctly${NC}"
+    echo "   Got: $LOCATION_CHECK"
+    cleanup
+    exit 1
+fi
+
+EXPECTED_VERSION="v1.0.0"
+EXPECTED_LOCATION="Final-Location-Rack42"
+
+# Update both software version and location
+echo "Updating both software version and location..."
+dbtool -db $DBPATH -op update-device \
+    -tenant-id $TENANT_ID \
+    -device-id $VALID_DEVICE_ID \
+    -hndr-sw-version "$EXPECTED_VERSION" \
+    -location "$EXPECTED_LOCATION"
+print_status $? "Device software version + location updated together"
+
+# Validate final state using list-devices
+echo "Validating final device state (software version + location)..."
+DEVICE_LINE=$(dbtool -db "$DBPATH" -op list-devices -tenant-id "$TENANT_ID" 2>/dev/null | grep "ID=$VALID_DEVICE_ID")
+if [[ -z "$DEVICE_LINE" ]]; then
+    echo -e "${RED}FAILURE: Device $VALID_DEVICE_ID not found in list-devices${NC}"
+    cleanup
+    exit 1
+fi
+
+if echo "$DEVICE_LINE" | grep -q "$EXPECTED_VERSION" && echo "$DEVICE_LINE" | grep -q "$EXPECTED_LOCATION"; then
+    echo -e "${GREEN}SUCCESS: Final device state correct${NC}"
+    echo "   → $DEVICE_LINE"
+else
+    echo -e "${RED}FAILURE: Final device state mismatch${NC}"
+    echo "   Got     : $DEVICE_LINE"
+    echo "   Expected version: $EXPECTED_VERSION"
+    echo "   Expected location: $EXPECTED_LOCATION"
     cleanup
     exit 1
 fi
