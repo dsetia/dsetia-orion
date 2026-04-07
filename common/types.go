@@ -5,6 +5,15 @@ import (
     "encoding/json"
 )
 
+// Maximum lengths for customer-facing string fields.
+// These values are the single source of truth and must match the CHECK
+// constraints in schema_pg_v3.sql.
+const (
+    MaxTenantNameLen = 128
+    MaxDeviceNameLen = 128
+    MaxLocationLen   = 255
+)
+
 type DeviceVersions struct {
     Software struct {
         Version string `json:"version"`

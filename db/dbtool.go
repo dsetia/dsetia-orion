@@ -151,6 +151,10 @@ func main() {
             fmt.Println("Error: -tenant-name is required for insert-tenant")
             os.Exit(1)
         }
+        if len(*tenantName) > common.MaxTenantNameLen {
+            fmt.Printf("Error: -tenant-name exceeds maximum length of %d characters (got %d)\n", common.MaxTenantNameLen, len(*tenantName))
+            os.Exit(1)
+        }
 
         var id int64
         var err error
@@ -228,6 +232,14 @@ func main() {
             fmt.Println("Error: -device-name and -tenant-id are required for insert-device")
             os.Exit(1)
         }
+        if len(*deviceName) > common.MaxDeviceNameLen {
+            fmt.Printf("Error: -device-name exceeds maximum length of %d characters (got %d)\n", common.MaxDeviceNameLen, len(*deviceName))
+            os.Exit(1)
+        }
+        if len(*location) > common.MaxLocationLen {
+            fmt.Printf("Error: -location exceeds maximum length of %d characters (got %d)\n", common.MaxLocationLen, len(*location))
+            os.Exit(1)
+        }
         id, err := db.GetOrInsertDevice(DeviceParams{
             DeviceID:      *deviceID,
             TenantID:      *tenantID,
@@ -277,6 +289,10 @@ func main() {
             changes["hndr_sw_version"] = *hndrSwVersion
         }
         if flagProvided("location") {
+            if len(*location) > common.MaxLocationLen {
+                fmt.Printf("Error: -location exceeds maximum length of %d characters (got %d)\n", common.MaxLocationLen, len(*location))
+                os.Exit(1)
+            }
             changes["location"] = *location
         }
         // add more fields later the same way

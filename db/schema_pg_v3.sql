@@ -52,7 +52,8 @@ CREATE TABLE tenants (
     environment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (environment) REFERENCES tenant_id_blocks(environment)
+    FOREIGN KEY (environment) REFERENCES tenant_id_blocks(environment),
+    CHECK (char_length(tenant_name) BETWEEN 1 AND 128)
 );
 
 -- Devices table
@@ -64,7 +65,9 @@ CREATE TABLE devices (
     location TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE
+    FOREIGN KEY (tenant_id) REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    CHECK (char_length(device_name) BETWEEN 1 AND 128),
+    CHECK (char_length(location) <= 255)
 );
 
 -- API Keys table

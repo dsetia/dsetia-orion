@@ -23,6 +23,7 @@ import (
 
     "github.com/google/uuid"
     _ "github.com/lib/pq"
+    "orion/common"
 )
 
 // DB is the PostgreSQL database handle
@@ -129,6 +130,20 @@ type Version struct {
     UpdatedAt     time.Time
 }
 
+// validateStringField returns an error if s is empty (when required) or
+// exceeds maxLen. fieldName is used only in the error message.
+// Limits are defined in common.Max* constants (orion/common/types.go).
+func validateStringField(fieldName, s string, required bool, maxLen int) error {
+    if required && s == "" {
+        return fmt.Errorf("%s cannot be empty", fieldName)
+    }
+    if len(s) > maxLen {
+        return fmt.Errorf("%s exceeds maximum length of %d characters (got %d)",
+            fieldName, maxLen, len(s))
+    }
+    return nil
+}
+
 // NewDB initializes a new SQLite database connection
 func NewDB(dbPath string, environment string) (*DB, error) {
     db, err := sql.Open("postgres", dbPath)
@@ -186,8 +201,8 @@ func (db *DB) validateTenantIDInRange(tenantID int64) error {
 // GetOrInsertTenant retrieves an existing tenant by name or inserts a new one
 // Automatically allocates ID from the environment's ID block
 func (db *DB) GetOrInsertTenant(name string) (int64, error) {
-    if name == "" {
-        return 0, errors.New("tenant name cannot be empty")
+    if err := validateStringField("tenant name", name, true, common.MaxTenantNameLen); err != nil {
+        return 0, err
     }
 
     env := db.Environment
@@ -230,6 +245,10 @@ func (db *DB) GetOrInsertTenant(name string) (int64, error) {
 // Used for migrations or manual ID assignment
 func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
     env := db.Environment
+
+    if err := validateStringField("tenant name", name, true, common.MaxTenantNameLen); err != nil {
+        return 0, err
+    }
 
     // Validate the ID is in the correct range
     if err := db.validateTenantIDInRange(id); err != nil {
@@ -336,8 +355,11 @@ func (db *DB) ListTenantIDBlocks() ([]TenantIDBlock, error) {
 // empty, in which case a UUID is generated. HndrSwVersion and Location are
 // optional and default to empty string when omitted.
 func (db *DB) GetOrInsertDevice(params DeviceParams) (string, error) {
-    if params.DeviceName == "" {
-        return "", errors.New("device name cannot be empty")
+    if err := validateStringField("device name", params.DeviceName, true, common.MaxDeviceNameLen); err != nil {
+        return "", err
+    }
+    if err := validateStringField("location", params.Location, false, common.MaxLocationLen); err != nil {
+        return "", err
     }
     exists, err := db.ValidateTenant(params.TenantID)
     if err != nil {
@@ -442,6 +464,13 @@ func (db *DB) UpdateDeviceFields(deviceID string, tenantID int64, changes map[st
     for field := range changes {
         if !allowed[field] {
             return fmt.Errorf("cannot update field: %s (not allowed)", field)
+        }
+    }
+
+    // Validate string lengths for fields being updated
+    if v, ok := changes["location"]; ok {
+        if err := validateStringField("location", fmt.Sprintf("%v", v), false, common.MaxLocationLen); err != nil {
+            return err
         }
     }
 
