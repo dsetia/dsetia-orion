@@ -1250,7 +1250,6 @@ func (db *DB) InsertUser(tenantID int64, email, passwordHash, role string) (stri
         RETURNING user_id
     `, tenantID, email, passwordHash, role).Scan(&userID)
     if err != nil {
-        log.Printf("InsertUser: %v", err)
         return "", fmt.Errorf("failed to insert user: %w", err)
     }
     return userID, nil
