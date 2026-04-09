@@ -103,7 +103,7 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "users":
-		s.handleUIUsers(w, r, parts)
+		s.handleUsers(w, r, parts)
 
 	default:
 		http.NotFound(w, r)
@@ -161,11 +161,11 @@ func (s *Server) handleUIListStatus(w http.ResponseWriter, r *http.Request) {
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
-// handleUIUsers dispatches user-management operations.
+// handleUsers dispatches user-management operations.
 // Role enforcement is per-operation:
 //   - GET list, POST create, DELETE: system_admin only.
 //   - PUT password: any role, but security_analyst may only reset their own password.
-func (s *Server) handleUIUsers(w http.ResponseWriter, r *http.Request, parts []string) {
+func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []string) {
 	claims := claimsFromContext(r.Context())
 	tenantID := tenantIDFromContext(r.Context())
 
@@ -176,9 +176,9 @@ func (s *Server) handleUIUsers(w http.ResponseWriter, r *http.Request, parts []s
 			jsonError(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		users, err := s.db.ListUIUsers(tenantID)
+		users, err := s.db.ListUsers(tenantID)
 		if err != nil {
-			log.Printf("handleUIUsers list: %v", err)
+			log.Printf("handleUsers list: %v", err)
 			jsonError(w, "failed to list users", http.StatusInternalServerError)
 			return
 		}
@@ -245,9 +245,9 @@ func (s *Server) handleUICreateUser(w http.ResponseWriter, r *http.Request, tena
 		return
 	}
 
-	userID, err := s.db.InsertUIUser(tenantID, req.Email, string(hash), req.Role)
+	userID, err := s.db.InsertUser(tenantID, req.Email, string(hash), req.Role)
 	if err != nil {
-		log.Printf("handleUICreateUser: InsertUIUser: %v", err)
+		log.Printf("handleUICreateUser: InsertUser: %v", err)
 		jsonError(w, "failed to create user (email may already exist)", http.StatusConflict)
 		return
 	}
@@ -270,7 +270,7 @@ func (s *Server) handleUIDeleteUser(w http.ResponseWriter, r *http.Request, user
 		jsonError(w, "cannot delete your own account", http.StatusBadRequest)
 		return
 	}
-	if err := s.db.DeleteUIUser(userID, tenantID); err != nil {
+	if err := s.db.DeleteUser(userID, tenantID); err != nil {
 		log.Printf("handleUIDeleteUser: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return
@@ -298,7 +298,7 @@ func (s *Server) handleUIResetPassword(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 
-	if err := s.db.ResetUIUserPassword(userID, tenantID, string(hash)); err != nil {
+	if err := s.db.ResetUserPassword(userID, tenantID, string(hash)); err != nil {
 		log.Printf("handleUIResetPassword: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return

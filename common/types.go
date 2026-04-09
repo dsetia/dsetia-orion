@@ -111,9 +111,9 @@ type AuthConfig struct {
     RefreshTokenTTLDays int    `json:"refresh_token_ttl_days"`
 }
 
-// UIUserClaims holds the identity fields extracted from a validated JWT.
+// UserClaims holds the identity fields extracted from a validated JWT.
 // Stored in request context by requireJWT; read by all UI handlers.
-type UIUserClaims struct {
+type UserClaims struct {
     UserID   string `json:"sub"`
     Email    string `json:"email"`
     Role     string `json:"role"`

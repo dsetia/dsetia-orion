@@ -34,10 +34,10 @@ type RefreshToken struct {
 
 // ─── User lookup ─────────────────────────────────────────────────────────────
 
-// GetUIUserByEmail looks up a user by email address (case-insensitive).
+// GetUserByEmail looks up a user by email address (case-insensitive).
 // Returns sql.ErrNoRows wrapped in a plain error when not found.
-func (db *DB) GetUIUserByEmail(email string) (*UIUser, error) {
-	var u UIUser
+func (db *DB) GetUserByEmail(email string) (*User, error) {
+	var u User
 	var lockoutUntil sql.NullTime
 	err := db.QueryRow(`
 		SELECT user_id, tenant_id, email, password_hash, role,
@@ -52,7 +52,7 @@ func (db *DB) GetUIUserByEmail(email string) (*UIUser, error) {
 		return nil, fmt.Errorf("user not found")
 	}
 	if err != nil {
-		log.Printf("GetUIUserByEmail: %v", err)
+		log.Printf("GetUserByEmail: %v", err)
 		return nil, fmt.Errorf("failed to look up user: %w", err)
 	}
 	if lockoutUntil.Valid {

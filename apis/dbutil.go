@@ -1215,8 +1215,8 @@ func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
 
 // ─── UI users ────────────────────────────────────────────────────────────────
 
-// UIUser represents a row in the users table.
-type UIUser struct {
+// User represents a row in the users table.
+type User struct {
     UserID         string
     TenantID       int64
     Email          string
@@ -1240,9 +1240,9 @@ type LoginAuditEntry struct {
     CreatedAt     time.Time
 }
 
-// InsertUIUser creates a new user. passwordHash must already be a bcrypt digest.
+// InsertUser creates a new user. passwordHash must already be a bcrypt digest.
 // Returns the new user_id UUID.
-func (db *DB) InsertUIUser(tenantID int64, email, passwordHash, role string) (string, error) {
+func (db *DB) InsertUser(tenantID int64, email, passwordHash, role string) (string, error) {
     var userID string
     err := db.QueryRow(`
         INSERT INTO users (tenant_id, email, password_hash, role)
@@ -1250,15 +1250,15 @@ func (db *DB) InsertUIUser(tenantID int64, email, passwordHash, role string) (st
         RETURNING user_id
     `, tenantID, email, passwordHash, role).Scan(&userID)
     if err != nil {
-        log.Printf("InsertUIUser: %v", err)
+        log.Printf("InsertUser: %v", err)
         return "", fmt.Errorf("failed to insert user: %w", err)
     }
     return userID, nil
 }
 
-// ListUIUsers returns users for the given tenant. If tenantID is 0 all users
+// ListUsers returns users for the given tenant. If tenantID is 0 all users
 // across all tenants are returned (admin/dbtool use only).
-func (db *DB) ListUIUsers(tenantID int64) ([]UIUser, error) {
+func (db *DB) ListUsers(tenantID int64) ([]User, error) {
     var rows *sql.Rows
     var err error
     if tenantID == 0 {
@@ -1276,14 +1276,14 @@ func (db *DB) ListUIUsers(tenantID int64) ([]UIUser, error) {
         `, tenantID)
     }
     if err != nil {
-        log.Printf("ListUIUsers: %v", err)
+        log.Printf("ListUsers: %v", err)
         return nil, fmt.Errorf("failed to list users: %w", err)
     }
     defer rows.Close()
 
-    var users []UIUser
+    var users []User
     for rows.Next() {
-        var u UIUser
+        var u User
         if err := rows.Scan(&u.UserID, &u.TenantID, &u.Email, &u.Role,
             &u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
             return nil, fmt.Errorf("failed to scan user: %w", err)
@@ -1293,14 +1293,14 @@ func (db *DB) ListUIUsers(tenantID int64) ([]UIUser, error) {
     return users, nil
 }
 
-// DeleteUIUser deletes a user and cascades to their refresh tokens.
-func (db *DB) DeleteUIUser(userID string, tenantID int64) error {
+// DeleteUser deletes a user and cascades to their refresh tokens.
+func (db *DB) DeleteUser(userID string, tenantID int64) error {
     res, err := db.Exec(
         `DELETE FROM users WHERE user_id = $1 AND tenant_id = $2`,
         userID, tenantID,
     )
     if err != nil {
-        log.Printf("DeleteUIUser: %v", err)
+        log.Printf("DeleteUser: %v", err)
         return fmt.Errorf("failed to delete user: %w", err)
     }
     n, _ := res.RowsAffected()
@@ -1310,15 +1310,15 @@ func (db *DB) DeleteUIUser(userID string, tenantID int64) error {
     return nil
 }
 
-// ResetUIUserPassword updates the stored bcrypt hash for a user.
-func (db *DB) ResetUIUserPassword(userID string, tenantID int64, newPasswordHash string) error {
+// ResetUserPassword updates the stored bcrypt hash for a user.
+func (db *DB) ResetUserPassword(userID string, tenantID int64, newPasswordHash string) error {
     res, err := db.Exec(`
         UPDATE users
         SET password_hash = $1, updated_at = NOW()
         WHERE user_id = $2 AND tenant_id = $3
     `, newPasswordHash, userID, tenantID)
     if err != nil {
-        log.Printf("ResetUIUserPassword: %v", err)
+        log.Printf("ResetUserPassword: %v", err)
         return fmt.Errorf("failed to reset password: %w", err)
     }
     n, _ := res.RowsAffected()
@@ -1328,14 +1328,14 @@ func (db *DB) ResetUIUserPassword(userID string, tenantID int64, newPasswordHash
     return nil
 }
 
-// DeactivateUIUser sets is_active = false without deleting the user.
-func (db *DB) DeactivateUIUser(userID string, tenantID int64) error {
+// DeactivateUser sets is_active = false without deleting the user.
+func (db *DB) DeactivateUser(userID string, tenantID int64) error {
     res, err := db.Exec(`
         UPDATE users SET is_active = false, updated_at = NOW()
         WHERE user_id = $1 AND tenant_id = $2
     `, userID, tenantID)
     if err != nil {
-        log.Printf("DeactivateUIUser: %v", err)
+        log.Printf("DeactivateUser: %v", err)
         return fmt.Errorf("failed to deactivate user: %w", err)
     }
     n, _ := res.RowsAffected()

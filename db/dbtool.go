@@ -611,7 +611,7 @@ func main() {
             fmt.Printf("Error hashing password: %v\n", err)
             os.Exit(1)
         }
-        id, err := db.InsertUIUser(*tenantID, *email, string(hash), *role)
+        id, err := db.InsertUser(*tenantID, *email, string(hash), *role)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
@@ -620,7 +620,7 @@ func main() {
             id, *email, *role, *tenantID)
 
     case "list-users":
-        users, err := db.ListUIUsers(*tenantID)
+        users, err := db.ListUsers(*tenantID)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
@@ -639,7 +639,7 @@ func main() {
             fmt.Println("Error: -user-id and -tenant-id are required for delete-user")
             os.Exit(1)
         }
-        if err := db.DeleteUIUser(*userID, *tenantID); err != nil {
+        if err := db.DeleteUser(*userID, *tenantID); err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
         }
@@ -666,7 +666,7 @@ func main() {
             fmt.Printf("Error hashing password: %v\n", err)
             os.Exit(1)
         }
-        if err := db.ResetUIUserPassword(*userID, *tenantID, string(hash)); err != nil {
+        if err := db.ResetUserPassword(*userID, *tenantID, string(hash)); err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
         }
@@ -677,7 +677,7 @@ func main() {
             fmt.Println("Error: -user-id and -tenant-id are required for deactivate-user")
             os.Exit(1)
         }
-        if err := db.DeactivateUIUser(*userID, *tenantID); err != nil {
+        if err := db.DeactivateUser(*userID, *tenantID); err != nil {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
         }

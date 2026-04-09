@@ -66,11 +66,11 @@ func setupAuthServer(t *testing.T) (*Server, int64) {
 
 	// Use MinCost so bcrypt doesn't slow down the test suite.
 	adminHash, _ := bcrypt.GenerateFromPassword([]byte(testAdminPassword), bcrypt.MinCost)
-	if _, err := db.InsertUIUser(tenantID, testAdminEmail, string(adminHash), "system_admin"); err != nil {
+	if _, err := db.InsertUser(tenantID, testAdminEmail, string(adminHash), "system_admin"); err != nil {
 		t.Fatalf("insert admin user: %v", err)
 	}
 	analystHash, _ := bcrypt.GenerateFromPassword([]byte(testAnalystPassword), bcrypt.MinCost)
-	if _, err := db.InsertUIUser(tenantID, testAnalystEmail, string(analystHash), "security_analyst"); err != nil {
+	if _, err := db.InsertUser(tenantID, testAnalystEmail, string(analystHash), "security_analyst"); err != nil {
 		t.Fatalf("insert analyst user: %v", err)
 	}
 
@@ -289,7 +289,7 @@ func TestUILoginInactiveUser(t *testing.T) {
 	s.db.QueryRow(`SELECT user_id FROM users WHERE email = $1`, testAnalystEmail).Scan(&userID) //nolint:errcheck
 
 	// Deactivate the account
-	if err := s.db.DeactivateUIUser(userID, tenantID); err != nil {
+	if err := s.db.DeactivateUser(userID, tenantID); err != nil {
 		t.Fatalf("deactivate user: %v", err)
 	}
 
@@ -472,9 +472,9 @@ func TestUIMe(t *testing.T) {
 	})
 }
 
-// ─── TestUIUsers ──────────────────────────────────────────────────────────────
+// ─── TestUsers ──────────────────────────────────────────────────────────────
 
-func TestUIUsersListAndCreate(t *testing.T) {
+func TestUsersListAndCreate(t *testing.T) {
 	s, _ := setupAuthServer(t)
 	defer s.db.Close()
 
@@ -539,7 +539,7 @@ func TestUIUsersListAndCreate(t *testing.T) {
 	})
 }
 
-func TestUIUsersDelete(t *testing.T) {
+func TestUsersDelete(t *testing.T) {
 	s, tenantID := setupAuthServer(t)
 	defer s.db.Close()
 
@@ -548,7 +548,7 @@ func TestUIUsersDelete(t *testing.T) {
 
 	// Create a disposable user for delete tests
 	hash, _ := bcrypt.GenerateFromPassword([]byte("deletepassword123"), bcrypt.MinCost)
-	targetID, err := s.db.InsertUIUser(tenantID, "todelete@test.com", string(hash), "security_analyst")
+	targetID, err := s.db.InsertUser(tenantID, "todelete@test.com", string(hash), "security_analyst")
 	if err != nil {
 		t.Fatalf("insert target user: %v", err)
 	}
@@ -584,7 +584,7 @@ func TestUIUsersDelete(t *testing.T) {
 	})
 }
 
-func TestUIUsersResetPassword(t *testing.T) {
+func TestUsersResetPassword(t *testing.T) {
 	s, tenantID := setupAuthServer(t)
 	defer s.db.Close()
 
@@ -597,7 +597,7 @@ func TestUIUsersResetPassword(t *testing.T) {
 
 	// Create a second analyst to test cross-user reset restriction
 	hash, _ := bcrypt.GenerateFromPassword([]byte("otherpassword123"), bcrypt.MinCost)
-	otherID, err := s.db.InsertUIUser(tenantID, "other@test.com", string(hash), "security_analyst")
+	otherID, err := s.db.InsertUser(tenantID, "other@test.com", string(hash), "security_analyst")
 	if err != nil {
 		t.Fatalf("insert other user: %v", err)
 	}
@@ -716,7 +716,7 @@ func TestUIJWTIsolation(t *testing.T) {
 			RefreshTokenTTLDays: 7,
 		},
 	}
-	user, _ := s.db.GetUIUserByEmail(testAdminEmail)
+	user, _ := s.db.GetUserByEmail(testAdminEmail)
 	tamperedToken, _ := tamperedServer.signJWT(user)
 
 	rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices", tamperedToken, ""))

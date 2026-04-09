@@ -27,15 +27,15 @@ import (
 type contextKey int
 
 const (
-	claimsKey        contextKey = iota // stores *common.UIUserClaims
+	claimsKey        contextKey = iota // stores *common.UserClaims
 	effectiveTenantKey                  // stores int64 effective tenant ID
 )
 
 // claimsFromContext retrieves the JWT claims stored by requireJWT.
 // Returns nil if the middleware has not run (should never happen on
 // authenticated routes).
-func claimsFromContext(ctx context.Context) *common.UIUserClaims {
-	v, _ := ctx.Value(claimsKey).(*common.UIUserClaims)
+func claimsFromContext(ctx context.Context) *common.UserClaims {
+	v, _ := ctx.Value(claimsKey).(*common.UserClaims)
 	return v
 }
 
@@ -49,7 +49,7 @@ func tenantIDFromContext(ctx context.Context) int64 {
 // ─── requireJWT ──────────────────────────────────────────────────────────────
 //
 // Validates the Authorization: Bearer <token> header, parses the JWT, and
-// stores the resulting UIUserClaims in the request context.  All downstream
+// stores the resulting UserClaims in the request context.  All downstream
 // UI handlers read identity exclusively from that context value.
 
 func (s *Server) requireJWT(next http.HandlerFunc) http.HandlerFunc {

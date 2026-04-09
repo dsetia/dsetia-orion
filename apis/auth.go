@@ -33,7 +33,7 @@ const (
 
 // jwtClaims is the internal JWT payload type.  It embeds RegisteredClaims for
 // standard fields (sub, iat, exp) and adds the application-specific fields.
-// This type stays in the apis package; callers work with common.UIUserClaims.
+// This type stays in the apis package; callers work with common.UserClaims.
 type jwtClaims struct {
 	jwt.RegisteredClaims
 	Email    string `json:"email"`
@@ -42,7 +42,7 @@ type jwtClaims struct {
 }
 
 // signJWT mints a new access JWT for the given user.
-func (s *Server) signJWT(user *UIUser) (string, error) {
+func (s *Server) signJWT(user *User) (string, error) {
 	ttl := time.Duration(s.authConfig.AccessTokenTTLMins) * time.Minute
 	claims := jwtClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -60,7 +60,7 @@ func (s *Server) signJWT(user *UIUser) (string, error) {
 
 // verifyJWT validates the token string and returns the extracted claims.
 // Returns an error for any invalid token (expired, bad signature, wrong alg).
-func (s *Server) verifyJWT(tokenStr string) (*common.UIUserClaims, error) {
+func (s *Server) verifyJWT(tokenStr string) (*common.UserClaims, error) {
 	c := &jwtClaims{}
 	token, err := jwt.ParseWithClaims(tokenStr, c, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -71,7 +71,7 @@ func (s *Server) verifyJWT(tokenStr string) (*common.UIUserClaims, error) {
 	if err != nil || !token.Valid {
 		return nil, fmt.Errorf("invalid token")
 	}
-	return &common.UIUserClaims{
+	return &common.UserClaims{
 		UserID:   c.Subject,
 		Email:    c.Email,
 		Role:     c.Role,
@@ -104,7 +104,7 @@ func (s *Server) handleUILogin(w http.ResponseWriter, r *http.Request) {
 	ip := r.RemoteAddr
 
 	// Step 1 — look up user by email.
-	user, err := s.db.GetUIUserByEmail(req.Email)
+	user, err := s.db.GetUserByEmail(req.Email)
 	if err != nil {
 		s.db.InsertLoginAuditLog(nil, req.Email, ip, "unknown_user", false)
 		jsonError(w, "invalid credentials", http.StatusUnauthorized)
@@ -196,10 +196,10 @@ func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 3 — load user and check is_active.
-	user, err := s.db.GetUIUserByEmail("") // placeholder; we look up by user_id below
+	user, err := s.db.GetUserByEmail("") // placeholder; we look up by user_id below
 	_ = user
 	// Look up by user_id directly.
-	var u UIUser
+	var u User
 	err = s.db.QueryRow(`
 		SELECT user_id, tenant_id, email, role, is_active
 		FROM users WHERE user_id = $1

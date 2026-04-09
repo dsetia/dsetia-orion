@@ -415,13 +415,13 @@ Files to be created or modified:
 | File | Change |
 |---|---|
 | `db/ui_auth_schema.sql` | New — additive schema migration (ui_users, refresh_tokens) |
-| `common/types.go` | Add `AuthConfig`, `UIUserClaims` structs |
+| `common/types.go` | Add `AuthConfig`, `UserClaims` structs |
 | `apis/ui_auth.go` | New — login/refresh/logout handlers + JWT helpers |
 | `apis/ui_handlers.go` | New — all `/v1/ui/` resource handlers |
 | `apis/middleware.go` | New — `requireJWT`, `requireRole`, `requireTenantScope` |
 | `apis/apis.go` | Add `-auth-config` flag, load `AuthConfig`, register new routes |
 | `apis/go.mod` / `apis/go.sum` | Add `golang-jwt/jwt/v5`, `golang.org/x/crypto` |
-| `db/dbutil.go` | Add `UIUser`, `RefreshToken` DB methods |
+| `db/dbutil.go` | Add `User`, `RefreshToken` DB methods |
 | `db/dbtool.go` | Add new `-op` cases for user management |
 | `db/go.mod` / `db/go.sum` | Add `golang.org/x/crypto`, `golang.org/x/term` |
 | `config/auth.example.json` | New — example auth config (placeholder secret) |
