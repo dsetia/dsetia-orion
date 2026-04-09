@@ -620,10 +620,6 @@ func main() {
             id, *email, *role, *tenantID)
 
     case "list-users":
-        if *tenantID == 0 {
-            fmt.Println("Error: -tenant-id is required for list-users")
-            os.Exit(1)
-        }
         users, err := db.ListUIUsers(*tenantID)
         if err != nil {
             fmt.Printf("Error: %v\n", err)
