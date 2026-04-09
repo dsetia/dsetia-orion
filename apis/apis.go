@@ -33,7 +33,8 @@ import (
 
 // Server holds the API server state
 type Server struct {
-    db *DB
+    db         *DB
+    authConfig common.AuthConfig
 }
 
 // DownloadURLFormat generates a download URL for the given tenant ID, type, prefix, and version.
@@ -63,12 +64,12 @@ func (s *Server) logRequestBody(r *http.Request) {
 
 
 // NewServer initializes the API server
-func NewServer(dbPath string, environment string) (*Server, error) {
+func NewServer(dbPath string, environment string, authCfg common.AuthConfig) (*Server, error) {
     db, err := NewDB(dbPath, environment)
     if err != nil {
         return nil, fmt.Errorf("failed to initialize database: %w", err)
     }
-    return &Server{db: db}, nil
+    return &Server{db: db, authConfig: authCfg}, nil
 }
 
 // authenticate checks X-API-KEY and X-DEVICE-ID headers
@@ -118,7 +119,7 @@ func (s *Server) handleAuthenticate(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, _, err := s.authenticate(r)
     if err != nil {
-	log.Printf("Unauthorized: "+err.Error())
+	log.Printf("Unauthorized: %v", err)
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
@@ -157,7 +158,7 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, deviceID, err := s.authenticate(r)
     if err != nil {
-	log.Printf("Unauthorized: "+err.Error())
+	log.Printf("Unauthorized: %v", err)
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
@@ -385,7 +386,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
     // Authenticate
     authTenantID, deviceID, err := s.authenticate(r)
     if err != nil {
-	log.Printf("Unauthorized: "+err.Error())
+	log.Printf("Unauthorized: %v", err)
 	http.Error(w, "Unauthorized: "+err.Error(), http.StatusUnauthorized)
         return
     }
@@ -438,11 +439,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
-    // Command line flag for config path
-    configPath := flag.String("config", "config.json", "Path to config file")
+    // Command line flags
+    configPath     := flag.String("config", "config.json", "Path to DB config file")
+    authConfigPath := flag.String("auth-config", "config/auth.json", "Path to auth config file")
     flag.Parse()
 
-    // Open and read the config file
+    // Load DB config
     file, err := os.Open(*configPath)
     if err != nil {
         log.Fatalf("Error opening config file: %v", err)
@@ -459,21 +461,46 @@ func main() {
         log.Fatalf("Error parsing config: %v", err)
     }
 
+    // Load auth config
+    authBytes, err := ioutil.ReadFile(*authConfigPath)
+    if err != nil {
+        log.Fatalf("Error reading auth config file: %v", err)
+    }
+    var authCfg common.AuthConfig
+    if err := json.Unmarshal(authBytes, &authCfg); err != nil {
+        log.Fatalf("Error parsing auth config: %v", err)
+    }
+    if authCfg.JWTSecret == "" {
+        log.Fatalf("auth config: jwt_secret must not be empty")
+    }
+
     // Construct DB path
     dbPath := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
         cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode,
     )
 
     log.Println("DB path = ", dbPath)
-    server, err := NewServer(dbPath, cfg.GetEnvironment())
+    server, err := NewServer(dbPath, cfg.GetEnvironment(), authCfg)
     if err != nil {
         log.Fatalf("Failed to start server: %v", err)
     }
 
+    // Sensor routes (unchanged)
     http.HandleFunc("/v1/authenticate/", server.handleAuthenticate)
     http.HandleFunc("/v1/updates/", server.handleUpdates)
     http.HandleFunc("/v1/healthcheck", server.handleHealthCheck)
     http.HandleFunc("/v1/status/", server.handleStatus)
+
+    // UI auth routes (no JWT required)
+    http.HandleFunc("/v1/ui/auth/login", server.handleUILogin)
+    http.HandleFunc("/v1/ui/auth/refresh", server.handleUIRefresh)
+    http.HandleFunc("/v1/ui/auth/logout", server.requireJWT(server.handleUILogout))
+
+    // UI identity route
+    http.HandleFunc("/v1/ui/me", server.requireJWT(server.handleUIMe))
+
+    // UI tenant-scoped catch-all (JWT required)
+    http.HandleFunc("/v1/ui/", server.requireJWT(server.handleUITenantScoped))
 
     log.Println("Starting API server on :8080")
     if err := http.ListenAndServe(":8080", nil); err != nil {

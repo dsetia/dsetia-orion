@@ -22,6 +22,8 @@ import (
     "log"
     "io/ioutil"
 
+    "golang.org/x/crypto/bcrypt"
+    "golang.org/x/term"
     "orion/common"
     _ "github.com/lib/pq"
 )
@@ -94,6 +96,12 @@ func main() {
     sRules := flag.String("status-rules", "", "Rules status")
     sThreatIntel := flag.String("status-threatintel", "", "ThreatIntel status")
 
+    // User management flags
+    userID := flag.String("user-id", "", "UI user UUID")
+    email  := flag.String("email", "", "UI user email address")
+    role   := flag.String("role", "", "UI user role (security_analyst or system_admin)")
+    limit  := flag.Int("limit", 50, "Max rows to return for list operations")
+
     flag.Parse()
 
     // Populate providedFlags with flags that were explicitly set
@@ -114,6 +122,8 @@ func main() {
         fmt.Println("  Status: insert-status, list-status, delete-status")
         fmt.Println("  Tenant ID Blocks: list-tenant-blocks")
         fmt.Println("  Version: list-versions")
+        fmt.Println("  Users: insert-user, list-users, delete-user, reset-user-password, deactivate-user")
+        fmt.Println("  Audit: list-login-audit")
         os.Exit(1)
     }
 
@@ -573,6 +583,135 @@ func main() {
             os.Exit(1)
         }
         fmt.Printf("Status deleted for device %s and tenant %d\n", *deviceID, *tenantID)
+
+    // ─── User management ─────────────────────────────────────────────────────
+
+    case "insert-user":
+        if *tenantID == 0 || *email == "" || *role == "" {
+            fmt.Println("Error: -tenant-id, -email, and -role are required for insert-user")
+            os.Exit(1)
+        }
+        if *role != "security_analyst" && *role != "system_admin" {
+            fmt.Println("Error: -role must be security_analyst or system_admin")
+            os.Exit(1)
+        }
+        fmt.Print("Password: ")
+        pwBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+        fmt.Println()
+        if err != nil {
+            fmt.Printf("Error reading password: %v\n", err)
+            os.Exit(1)
+        }
+        if len(pwBytes) < 12 {
+            fmt.Println("Error: password must be at least 12 characters")
+            os.Exit(1)
+        }
+        hash, err := bcrypt.GenerateFromPassword(pwBytes, bcrypt.DefaultCost)
+        if err != nil {
+            fmt.Printf("Error hashing password: %v\n", err)
+            os.Exit(1)
+        }
+        id, err := db.InsertUIUser(*tenantID, *email, string(hash), *role)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User created: user_id=%s email=%s role=%s tenant_id=%d\n",
+            id, *email, *role, *tenantID)
+
+    case "list-users":
+        if *tenantID == 0 {
+            fmt.Println("Error: -tenant-id is required for list-users")
+            os.Exit(1)
+        }
+        users, err := db.ListUIUsers(*tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-38s %-35s %-20s %-10s %-25s\n",
+            "user_id", "email", "role", "active", "created_at")
+        fmt.Println("--------------------------------------------------------------------------------------------------------")
+        for _, u := range users {
+            fmt.Printf("%-38s %-35s %-20s %-10v %-25s\n",
+                u.UserID, u.Email, u.Role, u.IsActive,
+                u.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
+
+    case "delete-user":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for delete-user")
+            os.Exit(1)
+        }
+        if err := db.DeleteUIUser(*userID, *tenantID); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User %s deleted from tenant %d\n", *userID, *tenantID)
+
+    case "reset-user-password":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for reset-user-password")
+            os.Exit(1)
+        }
+        fmt.Print("New password: ")
+        pwBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+        fmt.Println()
+        if err != nil {
+            fmt.Printf("Error reading password: %v\n", err)
+            os.Exit(1)
+        }
+        if len(pwBytes) < 12 {
+            fmt.Println("Error: password must be at least 12 characters")
+            os.Exit(1)
+        }
+        hash, err := bcrypt.GenerateFromPassword(pwBytes, bcrypt.DefaultCost)
+        if err != nil {
+            fmt.Printf("Error hashing password: %v\n", err)
+            os.Exit(1)
+        }
+        if err := db.ResetUIUserPassword(*userID, *tenantID, string(hash)); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Password reset for user %s\n", *userID)
+
+    case "deactivate-user":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for deactivate-user")
+            os.Exit(1)
+        }
+        if err := db.DeactivateUIUser(*userID, *tenantID); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User %s deactivated\n", *userID)
+
+    case "list-login-audit":
+        var filterUserID *string
+        var filterEmail *string
+        if *userID != "" {
+            filterUserID = userID
+        } else if *email != "" {
+            filterEmail = email
+        }
+        entries, err := db.ListLoginAuditLog(filterUserID, filterEmail, *limit)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-6s %-38s %-35s %-8s %-20s %-20s %-25s\n",
+            "id", "user_id", "email", "success", "ip_address", "failure_reason", "created_at")
+        fmt.Println("------------------------------------------------------------------------------------------------------------------")
+        for _, e := range entries {
+            uid := "<nil>"
+            if e.UserID != nil {
+                uid = *e.UserID
+            }
+            fmt.Printf("%-6d %-38s %-35s %-8v %-20s %-20s %-25s\n",
+                e.ID, uid, e.Email, e.Success, e.IPAddress, e.FailureReason,
+                e.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
 
     default:
         fmt.Printf("Error: Unknown operation: %s\n", *op)

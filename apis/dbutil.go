@@ -930,7 +930,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to create status: "+err.Error())
+            return fmt.Errorf("failed to create status: %w", err)
         }
     } else {
         // update existing row
@@ -954,7 +954,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to update status: "+err.Error())
+            return fmt.Errorf("failed to update status: %w", err)
         }
     }
 
@@ -1039,7 +1039,7 @@ func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, 
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to create version: "+err.Error())
+            return fmt.Errorf("failed to create version: %w", err)
         }
     } else {
         // update existing row
@@ -1063,7 +1063,7 @@ func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, 
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to update status: "+err.Error())
+            return fmt.Errorf("failed to update versions: %w", err)
         }
     }
 
