@@ -27,8 +27,7 @@ import (
 type contextKey int
 
 const (
-	claimsKey        contextKey = iota // stores *common.UserClaims
-	effectiveTenantKey                  // stores int64 effective tenant ID
+	claimsKey contextKey = iota // stores *common.UserClaims
 )
 
 // claimsFromContext retrieves the JWT claims stored by requireJWT.
@@ -36,13 +35,6 @@ const (
 // authenticated routes).
 func claimsFromContext(ctx context.Context) *common.UserClaims {
 	v, _ := ctx.Value(claimsKey).(*common.UserClaims)
-	return v
-}
-
-// tenantIDFromContext retrieves the effective tenant ID stored by
-// applyTenantScope.  Returns 0 if not set.
-func tenantIDFromContext(ctx context.Context) int64 {
-	v, _ := ctx.Value(effectiveTenantKey).(int64)
 	return v
 }
 
@@ -70,46 +62,6 @@ func (s *Server) requireJWT(next http.HandlerFunc) http.HandlerFunc {
 		ctx := context.WithValue(r.Context(), claimsKey, claims)
 		next(w, r.WithContext(ctx))
 	}
-}
-
-// ─── requireRole ─────────────────────────────────────────────────────────────
-//
-// Applied inside requireJWT's chain for routes restricted to a single role.
-// Relies on claims already being in context.
-
-func requireRole(role string, next http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := claimsFromContext(r.Context())
-		if claims == nil || claims.Role != role {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		next(w, r)
-	}
-}
-
-// ─── applyTenantScope ────────────────────────────────────────────────────────
-//
-// Called as the first statement inside handleUITenantScoped (not used as a
-// wrapper).  Reads the tenant_id from the JWT claims already in context and
-// writes it as the authoritative effective tenant ID.
-//
-// Returns (enriched context, true) on success, or writes an error response
-// and returns (nil, false) on failure.  The caller must return immediately
-// when ok == false.
-
-func (s *Server) applyTenantScope(w http.ResponseWriter, r *http.Request) (context.Context, bool) {
-	claims := claimsFromContext(r.Context())
-	if claims == nil {
-		jsonError(w, "unauthorized", http.StatusUnauthorized)
-		return nil, false
-	}
-	if claims.TenantID == 0 {
-		jsonError(w, "token missing tenant_id", http.StatusUnauthorized)
-		return nil, false
-	}
-	ctx := context.WithValue(r.Context(), effectiveTenantKey, claims.TenantID)
-	return ctx, true
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

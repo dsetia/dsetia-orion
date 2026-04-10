@@ -55,9 +55,15 @@ func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
 //	parts[2] = sub-resource  ("password", optional)
 //
 // The tenant_id is NEVER read from the URL.  It is obtained exclusively from
-// the JWT claims via applyTenantScope → tenantIDFromContext.
+// the JWT claims via claimsFromContext(r.Context()).TenantID.
 func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 	log.Printf("UI access: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
+
+	claims := claimsFromContext(r.Context())
+	if claims == nil || claims.TenantID == 0 {
+		jsonError(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	trimmed := strings.TrimPrefix(r.URL.Path, "/v1/ma/")
 	trimmed = strings.TrimSuffix(trimmed, "/")
@@ -68,12 +74,6 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resource := parts[0]
-
-	ctx, ok := s.applyTenantScope(w, r)
-	if !ok {
-		return
-	}
-	r = r.WithContext(ctx)
 
 	switch resource {
 	case "devices":
@@ -113,7 +113,7 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 // ─── Devices ─────────────────────────────────────────────────────────────────
 
 func (s *Server) handleUIListDevices(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantIDFromContext(r.Context())
+	tenantID := claimsFromContext(r.Context()).TenantID
 	devices, err := s.db.ListDevices(tenantID)
 	if err != nil {
 		log.Printf("handleUIListDevices: %v", err)
@@ -124,7 +124,7 @@ func (s *Server) handleUIListDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUIGetDevice(w http.ResponseWriter, r *http.Request, deviceID string) {
-	tenantID := tenantIDFromContext(r.Context())
+	tenantID := claimsFromContext(r.Context()).TenantID
 	device, err := s.db.GetDeviceEntry(deviceID, tenantID)
 	if err != nil {
 		jsonError(w, "device not found", http.StatusNotFound)
@@ -136,7 +136,7 @@ func (s *Server) handleUIGetDevice(w http.ResponseWriter, r *http.Request, devic
 // ─── Versions ────────────────────────────────────────────────────────────────
 
 func (s *Server) handleUIListVersions(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantIDFromContext(r.Context())
+	tenantID := claimsFromContext(r.Context()).TenantID
 	versions, err := s.db.ListVersionsByTenant(tenantID)
 	if err != nil {
 		log.Printf("handleUIListVersions: %v", err)
@@ -149,7 +149,7 @@ func (s *Server) handleUIListVersions(w http.ResponseWriter, r *http.Request) {
 // ─── Status ──────────────────────────────────────────────────────────────────
 
 func (s *Server) handleUIListStatus(w http.ResponseWriter, r *http.Request) {
-	tenantID := tenantIDFromContext(r.Context())
+	tenantID := claimsFromContext(r.Context()).TenantID
 	statuses, err := s.db.ListStatusByTenant(tenantID)
 	if err != nil {
 		log.Printf("handleUIListStatus: %v", err)
@@ -167,7 +167,7 @@ func (s *Server) handleUIListStatus(w http.ResponseWriter, r *http.Request) {
 //   - PUT password: any role, but security_analyst may only reset their own password.
 func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []string) {
 	claims := claimsFromContext(r.Context())
-	tenantID := tenantIDFromContext(r.Context())
+	tenantID := claimsFromContext(r.Context()).TenantID
 
 	switch {
 	// GET /v1/ma/users — list users (system_admin only)
