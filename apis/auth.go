@@ -84,8 +84,8 @@ func (s *Server) verifyJWT(tokenStr string) (*common.UserClaims, error) {
 
 // ─── Login ───────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUILogin(w http.ResponseWriter, r *http.Request) {
-	log.Printf("UI auth: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
+func (s *Server) handleUserLogin(w http.ResponseWriter, r *http.Request) {
+	log.Printf("auth: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -145,7 +145,7 @@ func (s *Server) handleUILogin(w http.ResponseWriter, r *http.Request) {
 	// Step 7 — sign access JWT.
 	accessToken, err := s.signJWT(user)
 	if err != nil {
-		log.Printf("handleUILogin: signJWT: %v", err)
+		log.Printf("handleUserLogin: signJWT: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -154,7 +154,7 @@ func (s *Server) handleUILogin(w http.ResponseWriter, r *http.Request) {
 	ttl := time.Duration(s.authConfig.RefreshTokenTTLDays) * 24 * time.Hour
 	refreshToken, err := s.db.InsertRefreshToken(user.UserID, ttl)
 	if err != nil {
-		log.Printf("handleUILogin: InsertRefreshToken: %v", err)
+		log.Printf("handleUserLogin: InsertRefreshToken: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -171,7 +171,7 @@ func (s *Server) handleUILogin(w http.ResponseWriter, r *http.Request) {
 
 // ─── Refresh ─────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -211,7 +211,7 @@ func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
 	// Step 5 — issue new access JWT.
 	accessToken, err := s.signJWT(u)
 	if err != nil {
-		log.Printf("handleUIRefresh: signJWT: %v", err)
+		log.Printf("handleAccessTokenRefresh: signJWT: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
@@ -226,7 +226,7 @@ func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
 
 // ─── Logout ──────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUILogout(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUserLogout(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -239,7 +239,7 @@ func (s *Server) handleUILogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.db.RevokeRefreshTokens(claims.UserID); err != nil {
-		log.Printf("handleUILogout: %v", err)
+		log.Printf("handleUserLogout: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}

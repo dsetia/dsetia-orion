@@ -24,9 +24,9 @@ import (
 
 // ─── /v1/ma/me ───────────────────────────────────────────────────────────────
 
-// handleUIMe returns the calling user's identity from the JWT context.
+// handleMe returns the calling user's identity from the JWT context.
 // No DB hit required.
-func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -47,7 +47,7 @@ func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
 
 // ─── Catch-all dispatcher ────────────────────────────────────────────────────
 
-// handleUITenantScoped is the catch-all handler for /v1/ma/ routes that are
+// handleTenantScoped is the catch-all handler for /v1/ma/ routes that are
 // scoped to the tenant derived from the JWT.  It manually parses the path
 // suffix and dispatches to the appropriate sub-handler.
 //
@@ -59,8 +59,8 @@ func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
 //
 // The tenant_id is NEVER read from the URL.  It is obtained exclusively from
 // the JWT claims via claimsFromContext(r.Context()).TenantID.
-func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
-	log.Printf("UI access: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
+func (s *Server) handleTenantScoped(w http.ResponseWriter, r *http.Request) {
+	log.Printf("access: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
 
 	claims := claimsFromContext(r.Context())
 	if claims == nil || claims.TenantID == 0 {
@@ -82,9 +82,9 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 	case "devices":
 		switch {
 		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleUIListDevices(w, r)
+			s.handleListDevices(w, r)
 		case len(parts) == 2 && r.Method == http.MethodGet:
-			s.handleUIGetDevice(w, r, parts[1])
+			s.handleGetDevice(w, r, parts[1])
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -92,7 +92,7 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 	case "versions":
 		switch {
 		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleUIListVersions(w, r)
+			s.handleListVersions(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -100,7 +100,7 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 	case "status":
 		switch {
 		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleUIListStatus(w, r)
+			s.handleListStatus(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
@@ -115,18 +115,18 @@ func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 
 // ─── Devices ─────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUIListDevices(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
 	tenantID := claimsFromContext(r.Context()).TenantID
 	devices, err := s.db.ListDevices(tenantID)
 	if err != nil {
-		log.Printf("handleUIListDevices: %v", err)
+		log.Printf("handleListDevices: %v", err)
 		jsonError(w, "failed to list devices", http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, devices)
 }
 
-func (s *Server) handleUIGetDevice(w http.ResponseWriter, r *http.Request, deviceID string) {
+func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request, deviceID string) {
 	tenantID := claimsFromContext(r.Context()).TenantID
 	device, err := s.db.GetDeviceEntry(deviceID, tenantID)
 	if err != nil {
@@ -138,11 +138,11 @@ func (s *Server) handleUIGetDevice(w http.ResponseWriter, r *http.Request, devic
 
 // ─── Versions ────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUIListVersions(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListVersions(w http.ResponseWriter, r *http.Request) {
 	tenantID := claimsFromContext(r.Context()).TenantID
 	versions, err := s.db.ListVersionsByTenant(tenantID)
 	if err != nil {
-		log.Printf("handleUIListVersions: %v", err)
+		log.Printf("handleListVersions: %v", err)
 		jsonError(w, "failed to list versions", http.StatusInternalServerError)
 		return
 	}
@@ -151,11 +151,11 @@ func (s *Server) handleUIListVersions(w http.ResponseWriter, r *http.Request) {
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 
-func (s *Server) handleUIListStatus(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID := claimsFromContext(r.Context()).TenantID
 	statuses, err := s.db.ListStatusByTenant(tenantID)
 	if err != nil {
-		log.Printf("handleUIListStatus: %v", err)
+		log.Printf("handleListStatus: %v", err)
 		jsonError(w, "failed to list status", http.StatusInternalServerError)
 		return
 	}
@@ -193,7 +193,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 			jsonError(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		s.handleUICreateUser(w, r, tenantID)
+		s.handleCreateUser(w, r, tenantID)
 
 	// DELETE /v1/ma/users/{user_id} — delete user (system_admin only)
 	case len(parts) == 2 && r.Method == http.MethodDelete:
@@ -201,7 +201,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 			jsonError(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		s.handleUIDeleteUser(w, r, parts[1], tenantID)
+		s.handleDeleteUser(w, r, parts[1], tenantID)
 
 	// PUT /v1/ma/users/{user_id}/password — reset password
 	// system_admin: any user; security_analyst: own account only
@@ -211,14 +211,14 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 			jsonError(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		s.handleUIResetPassword(w, r, targetUserID, tenantID)
+		s.handleResetPassword(w, r, targetUserID, tenantID)
 
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (s *Server) handleUICreateUser(w http.ResponseWriter, r *http.Request, tenantID int64) {
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request, tenantID int64) {
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -243,14 +243,14 @@ func (s *Server) handleUICreateUser(w http.ResponseWriter, r *http.Request, tena
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("handleUICreateUser: bcrypt: %v", err)
+		log.Printf("handleCreateUser: bcrypt: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	userID, err := s.db.InsertUser(tenantID, req.Email, string(hash), req.Role)
 	if err != nil {
-		log.Printf("handleUICreateUser: InsertUser: %v", err)
+		log.Printf("handleCreateUser: InsertUser: %v", err)
 		jsonError(w, "failed to create user (email may already exist)", http.StatusConflict)
 		return
 	}
@@ -266,7 +266,7 @@ func (s *Server) handleUICreateUser(w http.ResponseWriter, r *http.Request, tena
 	})
 }
 
-func (s *Server) handleUIDeleteUser(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
 	claims := claimsFromContext(r.Context())
 	// Prevent self-deletion.
 	if claims.UserID == userID {
@@ -274,14 +274,14 @@ func (s *Server) handleUIDeleteUser(w http.ResponseWriter, r *http.Request, user
 		return
 	}
 	if err := s.db.DeleteUser(userID, tenantID); err != nil {
-		log.Printf("handleUIDeleteUser: %v", err)
+		log.Printf("handleDeleteUser: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) handleUIResetPassword(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
+func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
 	var req struct {
 		Password string `json:"password"`
 	}
@@ -296,13 +296,13 @@ func (s *Server) handleUIResetPassword(w http.ResponseWriter, r *http.Request, u
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Printf("handleUIResetPassword: bcrypt: %v", err)
+		log.Printf("handleResetPassword: bcrypt: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)
 		return
 	}
 
 	if err := s.db.ResetUserPassword(userID, tenantID, string(hash)); err != nil {
-		log.Printf("handleUIResetPassword: %v", err)
+		log.Printf("handleResetPassword: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return
 	}

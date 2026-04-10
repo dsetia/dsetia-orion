@@ -70,13 +70,13 @@ func setupAuthServer(t *testing.T) (*Server, int64) {
 
 // ─── Request / response helpers ───────────────────────────────────────────────
 
-// loginResp calls handleUILogin and returns the HTTP status and the decoded body.
+// loginResp calls handleUserLogin and returns the HTTP status and the decoded body.
 func loginResp(t *testing.T, s *Server, email, password string) (int, map[string]interface{}) {
 	t.Helper()
 	body := `{"email":"` + email + `","password":"` + password + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login", strings.NewReader(body))
 	rr := httptest.NewRecorder()
-	s.handleUILogin(rr, req)
+	s.handleUserLogin(rr, req)
 	var resp map[string]interface{}
 	json.Unmarshal(rr.Body.Bytes(), &resp) //nolint:errcheck
 	return rr.Code, resp
@@ -113,17 +113,17 @@ func uiReq(method, path, token, body string) *http.Request {
 	return req
 }
 
-// callScoped calls requireJWT(handleUITenantScoped) and returns the recorder.
+// callScoped calls requireJWT(handleTenantScoped) and returns the recorder.
 func callScoped(s *Server, req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
-	s.requireJWT(s.handleUITenantScoped)(rr, req)
+	s.requireJWT(s.handleTenantScoped)(rr, req)
 	return rr
 }
 
-// callMe calls requireJWT(handleUIMe) and returns the recorder.
+// callMe calls requireJWT(handleMe) and returns the recorder.
 func callMe(s *Server, req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
-	s.requireJWT(s.handleUIMe)(rr, req)
+	s.requireJWT(s.handleMe)(rr, req)
 	return rr
 }
 
@@ -231,7 +231,7 @@ func TestUILogin(t *testing.T) {
 			}
 			req := httptest.NewRequest(tt.method, "/v1/ma/auth/login", strings.NewReader(body))
 			rr := httptest.NewRecorder()
-			s.handleUILogin(rr, req)
+			s.handleUserLogin(rr, req)
 
 			if rr.Code != tt.expectedStatus {
 				t.Errorf("expected status %d, got %d (body: %s)", tt.expectedStatus, rr.Code, rr.Body.String())
@@ -254,7 +254,7 @@ func TestUILoginLockout(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login",
 			strings.NewReader(`{"email":"`+testAnalystEmail+`","password":"wrongpassword123"}`))
 		rr := httptest.NewRecorder()
-		s.handleUILogin(rr, req)
+		s.handleUserLogin(rr, req)
 		if rr.Code != http.StatusUnauthorized {
 			t.Fatalf("attempt %d: expected 401, got %d", i, rr.Code)
 		}
@@ -264,7 +264,7 @@ func TestUILoginLockout(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login",
 		strings.NewReader(`{"email":"`+testAnalystEmail+`","password":"`+testAnalystPassword+`"}`))
 	rr := httptest.NewRecorder()
-	s.handleUILogin(rr, req)
+	s.handleUserLogin(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected locked account to return 401, got %d", rr.Code)
 	}
@@ -340,7 +340,7 @@ func TestUIRefresh(t *testing.T) {
 				req = httptest.NewRequest(method, "/v1/ma/auth/refresh", nil)
 			}
 			rr := httptest.NewRecorder()
-			s.handleUIRefresh(rr, req)
+			s.handleAccessTokenRefresh(rr, req)
 
 			if rr.Code != tt.expectedStatus {
 				t.Errorf("expected %d, got %d (body: %s)", tt.expectedStatus, rr.Code, rr.Body.String())
@@ -364,7 +364,7 @@ func TestUIRefreshAfterLogout(t *testing.T) {
 	// Logout
 	req := uiReq(http.MethodPost, "/v1/ma/auth/logout", access, "")
 	rr := httptest.NewRecorder()
-	s.requireJWT(s.handleUILogout)(rr, req)
+	s.requireJWT(s.handleUserLogout)(rr, req)
 	if rr.Code != http.StatusNoContent {
 		t.Fatalf("logout: expected 204, got %d", rr.Code)
 	}
@@ -373,7 +373,7 @@ func TestUIRefreshAfterLogout(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPost, "/v1/ma/auth/refresh",
 		strings.NewReader(`{"refresh_token":"`+refresh+`"}`))
 	rr = httptest.NewRecorder()
-	s.handleUIRefresh(rr, req)
+	s.handleAccessTokenRefresh(rr, req)
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401 after logout, got %d", rr.Code)
 	}
@@ -390,7 +390,7 @@ func TestUILogout(t *testing.T) {
 	t.Run("valid JWT returns 204", func(t *testing.T) {
 		req := uiReq(http.MethodPost, "/v1/ma/auth/logout", access, "")
 		rr := httptest.NewRecorder()
-		s.requireJWT(s.handleUILogout)(rr, req)
+		s.requireJWT(s.handleUserLogout)(rr, req)
 		if rr.Code != http.StatusNoContent {
 			t.Errorf("expected 204, got %d", rr.Code)
 		}
@@ -399,7 +399,7 @@ func TestUILogout(t *testing.T) {
 	t.Run("no JWT returns 401", func(t *testing.T) {
 		req := uiReq(http.MethodPost, "/v1/ma/auth/logout", "", "")
 		rr := httptest.NewRecorder()
-		s.requireJWT(s.handleUILogout)(rr, req)
+		s.requireJWT(s.handleUserLogout)(rr, req)
 		if rr.Code != http.StatusUnauthorized {
 			t.Errorf("expected 401, got %d", rr.Code)
 		}
@@ -409,7 +409,7 @@ func TestUILogout(t *testing.T) {
 		access2, _ := mustLogin(t, s, testAnalystEmail, testAnalystPassword)
 		req := uiReq(http.MethodGet, "/v1/ma/auth/logout", access2, "")
 		rr := httptest.NewRecorder()
-		s.requireJWT(s.handleUILogout)(rr, req)
+		s.requireJWT(s.handleUserLogout)(rr, req)
 		if rr.Code != http.StatusMethodNotAllowed {
 			t.Errorf("expected 405, got %d", rr.Code)
 		}

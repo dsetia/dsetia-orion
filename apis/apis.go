@@ -491,16 +491,16 @@ func main() {
     http.HandleFunc("/v1/healthcheck", server.handleHealthCheck)
     http.HandleFunc("/v1/status/", server.handleStatus)
 
-    // UI auth routes (no JWT required)
-    http.HandleFunc("/v1/ma/auth/login", server.handleUILogin)
-    http.HandleFunc("/v1/ma/auth/refresh", server.handleUIRefresh)
-    http.HandleFunc("/v1/ma/auth/logout", server.requireJWT(server.handleUILogout))
+    // User auth routes (no JWT required)
+    http.HandleFunc("/v1/ma/auth/login", server.handleUserLogin)
+    http.HandleFunc("/v1/ma/auth/refresh", server.handleAccessTokenRefresh)
+    http.HandleFunc("/v1/ma/auth/logout", server.requireJWT(server.handleUserLogout))
 
     // Identity route
-    http.HandleFunc("/v1/ma/me", server.requireJWT(server.handleUIMe))
+    http.HandleFunc("/v1/ma/me", server.requireJWT(server.handleMe))
 
     // Tenant-scoped catch-all (JWT required)
-    http.HandleFunc("/v1/ma/", server.requireJWT(server.handleUITenantScoped))
+    http.HandleFunc("/v1/ma/", server.requireJWT(server.handleTenantScoped))
 
     log.Println("Starting API server on :8080")
     if err := http.ListenAndServe(":8080", nil); err != nil {

@@ -199,60 +199,6 @@ func (db *DB) UpdateRefreshTokenLastUsed(tokenID string) {
 	}
 }
 
-// ─── Tenant-scoped resource queries for UI handlers ──────────────────────────
-
-// ListStatusByTenant returns all status rows for a given tenant.
-func (db *DB) ListStatusByTenant(tenantID int64) ([]Status, error) {
-	rows, err := db.Query(`
-		SELECT device_id, tenant_id, software, rules, threatintel, created_at, updated_at
-		FROM status
-		WHERE tenant_id = $1
-		ORDER BY device_id
-	`, tenantID)
-	if err != nil {
-		log.Printf("ListStatusByTenant: %v", err)
-		return nil, fmt.Errorf("failed to list status: %w", err)
-	}
-	defer rows.Close()
-
-	var results []Status
-	for rows.Next() {
-		var s Status
-		if err := rows.Scan(&s.DeviceID, &s.TenantID, &s.Software, &s.Rules,
-			&s.ThreatIntel, &s.CreatedAt, &s.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan status: %w", err)
-		}
-		results = append(results, s)
-	}
-	return results, nil
-}
-
-// ListVersionsByTenant returns all version rows for a given tenant.
-func (db *DB) ListVersionsByTenant(tenantID int64) ([]Version, error) {
-	rows, err := db.Query(`
-		SELECT device_id, tenant_id, software, rules, threatintel, created_at, updated_at
-		FROM version
-		WHERE tenant_id = $1
-		ORDER BY device_id
-	`, tenantID)
-	if err != nil {
-		log.Printf("ListVersionsByTenant: %v", err)
-		return nil, fmt.Errorf("failed to list versions: %w", err)
-	}
-	defer rows.Close()
-
-	var results []Version
-	for rows.Next() {
-		var v Version
-		if err := rows.Scan(&v.DeviceID, &v.TenantID, &v.Software, &v.Rules,
-			&v.ThreatIntel, &v.CreatedAt, &v.UpdatedAt); err != nil {
-			return nil, fmt.Errorf("failed to scan version: %w", err)
-		}
-		results = append(results, v)
-	}
-	return results, nil
-}
-
 // ─── Token helpers ───────────────────────────────────────────────────────────
 
 // generateRefreshToken produces a 32-byte random opaque token and its SHA-256 hex digest.
