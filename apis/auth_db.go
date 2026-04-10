@@ -7,6 +7,9 @@
 // by SecurITe.
 //
 // This software is proprietary and confidential.
+//
+// File Owner:       deepinder@securite.world
+// Created On:       04/10/2026
 
 package main
 
@@ -33,6 +36,32 @@ type RefreshToken struct {
 }
 
 // ─── User lookup ─────────────────────────────────────────────────────────────
+
+// GetUserByUserID looks up a user by their UUID primary key.
+func (db *DB) GetUserByUserID(userID string) (*User, error) {
+	var u User
+	var lockoutUntil sql.NullTime
+	err := db.QueryRow(`
+		SELECT user_id, tenant_id, email, password_hash, role,
+		       is_active, failed_attempts, lockout_until, created_at, updated_at
+		FROM users
+		WHERE user_id = $1
+	`, userID).Scan(
+		&u.UserID, &u.TenantID, &u.Email, &u.PasswordHash, &u.Role,
+		&u.IsActive, &u.FailedAttempts, &lockoutUntil, &u.CreatedAt, &u.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("user not found")
+	}
+	if err != nil {
+		log.Printf("GetUserByUserID: %v", err)
+		return nil, fmt.Errorf("failed to look up user: %w", err)
+	}
+	if lockoutUntil.Valid {
+		u.LockoutUntil = &lockoutUntil.Time
+	}
+	return &u, nil
+}
 
 // GetUserByEmail looks up a user by email address (case-insensitive).
 // Returns sql.ErrNoRows wrapped in a plain error when not found.

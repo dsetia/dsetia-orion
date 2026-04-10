@@ -43,7 +43,7 @@ services:
       - "8080:8080"
     volumes:
       - /opt/config/db.json:/app/config.json
-      - /opt/config/auth.json:/app/config/auth.json
+      - /opt/config/auth.json:/app/auth.json
     command: ./apis
     networks:
       - securite-net

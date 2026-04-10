@@ -7,6 +7,9 @@
 // by SecurITe.
 //
 // This software is proprietary and confidential.
+//
+// File Owner:       deepinder@securite.world
+// Created On:       04/10/2026
 
 package main
 
@@ -196,14 +199,7 @@ func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 3 — load user and check is_active.
-	user, err := s.db.GetUserByEmail("") // placeholder; we look up by user_id below
-	_ = user
-	// Look up by user_id directly.
-	var u User
-	err = s.db.QueryRow(`
-		SELECT user_id, tenant_id, email, role, is_active
-		FROM users WHERE user_id = $1
-	`, rt.UserID).Scan(&u.UserID, &u.TenantID, &u.Email, &u.Role, &u.IsActive)
+	u, err := s.db.GetUserByUserID(rt.UserID)
 	if err != nil || !u.IsActive {
 		jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
 		return
@@ -213,7 +209,7 @@ func (s *Server) handleUIRefresh(w http.ResponseWriter, r *http.Request) {
 	s.db.UpdateRefreshTokenLastUsed(rt.TokenID)
 
 	// Step 5 — issue new access JWT.
-	accessToken, err := s.signJWT(&u)
+	accessToken, err := s.signJWT(u)
 	if err != nil {
 		log.Printf("handleUIRefresh: signJWT: %v", err)
 		jsonError(w, "internal error", http.StatusInternalServerError)

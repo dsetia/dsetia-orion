@@ -1213,7 +1213,7 @@ func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
     return nil
 }
 
-// ─── UI users ────────────────────────────────────────────────────────────────
+// ─── users ────────────────────────────────────────────────────────────────
 
 // User represents a row in the users table.
 type User struct {

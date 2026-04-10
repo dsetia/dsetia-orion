@@ -441,7 +441,7 @@ func main() {
 
     // Command line flags
     configPath     := flag.String("config", "config.json", "Path to DB config file")
-    authConfigPath := flag.String("auth-config", "config/auth.json", "Path to auth config file")
+    authConfigPath := flag.String("auth-config", "auth.json", "Path to auth config file")
     flag.Parse()
 
     // Load DB config
@@ -496,10 +496,10 @@ func main() {
     http.HandleFunc("/v1/ma/auth/refresh", server.handleUIRefresh)
     http.HandleFunc("/v1/ma/auth/logout", server.requireJWT(server.handleUILogout))
 
-    // Management identity route
+    // Identity route
     http.HandleFunc("/v1/ma/me", server.requireJWT(server.handleUIMe))
 
-    // Management tenant-scoped catch-all (JWT required)
+    // Tenant-scoped catch-all (JWT required)
     http.HandleFunc("/v1/ma/", server.requireJWT(server.handleUITenantScoped))
 
     log.Println("Starting API server on :8080")

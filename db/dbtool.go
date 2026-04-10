@@ -97,9 +97,9 @@ func main() {
     sThreatIntel := flag.String("status-threatintel", "", "ThreatIntel status")
 
     // User management flags
-    userID := flag.String("user-id", "", "UI user UUID")
-    email  := flag.String("email", "", "UI user email address")
-    role   := flag.String("role", "", "UI user role (security_analyst or system_admin)")
+    userID := flag.String("user-id", "", "user UUID")
+    email  := flag.String("email", "", "user email address")
+    role   := flag.String("role", "", "user role (security_analyst or system_admin)")
     limit  := flag.Int("limit", 50, "Max rows to return for list operations")
 
     flag.Parse()
