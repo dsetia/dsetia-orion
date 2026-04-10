@@ -72,22 +72,22 @@ ANALYST_ACCESS=""; ANALYST_USER_ID=""
 section "Login"
 # =============================================================================
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d '{"email":"bad@example.com","password":"wrongpassword"}'
 expect_status "Unknown email returns 401" 401
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"wrongpassword\"}"
 expect_status "Wrong password returns 401" 401
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d '{"email":"","password":""}'
 expect_status "Empty credentials returns 400" 400
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}"
 expect_status "Valid admin login returns 200" 200
@@ -109,13 +109,13 @@ fi
 section "/me"
 # =============================================================================
 
-do_curl GET /v1/ui/me
+do_curl GET /v1/ma/me
 expect_status "No token returns 401" 401
 
-do_curl GET /v1/ui/me -H "Authorization: Bearer badtoken"
+do_curl GET /v1/ma/me -H "Authorization: Bearer badtoken"
 expect_status "Invalid token returns 401" 401
 
-do_curl GET /v1/ui/me -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/me -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "Valid token returns 200" 200
 if [[ "$STATUS" == "200" ]]; then
     me_email=$(echo "$BODY" | jq -r '.email')
@@ -129,12 +129,12 @@ fi
 section "Refresh"
 # =============================================================================
 
-do_curl POST /v1/ui/auth/refresh \
+do_curl POST /v1/ma/auth/refresh \
     -H "Content-Type: application/json" \
     -d '{"refresh_token":"garbage"}'
 expect_status "Garbage refresh token returns 401" 401
 
-do_curl POST /v1/ui/auth/refresh \
+do_curl POST /v1/ma/auth/refresh \
     -H "Content-Type: application/json" \
     -d "{\"refresh_token\":\"$ADMIN_REFRESH\"}"
 expect_status "Valid refresh token returns 200" 200
@@ -150,14 +150,14 @@ fi
 section "Users — list"
 # =============================================================================
 
-do_curl GET /v1/ui/users -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/users -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "system_admin can list users" 200
 
 # =============================================================================
 section "Users — create"
 # =============================================================================
 
-do_curl POST /v1/ui/users \
+do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ANALYST_EMAIL\",\"password\":\"$ANALYST_PASSWORD\",\"role\":\"security_analyst\"}"
@@ -169,19 +169,19 @@ if [[ "$STATUS" == "201" ]]; then
         || fail "Create response missing user_id"
 fi
 
-do_curl POST /v1/ui/users \
+do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ANALYST_EMAIL\",\"password\":\"$ANALYST_PASSWORD\",\"role\":\"security_analyst\"}"
 expect_status "Duplicate email returns 409" 409
 
-do_curl POST /v1/ui/users \
+do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"email":"x@example.com","password":"short","role":"security_analyst"}'
 expect_status "Short password returns 400" 400
 
-do_curl POST /v1/ui/users \
+do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"email":"x@example.com","password":"validpassword123","role":"superuser"}'
@@ -191,22 +191,22 @@ expect_status "Invalid role returns 400" 400
 section "Users — analyst role restrictions"
 # =============================================================================
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ANALYST_EMAIL\",\"password\":\"$ANALYST_PASSWORD\"}"
 expect_status "Analyst login returns 200" 200
 [[ "$STATUS" == "200" ]] && ANALYST_ACCESS=$(echo "$BODY" | jq -r '.access_token')
 
-do_curl GET /v1/ui/users -H "Authorization: Bearer $ANALYST_ACCESS"
+do_curl GET /v1/ma/users -H "Authorization: Bearer $ANALYST_ACCESS"
 expect_status "security_analyst cannot list users (403)" 403
 
-do_curl POST /v1/ui/users \
+do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ANALYST_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"email":"other@example.com","password":"validpassword123","role":"security_analyst"}'
 expect_status "security_analyst cannot create user (403)" 403
 
-do_curl DELETE /v1/ui/users/"$ANALYST_USER_ID" \
+do_curl DELETE /v1/ma/users/"$ANALYST_USER_ID" \
     -H "Authorization: Bearer $ANALYST_ACCESS"
 expect_status "security_analyst cannot delete user (403)" 403
 
@@ -214,25 +214,25 @@ expect_status "security_analyst cannot delete user (403)" 403
 section "Users — password reset"
 # =============================================================================
 
-do_curl PUT /v1/ui/users/"$ANALYST_USER_ID"/password \
+do_curl PUT /v1/ma/users/"$ANALYST_USER_ID"/password \
     -H "Authorization: Bearer $ANALYST_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"password":"newanalystpassword123"}'
 expect_status "Analyst can reset own password" 204
 
-do_curl PUT /v1/ui/users/"$ADMIN_USER_ID"/password \
+do_curl PUT /v1/ma/users/"$ADMIN_USER_ID"/password \
     -H "Authorization: Bearer $ANALYST_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"password":"newpassword123"}'
 expect_status "Analyst cannot reset another user password (403)" 403
 
-do_curl PUT /v1/ui/users/"$ANALYST_USER_ID"/password \
+do_curl PUT /v1/ma/users/"$ANALYST_USER_ID"/password \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"password":"adminresetpassword123"}'
 expect_status "Admin can reset any user password" 204
 
-do_curl PUT /v1/ui/users/"$ANALYST_USER_ID"/password \
+do_curl PUT /v1/ma/users/"$ANALYST_USER_ID"/password \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
     -H "Content-Type: application/json" \
     -d '{"password":"short"}'
@@ -242,26 +242,26 @@ expect_status "Short new password rejected (400)" 400
 section "Devices / Versions / Status"
 # =============================================================================
 
-do_curl GET /v1/ui/devices   -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/devices   -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "List devices returns 200" 200
 
-do_curl GET /v1/ui/versions  -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/versions  -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "List versions returns 200" 200
 
-do_curl GET /v1/ui/status    -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/status    -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "List status returns 200" 200
 
-do_curl GET /v1/ui/nosuchresource -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl GET /v1/ma/nosuchresource -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "Unknown resource returns 404" 404
 
 # =============================================================================
 section "Logout"
 # =============================================================================
 
-do_curl POST /v1/ui/auth/logout -H "Authorization: Bearer $ADMIN_ACCESS"
+do_curl POST /v1/ma/auth/logout -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "Logout returns 204" 204
 
-do_curl POST /v1/ui/auth/refresh \
+do_curl POST /v1/ma/auth/refresh \
     -H "Content-Type: application/json" \
     -d "{\"refresh_token\":\"$ADMIN_REFRESH\"}"
 expect_status "Refresh after logout returns 401" 401
@@ -272,22 +272,22 @@ echo "  NOTE  Access token remains valid until TTL expires (JWT is stateless)"
 section "Users — delete (cleanup)"
 # =============================================================================
 
-do_curl POST /v1/ui/auth/login \
+do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}"
 expect_status "Admin re-login after logout" 200
 [[ "$STATUS" == "200" ]] && ADMIN_ACCESS=$(echo "$BODY" | jq -r '.access_token')
 
-do_curl DELETE /v1/ui/users/"$ADMIN_USER_ID" \
+do_curl DELETE /v1/ma/users/"$ADMIN_USER_ID" \
     -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "Self-delete returns 400" 400
 
 if [[ -n "$ANALYST_USER_ID" && "$ANALYST_USER_ID" != "null" ]]; then
-    do_curl DELETE /v1/ui/users/"$ANALYST_USER_ID" \
+    do_curl DELETE /v1/ma/users/"$ANALYST_USER_ID" \
         -H "Authorization: Bearer $ADMIN_ACCESS"
     expect_status "Admin deletes test analyst user" 204
 
-    do_curl DELETE /v1/ui/users/"$ANALYST_USER_ID" \
+    do_curl DELETE /v1/ma/users/"$ANALYST_USER_ID" \
         -H "Authorization: Bearer $ADMIN_ACCESS"
     expect_status "Deleting already-deleted user returns 404" 404
 fi

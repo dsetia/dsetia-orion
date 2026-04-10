@@ -19,7 +19,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// ─── /v1/ui/me ───────────────────────────────────────────────────────────────
+// ─── /v1/ma/me ───────────────────────────────────────────────────────────────
 
 // handleUIMe returns the calling user's identity from the JWT context.
 // No DB hit required.
@@ -44,11 +44,11 @@ func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
 
 // ─── Catch-all dispatcher ────────────────────────────────────────────────────
 
-// handleUITenantScoped is the catch-all handler for /v1/ui/ routes that are
+// handleUITenantScoped is the catch-all handler for /v1/ma/ routes that are
 // scoped to the tenant derived from the JWT.  It manually parses the path
 // suffix and dispatches to the appropriate sub-handler.
 //
-// URL structure after stripping /v1/ui/:
+// URL structure after stripping /v1/ma/:
 //
 //	parts[0] = resource      ("devices", "users", "versions", "status")
 //	parts[1] = resource_id   (optional)
@@ -59,7 +59,7 @@ func (s *Server) handleUIMe(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleUITenantScoped(w http.ResponseWriter, r *http.Request) {
 	log.Printf("UI access: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
 
-	trimmed := strings.TrimPrefix(r.URL.Path, "/v1/ui/")
+	trimmed := strings.TrimPrefix(r.URL.Path, "/v1/ma/")
 	trimmed = strings.TrimSuffix(trimmed, "/")
 	parts := strings.SplitN(trimmed, "/", 3)
 
@@ -170,7 +170,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 	tenantID := tenantIDFromContext(r.Context())
 
 	switch {
-	// GET /v1/ui/users — list users (system_admin only)
+	// GET /v1/ma/users — list users (system_admin only)
 	case len(parts) == 1 && r.Method == http.MethodGet:
 		if claims.Role != "system_admin" {
 			jsonError(w, "forbidden", http.StatusForbidden)
@@ -184,7 +184,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 		}
 		writeJSON(w, users)
 
-	// POST /v1/ui/users — create user (system_admin only)
+	// POST /v1/ma/users — create user (system_admin only)
 	case len(parts) == 1 && r.Method == http.MethodPost:
 		if claims.Role != "system_admin" {
 			jsonError(w, "forbidden", http.StatusForbidden)
@@ -192,7 +192,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 		}
 		s.handleUICreateUser(w, r, tenantID)
 
-	// DELETE /v1/ui/users/{user_id} — delete user (system_admin only)
+	// DELETE /v1/ma/users/{user_id} — delete user (system_admin only)
 	case len(parts) == 2 && r.Method == http.MethodDelete:
 		if claims.Role != "system_admin" {
 			jsonError(w, "forbidden", http.StatusForbidden)
@@ -200,7 +200,7 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []str
 		}
 		s.handleUIDeleteUser(w, r, parts[1], tenantID)
 
-	// PUT /v1/ui/users/{user_id}/password — reset password
+	// PUT /v1/ma/users/{user_id}/password — reset password
 	// system_admin: any user; security_analyst: own account only
 	case len(parts) == 3 && parts[2] == "password" && r.Method == http.MethodPut:
 		targetUserID := parts[1]

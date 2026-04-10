@@ -83,7 +83,7 @@ func setupAuthServer(t *testing.T) (*Server, int64) {
 func loginResp(t *testing.T, s *Server, email, password string) (int, map[string]interface{}) {
 	t.Helper()
 	body := `{"email":"` + email + `","password":"` + password + `"}`
-	req := httptest.NewRequest(http.MethodPost, "/v1/ui/auth/login", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login", strings.NewReader(body))
 	rr := httptest.NewRecorder()
 	s.handleUILogin(rr, req)
 	var resp map[string]interface{}
@@ -106,7 +106,7 @@ func mustLogin(t *testing.T, s *Server, email, password string) (string, string)
 	return access, refresh
 }
 
-// uiReq creates a request for the /v1/ui/ catch-all or /v1/ui/me,
+// uiReq creates a request for the /v1/ma/ catch-all or /v1/ma/me,
 // optionally including a Bearer token.
 func uiReq(method, path, token, body string) *http.Request {
 	var req *http.Request
@@ -238,7 +238,7 @@ func TestUILogin(t *testing.T) {
 			} else {
 				body = `{"email":"","password":""}`
 			}
-			req := httptest.NewRequest(tt.method, "/v1/ui/auth/login", strings.NewReader(body))
+			req := httptest.NewRequest(tt.method, "/v1/ma/auth/login", strings.NewReader(body))
 			rr := httptest.NewRecorder()
 			s.handleUILogin(rr, req)
 
@@ -260,7 +260,7 @@ func TestUILoginLockout(t *testing.T) {
 
 	// Three bad attempts
 	for i := 1; i <= 3; i++ {
-		req := httptest.NewRequest(http.MethodPost, "/v1/ui/auth/login",
+		req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login",
 			strings.NewReader(`{"email":"`+testAnalystEmail+`","password":"wrongpassword123"}`))
 		rr := httptest.NewRecorder()
 		s.handleUILogin(rr, req)
@@ -270,7 +270,7 @@ func TestUILoginLockout(t *testing.T) {
 	}
 
 	// Correct password should now be rejected because of the lockout
-	req := httptest.NewRequest(http.MethodPost, "/v1/ui/auth/login",
+	req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login",
 		strings.NewReader(`{"email":"`+testAnalystEmail+`","password":"`+testAnalystPassword+`"}`))
 	rr := httptest.NewRecorder()
 	s.handleUILogin(rr, req)
@@ -344,9 +344,9 @@ func TestUIRefresh(t *testing.T) {
 			}
 			var req *http.Request
 			if tt.body != "" {
-				req = httptest.NewRequest(method, "/v1/ui/auth/refresh", strings.NewReader(tt.body))
+				req = httptest.NewRequest(method, "/v1/ma/auth/refresh", strings.NewReader(tt.body))
 			} else {
-				req = httptest.NewRequest(method, "/v1/ui/auth/refresh", nil)
+				req = httptest.NewRequest(method, "/v1/ma/auth/refresh", nil)
 			}
 			rr := httptest.NewRecorder()
 			s.handleUIRefresh(rr, req)
@@ -371,7 +371,7 @@ func TestUIRefreshAfterLogout(t *testing.T) {
 	access, refresh := mustLogin(t, s, testAdminEmail, testAdminPassword)
 
 	// Logout
-	req := uiReq(http.MethodPost, "/v1/ui/auth/logout", access, "")
+	req := uiReq(http.MethodPost, "/v1/ma/auth/logout", access, "")
 	rr := httptest.NewRecorder()
 	s.requireJWT(s.handleUILogout)(rr, req)
 	if rr.Code != http.StatusNoContent {
@@ -379,7 +379,7 @@ func TestUIRefreshAfterLogout(t *testing.T) {
 	}
 
 	// Refresh with the now-revoked token must fail
-	req = httptest.NewRequest(http.MethodPost, "/v1/ui/auth/refresh",
+	req = httptest.NewRequest(http.MethodPost, "/v1/ma/auth/refresh",
 		strings.NewReader(`{"refresh_token":"`+refresh+`"}`))
 	rr = httptest.NewRecorder()
 	s.handleUIRefresh(rr, req)
@@ -397,7 +397,7 @@ func TestUILogout(t *testing.T) {
 	access, _ := mustLogin(t, s, testAdminEmail, testAdminPassword)
 
 	t.Run("valid JWT returns 204", func(t *testing.T) {
-		req := uiReq(http.MethodPost, "/v1/ui/auth/logout", access, "")
+		req := uiReq(http.MethodPost, "/v1/ma/auth/logout", access, "")
 		rr := httptest.NewRecorder()
 		s.requireJWT(s.handleUILogout)(rr, req)
 		if rr.Code != http.StatusNoContent {
@@ -406,7 +406,7 @@ func TestUILogout(t *testing.T) {
 	})
 
 	t.Run("no JWT returns 401", func(t *testing.T) {
-		req := uiReq(http.MethodPost, "/v1/ui/auth/logout", "", "")
+		req := uiReq(http.MethodPost, "/v1/ma/auth/logout", "", "")
 		rr := httptest.NewRecorder()
 		s.requireJWT(s.handleUILogout)(rr, req)
 		if rr.Code != http.StatusUnauthorized {
@@ -416,7 +416,7 @@ func TestUILogout(t *testing.T) {
 
 	t.Run("wrong HTTP method returns 405", func(t *testing.T) {
 		access2, _ := mustLogin(t, s, testAnalystEmail, testAnalystPassword)
-		req := uiReq(http.MethodGet, "/v1/ui/auth/logout", access2, "")
+		req := uiReq(http.MethodGet, "/v1/ma/auth/logout", access2, "")
 		rr := httptest.NewRecorder()
 		s.requireJWT(s.handleUILogout)(rr, req)
 		if rr.Code != http.StatusMethodNotAllowed {
@@ -434,7 +434,7 @@ func TestUIMe(t *testing.T) {
 	access, _ := mustLogin(t, s, testAdminEmail, testAdminPassword)
 
 	t.Run("valid JWT returns user fields", func(t *testing.T) {
-		req := uiReq(http.MethodGet, "/v1/ui/me", access, "")
+		req := uiReq(http.MethodGet, "/v1/ma/me", access, "")
 		rr := callMe(s, req)
 		if rr.Code != http.StatusOK {
 			t.Fatalf("expected 200, got %d", rr.Code)
@@ -456,7 +456,7 @@ func TestUIMe(t *testing.T) {
 	})
 
 	t.Run("no JWT returns 401", func(t *testing.T) {
-		req := uiReq(http.MethodGet, "/v1/ui/me", "", "")
+		req := uiReq(http.MethodGet, "/v1/ma/me", "", "")
 		rr := callMe(s, req)
 		if rr.Code != http.StatusUnauthorized {
 			t.Errorf("expected 401, got %d", rr.Code)
@@ -464,7 +464,7 @@ func TestUIMe(t *testing.T) {
 	})
 
 	t.Run("wrong HTTP method returns 405", func(t *testing.T) {
-		req := uiReq(http.MethodPost, "/v1/ui/me", access, "")
+		req := uiReq(http.MethodPost, "/v1/ma/me", access, "")
 		rr := callMe(s, req)
 		if rr.Code != http.StatusMethodNotAllowed {
 			t.Errorf("expected 405, got %d", rr.Code)
@@ -482,14 +482,14 @@ func TestUsersListAndCreate(t *testing.T) {
 	analystToken, _ := mustLogin(t, s, testAnalystEmail, testAnalystPassword)
 
 	t.Run("system_admin can list users", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/users", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/users", adminToken, ""))
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("security_analyst cannot list users", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/users", analystToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/users", analystToken, ""))
 		if rr.Code != http.StatusForbidden {
 			t.Errorf("expected 403, got %d", rr.Code)
 		}
@@ -497,7 +497,7 @@ func TestUsersListAndCreate(t *testing.T) {
 
 	t.Run("system_admin can create user", func(t *testing.T) {
 		body := `{"email":"new@test.com","password":"newpassword123","role":"security_analyst"}`
-		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ui/users", adminToken, body))
+		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ma/users", adminToken, body))
 		if rr.Code != http.StatusCreated {
 			t.Errorf("expected 201, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
@@ -508,7 +508,7 @@ func TestUsersListAndCreate(t *testing.T) {
 
 	t.Run("duplicate email returns 409", func(t *testing.T) {
 		body := `{"email":"` + testAdminEmail + `","password":"somepassword123","role":"security_analyst"}`
-		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ui/users", adminToken, body))
+		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ma/users", adminToken, body))
 		if rr.Code != http.StatusConflict {
 			t.Errorf("expected 409, got %d", rr.Code)
 		}
@@ -516,7 +516,7 @@ func TestUsersListAndCreate(t *testing.T) {
 
 	t.Run("short password rejected", func(t *testing.T) {
 		body := `{"email":"short@test.com","password":"short","role":"security_analyst"}`
-		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ui/users", adminToken, body))
+		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ma/users", adminToken, body))
 		if rr.Code != http.StatusBadRequest {
 			t.Errorf("expected 400, got %d", rr.Code)
 		}
@@ -524,7 +524,7 @@ func TestUsersListAndCreate(t *testing.T) {
 
 	t.Run("invalid role rejected", func(t *testing.T) {
 		body := `{"email":"badrole@test.com","password":"validpassword123","role":"superuser"}`
-		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ui/users", adminToken, body))
+		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ma/users", adminToken, body))
 		if rr.Code != http.StatusBadRequest {
 			t.Errorf("expected 400, got %d", rr.Code)
 		}
@@ -532,7 +532,7 @@ func TestUsersListAndCreate(t *testing.T) {
 
 	t.Run("security_analyst cannot create user", func(t *testing.T) {
 		body := `{"email":"another@test.com","password":"validpassword123","role":"security_analyst"}`
-		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ui/users", analystToken, body))
+		rr := callScoped(s, uiReq(http.MethodPost, "/v1/ma/users", analystToken, body))
 		if rr.Code != http.StatusForbidden {
 			t.Errorf("expected 403, got %d", rr.Code)
 		}
@@ -554,7 +554,7 @@ func TestUsersDelete(t *testing.T) {
 	}
 
 	t.Run("security_analyst cannot delete a user", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ui/users/"+targetID, analystToken, ""))
+		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ma/users/"+targetID, analystToken, ""))
 		if rr.Code != http.StatusForbidden {
 			t.Errorf("expected 403, got %d", rr.Code)
 		}
@@ -563,21 +563,21 @@ func TestUsersDelete(t *testing.T) {
 	t.Run("system_admin cannot delete their own account", func(t *testing.T) {
 		var adminID string
 		s.db.QueryRow(`SELECT user_id FROM users WHERE email = $1`, testAdminEmail).Scan(&adminID) //nolint:errcheck
-		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ui/users/"+adminID, adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ma/users/"+adminID, adminToken, ""))
 		if rr.Code != http.StatusBadRequest {
 			t.Errorf("expected 400 for self-delete, got %d", rr.Code)
 		}
 	})
 
 	t.Run("system_admin can delete another user", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ui/users/"+targetID, adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ma/users/"+targetID, adminToken, ""))
 		if rr.Code != http.StatusNoContent {
 			t.Errorf("expected 204, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("deleting non-existent user returns 404", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ui/users/"+targetID, adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodDelete, "/v1/ma/users/"+targetID, adminToken, ""))
 		if rr.Code != http.StatusNotFound {
 			t.Errorf("expected 404 for already-deleted user, got %d", rr.Code)
 		}
@@ -605,28 +605,28 @@ func TestUsersResetPassword(t *testing.T) {
 	newPwBody := `{"password":"newvalidpassword123"}`
 
 	t.Run("system_admin can reset any user password", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ui/users/"+analystID+"/password", adminToken, newPwBody))
+		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ma/users/"+analystID+"/password", adminToken, newPwBody))
 		if rr.Code != http.StatusNoContent {
 			t.Errorf("expected 204, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("security_analyst can reset their own password", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ui/users/"+analystID+"/password", analystToken, newPwBody))
+		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ma/users/"+analystID+"/password", analystToken, newPwBody))
 		if rr.Code != http.StatusNoContent {
 			t.Errorf("expected 204, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("security_analyst cannot reset another user password", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ui/users/"+otherID+"/password", analystToken, newPwBody))
+		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ma/users/"+otherID+"/password", analystToken, newPwBody))
 		if rr.Code != http.StatusForbidden {
 			t.Errorf("expected 403, got %d", rr.Code)
 		}
 	})
 
 	t.Run("short new password rejected", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ui/users/"+adminID+"/password", adminToken, `{"password":"short"}`))
+		rr := callScoped(s, uiReq(http.MethodPut, "/v1/ma/users/"+adminID+"/password", adminToken, `{"password":"short"}`))
 		if rr.Code != http.StatusBadRequest {
 			t.Errorf("expected 400, got %d", rr.Code)
 		}
@@ -642,56 +642,56 @@ func TestUITenantScoped(t *testing.T) {
 	adminToken, _ := mustLogin(t, s, testAdminEmail, testAdminPassword)
 
 	t.Run("list devices returns 200", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices", adminToken, ""))
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("get single device returns 200", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices/dev1", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices/dev1", adminToken, ""))
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("get non-existent device returns 404", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices/nosuchdevice", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices/nosuchdevice", adminToken, ""))
 		if rr.Code != http.StatusNotFound {
 			t.Errorf("expected 404, got %d", rr.Code)
 		}
 	})
 
 	t.Run("list versions returns 200", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/versions", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/versions", adminToken, ""))
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("list status returns 200", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/status", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/status", adminToken, ""))
 		if rr.Code != http.StatusOK {
 			t.Errorf("expected 200, got %d (body: %s)", rr.Code, rr.Body.String())
 		}
 	})
 
 	t.Run("unknown resource returns 404", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/nosuchresource", adminToken, ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/nosuchresource", adminToken, ""))
 		if rr.Code != http.StatusNotFound {
 			t.Errorf("expected 404, got %d", rr.Code)
 		}
 	})
 
 	t.Run("unauthenticated request returns 401", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices", "", ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices", "", ""))
 		if rr.Code != http.StatusUnauthorized {
 			t.Errorf("expected 401, got %d", rr.Code)
 		}
 	})
 
 	t.Run("invalid JWT returns 401", func(t *testing.T) {
-		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices", "not.a.token", ""))
+		rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices", "not.a.token", ""))
 		if rr.Code != http.StatusUnauthorized {
 			t.Errorf("expected 401, got %d", rr.Code)
 		}
@@ -719,7 +719,7 @@ func TestUIJWTIsolation(t *testing.T) {
 	user, _ := s.db.GetUserByEmail(testAdminEmail)
 	tamperedToken, _ := tamperedServer.signJWT(user)
 
-	rr := callScoped(s, uiReq(http.MethodGet, "/v1/ui/devices", tamperedToken, ""))
+	rr := callScoped(s, uiReq(http.MethodGet, "/v1/ma/devices", tamperedToken, ""))
 	if rr.Code != http.StatusUnauthorized {
 		t.Errorf("expected 401 for token signed with wrong secret, got %d", rr.Code)
 	}
