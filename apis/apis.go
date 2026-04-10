@@ -496,11 +496,24 @@ func main() {
     http.HandleFunc("/v1/ma/auth/refresh", server.handleAccessTokenRefresh)
     http.HandleFunc("/v1/ma/auth/logout", server.requireJWT(server.handleUserLogout))
 
-    // Identity route
-    http.HandleFunc("/v1/ma/me", server.requireJWT(server.handleMe))
+    // Identity
+    http.HandleFunc("GET /v1/ma/me", server.requireJWT(server.handleMe))
 
-    // Tenant-scoped catch-all (JWT required)
-    http.HandleFunc("/v1/ma/", server.requireJWT(server.handleTenantScoped))
+    // Devices
+    http.HandleFunc("GET /v1/ma/devices",             server.requireJWT(server.handleListDevices))
+    http.HandleFunc("GET /v1/ma/devices/{device_id}", server.requireJWT(server.handleGetDevice))
+
+    // Versions
+    http.HandleFunc("GET /v1/ma/versions", server.requireJWT(server.handleListVersions))
+
+    // Status
+    http.HandleFunc("GET /v1/ma/status", server.requireJWT(server.handleListStatus))
+
+    // Users
+    http.HandleFunc("GET    /v1/ma/users",                    server.requireJWT(server.handleListUsers))
+    http.HandleFunc("POST   /v1/ma/users",                    server.requireJWT(server.handleCreateUser))
+    http.HandleFunc("DELETE /v1/ma/users/{user_id}",          server.requireJWT(server.handleDeleteUser))
+    http.HandleFunc("PUT    /v1/ma/users/{user_id}/password", server.requireJWT(server.handleResetPassword))
 
     log.Println("Starting API server on :8080")
     if err := http.ListenAndServe(":8080", nil); err != nil {

@@ -17,22 +17,15 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
 // ─── /v1/ma/me ───────────────────────────────────────────────────────────────
 
-// handleMe returns the calling user's identity from the JWT context.
-// No DB hit required.
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
 	claims := claimsFromContext(r.Context())
-	if claims == nil {
+	if claims == nil { // guard against misconfigured routes missing requireJWT
 		jsonError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -43,74 +36,6 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		"role":      claims.Role,
 		"tenant_id": claims.TenantID,
 	})
-}
-
-// ─── Catch-all dispatcher ────────────────────────────────────────────────────
-
-// handleTenantScoped is the catch-all handler for /v1/ma/ routes that are
-// scoped to the tenant derived from the JWT.  It manually parses the path
-// suffix and dispatches to the appropriate sub-handler.
-//
-// URL structure after stripping /v1/ma/:
-//
-//	parts[0] = resource      ("devices", "users", "versions", "status")
-//	parts[1] = resource_id   (optional)
-//	parts[2] = sub-resource  ("password", optional)
-//
-// The tenant_id is NEVER read from the URL.  It is obtained exclusively from
-// the JWT claims via claimsFromContext(r.Context()).TenantID.
-func (s *Server) handleTenantScoped(w http.ResponseWriter, r *http.Request) {
-	log.Printf("access: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
-
-	claims := claimsFromContext(r.Context())
-	if claims == nil || claims.TenantID == 0 {
-		jsonError(w, "unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	trimmed := strings.TrimPrefix(r.URL.Path, "/v1/ma/")
-	trimmed = strings.TrimSuffix(trimmed, "/")
-	parts := strings.SplitN(trimmed, "/", 3)
-
-	if len(parts) < 1 || parts[0] == "" {
-		http.NotFound(w, r)
-		return
-	}
-	resource := parts[0]
-
-	switch resource {
-	case "devices":
-		switch {
-		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleListDevices(w, r)
-		case len(parts) == 2 && r.Method == http.MethodGet:
-			s.handleGetDevice(w, r, parts[1])
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-
-	case "versions":
-		switch {
-		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleListVersions(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-
-	case "status":
-		switch {
-		case len(parts) == 1 && r.Method == http.MethodGet:
-			s.handleListStatus(w, r)
-		default:
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		}
-
-	case "users":
-		s.handleUsers(w, r, parts)
-
-	default:
-		http.NotFound(w, r)
-	}
 }
 
 // ─── Devices ─────────────────────────────────────────────────────────────────
@@ -126,8 +51,9 @@ func (s *Server) handleListDevices(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, devices)
 }
 
-func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request, deviceID string) {
+func (s *Server) handleGetDevice(w http.ResponseWriter, r *http.Request) {
 	tenantID := claimsFromContext(r.Context()).TenantID
+	deviceID := r.PathValue("device_id")
 	device, err := s.db.GetDeviceEntry(deviceID, tenantID)
 	if err != nil {
 		jsonError(w, "device not found", http.StatusNotFound)
@@ -164,61 +90,30 @@ func (s *Server) handleListStatus(w http.ResponseWriter, r *http.Request) {
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
-// handleUsers dispatches user-management operations.
-// Role enforcement is per-operation:
-//   - GET list, POST create, DELETE: system_admin only.
-//   - PUT password: any role, but security_analyst may only reset their own password.
-func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request, parts []string) {
+// handleListUsers serves GET /v1/ma/users — system_admin only.
+func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFromContext(r.Context())
-	tenantID := claimsFromContext(r.Context()).TenantID
-
-	switch {
-	// GET /v1/ma/users — list users (system_admin only)
-	case len(parts) == 1 && r.Method == http.MethodGet:
-		if claims.Role != "system_admin" {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		users, err := s.db.ListUsers(tenantID)
-		if err != nil {
-			log.Printf("handleUsers list: %v", err)
-			jsonError(w, "failed to list users", http.StatusInternalServerError)
-			return
-		}
-		writeJSON(w, users)
-
-	// POST /v1/ma/users — create user (system_admin only)
-	case len(parts) == 1 && r.Method == http.MethodPost:
-		if claims.Role != "system_admin" {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		s.handleCreateUser(w, r, tenantID)
-
-	// DELETE /v1/ma/users/{user_id} — delete user (system_admin only)
-	case len(parts) == 2 && r.Method == http.MethodDelete:
-		if claims.Role != "system_admin" {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		s.handleDeleteUser(w, r, parts[1], tenantID)
-
-	// PUT /v1/ma/users/{user_id}/password — reset password
-	// system_admin: any user; security_analyst: own account only
-	case len(parts) == 3 && parts[2] == "password" && r.Method == http.MethodPut:
-		targetUserID := parts[1]
-		if claims.Role == "security_analyst" && claims.UserID != targetUserID {
-			jsonError(w, "forbidden", http.StatusForbidden)
-			return
-		}
-		s.handleResetPassword(w, r, targetUserID, tenantID)
-
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if claims.Role != "system_admin" {
+		jsonError(w, "forbidden", http.StatusForbidden)
+		return
 	}
+	users, err := s.db.ListUsers(claims.TenantID)
+	if err != nil {
+		log.Printf("handleListUsers: %v", err)
+		jsonError(w, "failed to list users", http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, users)
 }
 
-func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request, tenantID int64) {
+// handleCreateUser serves POST /v1/ma/users — system_admin only.
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	if claims.Role != "system_admin" {
+		jsonError(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -248,7 +143,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request, tenant
 		return
 	}
 
-	userID, err := s.db.InsertUser(tenantID, req.Email, string(hash), req.Role)
+	userID, err := s.db.InsertUser(claims.TenantID, req.Email, string(hash), req.Role)
 	if err != nil {
 		log.Printf("handleCreateUser: InsertUser: %v", err)
 		jsonError(w, "failed to create user (email may already exist)", http.StatusConflict)
@@ -261,19 +156,24 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request, tenant
 		"user_id":   userID,
 		"email":     req.Email,
 		"role":      req.Role,
-		"tenant_id": tenantID,
+		"tenant_id": claims.TenantID,
 		"is_active": true,
 	})
 }
 
-func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
+// handleDeleteUser serves DELETE /v1/ma/users/{user_id} — system_admin only.
+func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	claims := claimsFromContext(r.Context())
-	// Prevent self-deletion.
+	if claims.Role != "system_admin" {
+		jsonError(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	userID := r.PathValue("user_id")
 	if claims.UserID == userID {
 		jsonError(w, "cannot delete your own account", http.StatusBadRequest)
 		return
 	}
-	if err := s.db.DeleteUser(userID, tenantID); err != nil {
+	if err := s.db.DeleteUser(userID, claims.TenantID); err != nil {
 		log.Printf("handleDeleteUser: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return
@@ -281,7 +181,16 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request, userID
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request, userID string, tenantID int64) {
+// handleResetPassword serves PUT /v1/ma/users/{user_id}/password.
+// system_admin may reset any user; security_analyst may only reset their own.
+func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
+	claims := claimsFromContext(r.Context())
+	userID := r.PathValue("user_id")
+	if claims.Role == "security_analyst" && claims.UserID != userID {
+		jsonError(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	var req struct {
 		Password string `json:"password"`
 	}
@@ -301,15 +210,13 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request, use
 		return
 	}
 
-	if err := s.db.ResetUserPassword(userID, tenantID, string(hash)); err != nil {
+	if err := s.db.ResetUserPassword(userID, claims.TenantID, string(hash)); err != nil {
 		log.Printf("handleResetPassword: %v", err)
 		jsonError(w, "user not found", http.StatusNotFound)
 		return
 	}
 
-	// Clear any active lockout when a password is reset by an admin.
 	s.db.ClearLockout(userID) //nolint:errcheck
-
 	w.WriteHeader(http.StatusNoContent)
 }
 

@@ -97,8 +97,7 @@ func mustLogin(t *testing.T, s *Server, email, password string) (string, string)
 	return access, refresh
 }
 
-// uiReq creates a request for the /v1/ma/ catch-all or /v1/ma/me,
-// optionally including a Bearer token.
+// uiReq creates a management API request, optionally including a Bearer token.
 func uiReq(method, path, token, body string) *http.Request {
 	var req *http.Request
 	if body != "" {
@@ -113,17 +112,33 @@ func uiReq(method, path, token, body string) *http.Request {
 	return req
 }
 
-// callScoped calls requireJWT(handleTenantScoped) and returns the recorder.
+// newTestMux returns a ServeMux with all /v1/ma/ management routes registered,
+// mirroring the registrations in apis.go.
+func newTestMux(s *Server) *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/ma/me", s.requireJWT(s.handleMe))
+	mux.HandleFunc("GET /v1/ma/devices",             s.requireJWT(s.handleListDevices))
+	mux.HandleFunc("GET /v1/ma/devices/{device_id}", s.requireJWT(s.handleGetDevice))
+	mux.HandleFunc("GET /v1/ma/versions",            s.requireJWT(s.handleListVersions))
+	mux.HandleFunc("GET /v1/ma/status",              s.requireJWT(s.handleListStatus))
+	mux.HandleFunc("GET    /v1/ma/users",                    s.requireJWT(s.handleListUsers))
+	mux.HandleFunc("POST   /v1/ma/users",                    s.requireJWT(s.handleCreateUser))
+	mux.HandleFunc("DELETE /v1/ma/users/{user_id}",          s.requireJWT(s.handleDeleteUser))
+	mux.HandleFunc("PUT    /v1/ma/users/{user_id}/password", s.requireJWT(s.handleResetPassword))
+	return mux
+}
+
+// callScoped dispatches a request through the full management API mux.
 func callScoped(s *Server, req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
-	s.requireJWT(s.handleTenantScoped)(rr, req)
+	newTestMux(s).ServeHTTP(rr, req)
 	return rr
 }
 
-// callMe calls requireJWT(handleMe) and returns the recorder.
+// callMe dispatches a /v1/ma/me request through the management API mux.
 func callMe(s *Server, req *http.Request) *httptest.ResponseRecorder {
 	rr := httptest.NewRecorder()
-	s.requireJWT(s.handleMe)(rr, req)
+	newTestMux(s).ServeHTTP(rr, req)
 	return rr
 }
 
