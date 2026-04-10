@@ -13,7 +13,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -48,14 +47,6 @@ func setupAuthServer(t *testing.T) (*Server, int64) {
 	t.Helper()
 	cleanupTestDB(t)
 	db := setupTestDB(t)
-
-	authSQL, err := ioutil.ReadFile("../db/user_auth_schema.sql")
-	if err != nil {
-		t.Fatalf("read user_auth_schema.sql: %v", err)
-	}
-	if _, err := db.Exec(string(authSQL)); err != nil {
-		t.Fatalf("apply user_auth_schema.sql: %v", err)
-	}
 
 	var tenantID int64
 	if err := db.QueryRow(
