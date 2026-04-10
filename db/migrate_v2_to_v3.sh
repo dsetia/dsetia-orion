@@ -172,6 +172,61 @@ FROM   pg_constraint
 WHERE  conrelid IN ('devices'::regclass, 'tenants'::regclass)
   AND  conname  IN ('chk_device_name_length', 'chk_location_length', 'chk_tenant_name_length')
 ORDER BY conrelid::text, conname;
+
+-- Optional: show current schema of devices table for verification
+\dt+ devices
+
+-- =========================================================================
+-- User auth tables (users, refresh_tokens, login_audit_log)
+-- =========================================================================
+
+CREATE TABLE IF NOT EXISTS users (
+    user_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id       BIGINT      NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
+    email           TEXT        NOT NULL UNIQUE,
+    password_hash   TEXT        NOT NULL,
+    role            TEXT        NOT NULL CHECK (role IN ('security_analyst', 'system_admin')),
+    is_active       BOOLEAN     NOT NULL DEFAULT true,
+    failed_attempts INT         NOT NULL DEFAULT 0,
+    lockout_until   TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_tenant      ON users(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    token_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id      UUID        NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    token_hash   TEXT        NOT NULL UNIQUE,
+    expires_at   TIMESTAMPTZ NOT NULL,
+    revoked      BOOLEAN     NOT NULL DEFAULT false,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_used_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+
+CREATE TABLE IF NOT EXISTS login_audit_log (
+    id             BIGSERIAL   PRIMARY KEY,
+    user_id        UUID        REFERENCES users(user_id) ON DELETE SET NULL,
+    email          TEXT        NOT NULL,
+    success        BOOLEAN     NOT NULL,
+    ip_address     TEXT,
+    failure_reason TEXT,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_audit_user    ON login_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_login_audit_email   ON login_audit_log(LOWER(email));
+CREATE INDEX IF NOT EXISTS idx_login_audit_created ON login_audit_log(created_at DESC);
+
+DO $$
+BEGIN
+    RAISE NOTICE 'User auth tables (users, refresh_tokens, login_audit_log) are present.';
+END $$;
 EOF
 
 if [[ $? -eq 0 ]]; then
