@@ -1,5 +1,0 @@
-{
-    "jwt_secret":               "replace-with-output-of-openssl-rand-hex-32",
-    "access_token_ttl_minutes": 15,
-    "refresh_token_ttl_days":   7
-}
