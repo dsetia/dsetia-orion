@@ -14,6 +14,7 @@
 package main
 
 import (
+    "bufio"
     "encoding/json"
     "time"
     "flag"
@@ -21,6 +22,7 @@ import (
     "os"
     "log"
     "io/ioutil"
+    "strings"
 
     "golang.org/x/crypto/bcrypt"
     "golang.org/x/term"
@@ -57,6 +59,22 @@ func timeStrColor(utcTime time.Time) string {
 }
 
 // Command-line interface
+// readPassword prints prompt and reads a password.
+// When stdin is a terminal it disables echo (secure interactive use).
+// When stdin is a pipe or redirected file it reads a plain line, allowing
+// scripted / automated callers to supply the password via stdin.
+func readPassword(prompt string) ([]byte, error) {
+    fmt.Print(prompt)
+    if term.IsTerminal(int(os.Stdin.Fd())) {
+        pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+        fmt.Println()
+        return pw, err
+    }
+    line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+    fmt.Println()
+    return []byte(strings.TrimRight(line, "\r\n")), err
+}
+
 func main() {
     // Common flags
     configPath := flag.String("db", "", "Path to postgres database config file")
@@ -595,9 +613,7 @@ func main() {
             fmt.Println("Error: -role must be security_analyst or system_admin")
             os.Exit(1)
         }
-        fmt.Print("Password: ")
-        pwBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-        fmt.Println()
+        pwBytes, err := readPassword("Password: ")
         if err != nil {
             fmt.Printf("Error reading password: %v\n", err)
             os.Exit(1)
@@ -650,9 +666,7 @@ func main() {
             fmt.Println("Error: -user-id and -tenant-id are required for reset-user-password")
             os.Exit(1)
         }
-        fmt.Print("New password: ")
-        pwBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
-        fmt.Println()
+        pwBytes, err := readPassword("New password: ")
         if err != nil {
             fmt.Printf("Error reading password: %v\n", err)
             os.Exit(1)

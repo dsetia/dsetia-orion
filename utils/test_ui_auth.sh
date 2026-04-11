@@ -2,27 +2,36 @@
 # test_ui_auth.sh — Manual end-to-end REST tests for the UI auth API.
 #
 # Usage:
-#   ./utils/test_ui_auth.sh [-v] [BASE_URL]
+#   ./utils/test_ui_auth.sh [-v] [-c DB_CONFIG] [BASE_URL]
 #
-#   -v   Verbose: print the JSON response body after every request.
+#   -v              Verbose: print the JSON response body after every request.
+#   -c DB_CONFIG    Path to db.json config file (default: config/db.json).
+#                   Required to create/delete the admin user via dbtool.
 #
 # Prerequisites:
 #   - apis server running at BASE_URL
-#   - A system_admin user exists (ADMIN_EMAIL / ADMIN_PASSWORD)
+#   - dbtool binary on PATH (or in ../bin/)
 #   - jq is installed
+#   - TENANT_ID set to the tenant the admin user will be created under
 
 set -euo pipefail
 
 VERBOSE=0
-if [[ "${1:-}" == "-v" ]]; then
-    VERBOSE=1
-    shift
-fi
+DB_CONFIG="config/db.json"
+
+while [[ $# -gt 0 ]]; do
+    case "${1:-}" in
+        -v) VERBOSE=1; shift ;;
+        -c) DB_CONFIG="$2"; shift 2 ;;
+        *)  break ;;
+    esac
+done
 
 BASE_URL="${1:-http://localhost:8080}"
+TENANT_ID="${TENANT_ID:-1}"
 
 # ─── Credentials (override via env) ──────────────────────────────────────────
-ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
+ADMIN_EMAIL="${ADMIN_EMAIL:-test-admin-$$@example.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-adminpassword123}"
 
 ANALYST_EMAIL="test-analyst-$$@example.com"
@@ -44,6 +53,14 @@ expect_status() {
         fail "$label — expected HTTP $expected, got $STATUS"
     fi
 }
+
+# ─── dbtool helper ───────────────────────────────────────────────────────────
+# Prefer ../bin/dbtool (relative to script location) then fall back to PATH.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DBTOOL="${SCRIPT_DIR}/../bin/dbtool"
+if [[ ! -x "$DBTOOL" ]]; then
+    DBTOOL="dbtool"
+fi
 
 # ─── Request helper ───────────────────────────────────────────────────────────
 # Sets globals: STATUS (HTTP code), BODY (response text).
@@ -67,6 +84,36 @@ do_curl() {
 # ─── State ───────────────────────────────────────────────────────────────────
 ADMIN_ACCESS=""; ADMIN_REFRESH=""; ADMIN_USER_ID=""
 ANALYST_ACCESS=""; ANALYST_USER_ID=""
+
+# =============================================================================
+section "Setup — create admin user via dbtool"
+# =============================================================================
+
+echo -e "  ${DIM}tenant_id=$TENANT_ID  email=$ADMIN_EMAIL${RESET}"
+
+dbtool_out=""
+dbtool_rc=0
+dbtool_out=$(echo "$ADMIN_PASSWORD" | \
+    "$DBTOOL" -db "$DB_CONFIG" -op insert-user \
+        -tenant-id "$TENANT_ID" \
+        -email "$ADMIN_EMAIL" \
+        -role system_admin 2>&1) || dbtool_rc=$?
+
+if [[ $dbtool_rc -ne 0 ]]; then
+    echo -e "${RED}dbtool insert-user failed (exit $dbtool_rc):${RESET}"
+    echo "$dbtool_out"
+    exit 1
+fi
+
+ADMIN_USER_ID=$(echo "$dbtool_out" | sed -n 's/.*user_id=\([^ ]*\).*/\1/p')
+
+if [[ -n "$ADMIN_USER_ID" ]]; then
+    pass "Admin user created (user_id=$ADMIN_USER_ID)"
+else
+    echo -e "${RED}Failed to parse user_id from dbtool output:${RESET}"
+    echo "$dbtool_out"
+    exit 1
+fi
 
 # =============================================================================
 section "Login"
@@ -101,7 +148,7 @@ if [[ "$STATUS" == "200" ]]; then
     [[ "$token_type" == "Bearer" ]] && pass "token_type is Bearer" || fail "token_type expected Bearer, got $token_type"
 else
     fail "Admin login failed — cannot continue"
-    echo -e "\n${RED}Check ADMIN_EMAIL / ADMIN_PASSWORD and that the server is running.${RESET}"
+    echo -e "\n${RED}Check that the server is running at $BASE_URL.${RESET}"
     exit 1
 fi
 
@@ -120,9 +167,10 @@ expect_status "Valid token returns 200" 200
 if [[ "$STATUS" == "200" ]]; then
     me_email=$(echo "$BODY" | jq -r '.email')
     me_role=$(echo "$BODY"  | jq -r '.role')
-    ADMIN_USER_ID=$(echo "$BODY" | jq -r '.user_id')
-    [[ "$me_email" == "$ADMIN_EMAIL" ]] && pass "/me email matches"        || fail "/me email mismatch (got $me_email)"
-    [[ "$me_role"  == "system_admin" ]] && pass "/me role is system_admin" || fail "/me role mismatch (got $me_role)"
+    me_user_id=$(echo "$BODY" | jq -r '.user_id')
+    [[ "$me_email"   == "$ADMIN_EMAIL"  ]] && pass "/me email matches"        || fail "/me email mismatch (got $me_email)"
+    [[ "$me_role"    == "system_admin"  ]] && pass "/me role is system_admin" || fail "/me role mismatch (got $me_role)"
+    [[ "$me_user_id" == "$ADMIN_USER_ID" ]] && pass "/me user_id matches dbtool" || fail "/me user_id mismatch (got $me_user_id)"
 fi
 
 # =============================================================================
@@ -269,9 +317,10 @@ expect_status "Refresh after logout returns 401" 401
 echo "  NOTE  Access token remains valid until TTL expires (JWT is stateless)"
 
 # =============================================================================
-section "Users — delete (cleanup)"
+section "Users — REST delete (analyst cleanup)"
 # =============================================================================
 
+# Re-login since the admin's refresh token was revoked by logout above.
 do_curl POST /v1/ma/auth/login \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}"
@@ -290,6 +339,23 @@ if [[ -n "$ANALYST_USER_ID" && "$ANALYST_USER_ID" != "null" ]]; then
     do_curl DELETE /v1/ma/users/"$ANALYST_USER_ID" \
         -H "Authorization: Bearer $ADMIN_ACCESS"
     expect_status "Deleting already-deleted user returns 404" 404
+fi
+
+# =============================================================================
+section "Teardown — delete admin user via dbtool"
+# =============================================================================
+
+if [[ -n "$ADMIN_USER_ID" ]]; then
+    teardown_out=""
+    teardown_rc=0
+    teardown_out=$("$DBTOOL" -db "$DB_CONFIG" -op delete-user \
+        -user-id "$ADMIN_USER_ID" \
+        -tenant-id "$TENANT_ID" 2>&1) || teardown_rc=$?
+    if [[ $teardown_rc -eq 0 ]]; then
+        pass "Admin user deleted via dbtool"
+    else
+        fail "Admin user deletion via dbtool failed (exit $teardown_rc): $teardown_out"
+    fi
 fi
 
 # =============================================================================
