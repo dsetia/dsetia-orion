@@ -211,7 +211,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash)
 
 CREATE TABLE IF NOT EXISTS login_audit_log (
     id             BIGSERIAL   PRIMARY KEY,
-    user_id        UUID        REFERENCES users(user_id) ON DELETE SET NULL,
+    user_id        UUID,
     email          TEXT        NOT NULL,
     success        BOOLEAN     NOT NULL,
     ip_address     TEXT,
