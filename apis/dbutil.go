@@ -1281,6 +1281,61 @@ type User struct {
     UpdatedAt      time.Time
 }
 
+// RefreshToken represents a row in the refresh_tokens table.
+type RefreshToken struct {
+    TokenID    string
+    UserID     string
+    TokenHash  string
+    ExpiresAt  time.Time
+    Revoked    bool
+    CreatedAt  time.Time
+    LastUsedAt *time.Time
+}
+
+// ListRefreshTokens returns refresh tokens optionally filtered by userID.
+// If userID is empty all tokens are returned. Results are ordered by
+// created_at descending and capped at limit rows (0 = no limit).
+func (db *DB) ListRefreshTokens(userID string, limit int) ([]RefreshToken, error) {
+    query := `
+        SELECT token_id, user_id, token_hash, expires_at, revoked, created_at, last_used_at
+        FROM refresh_tokens
+    `
+    args := []interface{}{}
+    if userID != "" {
+        query += " WHERE user_id = $1"
+        args = append(args, userID)
+    }
+    query += " ORDER BY created_at DESC"
+    if limit > 0 {
+        args = append(args, limit)
+        query += fmt.Sprintf(" LIMIT $%d", len(args))
+    }
+
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        log.Printf("ListRefreshTokens: %v", err)
+        return nil, fmt.Errorf("failed to list refresh tokens: %w", err)
+    }
+    defer rows.Close()
+
+    var tokens []RefreshToken
+    for rows.Next() {
+        var rt RefreshToken
+        var lastUsedAt sql.NullTime
+        if err := rows.Scan(
+            &rt.TokenID, &rt.UserID, &rt.TokenHash,
+            &rt.ExpiresAt, &rt.Revoked, &rt.CreatedAt, &lastUsedAt,
+        ); err != nil {
+            return nil, fmt.Errorf("ListRefreshTokens scan: %w", err)
+        }
+        if lastUsedAt.Valid {
+            rt.LastUsedAt = &lastUsedAt.Time
+        }
+        tokens = append(tokens, rt)
+    }
+    return tokens, rows.Err()
+}
+
 // LoginAuditEntry represents a row in the login_audit_log table.
 type LoginAuditEntry struct {
     ID            int64
@@ -1399,10 +1454,17 @@ func (db *DB) DeactivateUser(userID string, tenantID int64) error {
 // InsertLoginAuditLog records a login attempt. userID may be nil for
 // unknown-email attempts. failureReason is empty on success.
 func (db *DB) InsertLoginAuditLog(userID *string, email, ip, failureReason string, success bool) {
+    // Pass the UUID as a plain string value (not *string) so the pq driver
+    // sends it as text which PostgreSQL implicitly casts to UUID.
+    // A nil *string becomes a nil interface{} which pq correctly stores as NULL.
+    var uid interface{}
+    if userID != nil && *userID != "" {
+        uid = *userID
+    }
     _, err := db.Exec(`
         INSERT INTO login_audit_log (user_id, email, success, ip_address, failure_reason)
         VALUES ($1, $2, $3, $4, $5)
-    `, userID, email, success, ip, failureReason)
+    `, uid, email, success, ip, failureReason)
     if err != nil {
         log.Printf("InsertLoginAuditLog: %v", err)
     }

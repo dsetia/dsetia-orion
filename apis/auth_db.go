@@ -24,17 +24,6 @@ import (
 	"time"
 )
 
-// RefreshToken represents a row in the refresh_tokens table.
-type RefreshToken struct {
-	TokenID    string
-	UserID     string
-	TokenHash  string
-	ExpiresAt  time.Time
-	Revoked    bool
-	CreatedAt  time.Time
-	LastUsedAt *time.Time
-}
-
 // ─── User lookup ─────────────────────────────────────────────────────────────
 
 // GetUserByUserID looks up a user by their UUID primary key.

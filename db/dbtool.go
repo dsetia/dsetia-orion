@@ -141,7 +141,7 @@ func main() {
         fmt.Println("  Tenant ID Blocks: list-tenant-blocks")
         fmt.Println("  Version: list-versions")
         fmt.Println("  Users: insert-user, list-users, delete-user, reset-user-password, deactivate-user")
-        fmt.Println("  Audit: list-login-audit")
+        fmt.Println("  Audit: list-login-audit, list-refresh-tokens")
         os.Exit(1)
     }
 
@@ -721,6 +721,29 @@ func main() {
             fmt.Printf("%-6d %-38s %-35s %-8v %-20s %-20s %-25s\n",
                 e.ID, uid, e.Email, e.Success, e.IPAddress, e.FailureReason,
                 e.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
+
+    case "list-refresh-tokens":
+        // Optional: filter by -user-id; use -limit to cap rows.
+        tokens, err := db.ListRefreshTokens(*userID, *limit)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-38s %-38s %-8s %-8s %-25s %-25s %-25s\n",
+            "token_id", "user_id", "revoked", "expired", "expires_at", "last_used_at", "created_at")
+        fmt.Println("------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        for _, t := range tokens {
+            expired := time.Now().After(t.ExpiresAt)
+            lastUsed := "<never>"
+            if t.LastUsedAt != nil {
+                lastUsed = t.LastUsedAt.Format("2006-01-02 15:04:05")
+            }
+            fmt.Printf("%-38s %-38s %-8v %-8v %-25s %-25s %-25s\n",
+                t.TokenID, t.UserID, t.Revoked, expired,
+                t.ExpiresAt.Format("2006-01-02 15:04:05"),
+                lastUsed,
+                t.CreatedAt.Format("2006-01-02 15:04:05"))
         }
 
     default:
