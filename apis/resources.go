@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       04/10/2026
+//
+// All /v1/ma/ resource handlers; role enforcement per operation
 
 package main
 

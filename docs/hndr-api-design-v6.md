@@ -449,19 +449,22 @@ JWT validation is handled entirely within the Go layer. No auth\_request sub-blo
 
 | File | Change |
 | :---- | :---- |
-| db/user\_auth\_schema.sql | users, refresh\_tokens, login\_audit\_log tables; |
-| common/types.go | Add AuthConfig, UserClaims structs |
-| apis/auth.go | New — handleUserLogin (with lockout \+ audit log), handleAccessTokenRefresh, handleUserLogout, JWT sign/verify helpers, lockout constants |
-| apis/resources.go | New — all /v1/ma/ resource handlers (handleMe, handleListDevices, handleGetDevice, handleListVersions, handleListStatus, handleListUsers, handleCreateUser, handleDeleteUser, handleResetPassword) |
-| apis/middleware.go | New — requireJWT, claimsFromContext, jsonError |
-| apis/apis.go | Add \-auth-config flag; load AuthConfig;  |
-| apis/dbutil.go | Add User, RefreshToken, LoginAuditEntry types; add GetUserByEmail, InsertRefreshToken, GetRefreshToken, RevokeRefreshTokens, UpdateRefreshTokenLastUsed, InsertLoginAuditLog, CheckLockout, RecordFailedAttempt, ClearLockout, InsertUser, ListUsers, DeleteUser, ResetUserPassword, DeactivateUser |
+| db/schema\_pg\_v3.sql | New schema version — adds users, refresh\_tokens, and login\_audit\_log tables |
+| db/migrate\_v2\_to\_v3.sh | Migration script from schema v2 to v3 |
+| common/types.go | New shared config and claims types: AuthConfig (JWT secret, TTLs) and UserClaims (JWT payload) |
+| apis/auth.go | New — login, token refresh, and logout handlers; JWT signing helpers; lockout and TTL constants |
+| apis/auth\_db.go | New — DB access functions used exclusively by auth handlers (user lookup, refresh token CRUD, lockout tracking) |
+| apis/resources.go | New — all /v1/ma/ resource handlers; role enforcement per operation |
+| apis/middleware.go | New — JWT validation middleware and context helpers |
+| apis/dbutil.go | Extended — user/audit types and DB functions shared with dbtool (user CRUD, audit log, refresh token listing) |
+| apis/apis.go | Extended — \-auth-config flag; register all /v1/ma/ routes with JWT middleware |
+| apis/auth\_test.go | New — unit tests covering login, lockout, token refresh, logout, /me, and role enforcement |
 | apis/go.mod / apis/go.sum | Add github.com/golang-jwt/jwt/v5, golang.org/x/crypto |
-| db/dbtool.go | Add ops: insert-user, list-users, delete-user, reset-user-password, deactivate-user, list-login-audit |
+| db/dbtool.go | Extended — user management and audit log operations (insert, list, delete, reset password, deactivate, list audit log, list refresh tokens) |
 | db/go.mod / db/go.sum | Add golang.org/x/crypto, golang.org/x/term |
-| utils/useradm.sh | shell wrapper exposing only user management ops from dbtool |
-| config/auth.example.json | placeholder secret, default TTLs |
-| apis/auth\_test.go | unit tests for login, lockout (3-strike), audit log insertion, token refresh, logout, middleware |
+| utils/useradm.sh | New — shell wrapper exposing only user management operations from dbtool |
+| utils/test\_ui\_auth.sh | New — end-to-end REST test script for all /v1/ma/ endpoints |
+| config/auth.example.json | New — example auth config with placeholder secret and default TTL values |
 
 # 
 

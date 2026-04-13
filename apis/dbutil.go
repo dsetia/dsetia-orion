@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       05/26/2025
+//
+// holds functions shared between apis and dbtool via symlink with the db module.
 
 package main
 

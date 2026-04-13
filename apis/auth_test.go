@@ -7,6 +7,12 @@
 // by SecurITe.
 //
 // This software is proprietary and confidential.
+//
+// File Owner:       deepinder@securite.world
+// Created On:       04/12/2026
+//
+// Unit tests covering login, logout, lockout, token refresh, /me and 
+// role enforcement
 
 package main
 

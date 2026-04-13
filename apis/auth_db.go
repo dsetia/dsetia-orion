@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       04/10/2026
+//
+// functions called exclusively by the API server auth handlers
 
 package main
 

@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       04/10/2026
+//
+// JWT validation middleware and context helpers
 
 package main
 

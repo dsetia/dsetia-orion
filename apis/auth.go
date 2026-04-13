@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       04/10/2026
+//
+// user auth related apis handlers
 
 package main
 
