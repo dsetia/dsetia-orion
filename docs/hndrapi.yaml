@@ -1,0 +1,687 @@
+openapi: 3.0.3
+info:
+  title: Orion Management API
+  description: >
+    Human-user authentication and tenant management plane for the Orion
+    network security sensor backend. All endpoints live under /v1/ma/.
+    Sensor endpoints (/v1/authenticate/, /v1/updates/, /v1/status/,
+    /v1/download/) are separate and not documented here.
+  version: "1.0.0"
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+# ─── Paths ───────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Auth ────────────────────────────────────────────────────────────────────
+
+  /v1/ma/auth/login:
+    post:
+      summary: Login
+      description: >
+        Validate email/password credentials. Returns a short-lived access JWT
+        and a long-lived opaque refresh token. After 3 consecutive failures the
+        account is locked for 10 minutes. All failure reasons return the same
+        401 body to prevent user enumeration.
+      operationId: login
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: "alice@acme.com"
+              password: "supersecretpassword"
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMWIyYzNkNC1lNWY2LTc4OTAtYWJjZC1lZjEyMzQ1Njc4OTAiLCJlbWFpbCI6ImFsaWNlQGFjbWUuY29tIiwicm9sZSI6InN5c3RlbV9hZG1pbiIsInRlbmFudF9pZCI6MSwiZXhwIjoxNzQ0NjAwMDAwfQ.signature"
+                token_type: "Bearer"
+                expires_in: 900
+                refresh_token: "dGhpcyBpcyBhIDMyLWJ5dGUgcmFuZG9tIG9wYXF1ZSB0b2tlbg"
+        "400":
+          description: Missing or empty credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "email and password are required"
+        "401":
+          description: Invalid credentials or account locked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "invalid credentials"
+
+  /v1/ma/auth/refresh:
+    post:
+      summary: Refresh access token
+      description: >
+        Exchange a valid, non-revoked refresh token for a new access JWT.
+        The refresh token is not rotated.
+      operationId: refreshToken
+      security: []
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+            example:
+              refresh_token: "dGhpcyBpcyBhIDMyLWJ5dGUgcmFuZG9tIG9wYXF1ZSB0b2tlbg"
+      responses:
+        "200":
+          description: New access token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMWIyYzNkNC1lNWY2LTc4OTAtYWJjZC1lZjEyMzQ1Njc4OTAiLCJleHAiOjE3NDQ2MDkwMDB9.newsignature"
+                token_type: "Bearer"
+                expires_in: 900
+        "401":
+          description: Refresh token invalid, expired, or revoked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "invalid or expired refresh token"
+
+  /v1/ma/auth/logout:
+    post:
+      summary: Logout
+      description: >
+        Revoke all active refresh tokens for the calling user. The access JWT
+        remains valid until its TTL expires (stateless — cannot be invalidated
+        server-side).
+      operationId: logout
+      tags: [Auth]
+      responses:
+        "204":
+          description: Logged out — refresh tokens revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Identity ────────────────────────────────────────────────────────────────
+
+  /v1/ma/me:
+    get:
+      summary: Get current user profile
+      description: >
+        Returns the calling user's identity decoded from the JWT. No database
+        hit is required. Useful for confirming session state and loading user
+        context on the frontend.
+      operationId: getMe
+      tags: [Identity]
+      responses:
+        "200":
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+              example:
+                user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                email: "alice@acme.com"
+                role: "system_admin"
+                tenant_id: 1
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Devices ─────────────────────────────────────────────────────────────────
+
+  /v1/ma/devices:
+    get:
+      summary: List network agents
+      description: Returns all devices (network agents) for the calling user's tenant.
+      operationId: listDevices
+      tags: [Devices]
+      responses:
+        "200":
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+              example:
+                - device_id: "dev-sensor-001"
+                  tenant_id: 1
+                  name: "Branch Office Sensor"
+                  hndr_sw_version: "1.4.2"
+                  location: "New York, Rack 3"
+                  created_at: "2026-01-15T10:00:00Z"
+                  updated_at: "2026-04-10T08:30:00Z"
+                - device_id: "dev-sensor-002"
+                  tenant_id: 1
+                  name: "Data Center Sensor"
+                  hndr_sw_version: "1.4.2"
+                  location: "Frankfurt, DC1"
+                  created_at: "2026-02-01T09:00:00Z"
+                  updated_at: "2026-04-10T08:30:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /v1/ma/devices/{device_id}:
+    get:
+      summary: Get network agent details
+      description: Returns a single device belonging to the calling user's tenant.
+      operationId: getDevice
+      tags: [Devices]
+      parameters:
+        - $ref: '#/components/parameters/DeviceID'
+      responses:
+        "200":
+          description: Device details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+              example:
+                device_id: "dev-sensor-001"
+                tenant_id: 1
+                name: "Branch Office Sensor"
+                hndr_sw_version: "1.4.2"
+                location: "New York, Rack 3"
+                created_at: "2026-01-15T10:00:00Z"
+                updated_at: "2026-04-10T08:30:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  # ── Versions ────────────────────────────────────────────────────────────────
+
+  /v1/ma/versions:
+    get:
+      summary: List network agent versions
+      description: >
+        Returns the last-reported software, rules, and threat-intel versions
+        for every device in the calling user's tenant.
+      operationId: listVersions
+      tags: [Versions]
+      responses:
+        "200":
+          description: List of reported versions per device
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceVersion'
+              example:
+                - device_id: "dev-sensor-001"
+                  tenant_id: 1
+                  software: "1.4.2"
+                  rules: "r2.1.0"
+                  threatintel: "ti-2026-04-09"
+                  created_at: "2026-04-09T06:00:00Z"
+                  updated_at: "2026-04-10T06:00:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Status ──────────────────────────────────────────────────────────────────
+
+  /v1/ma/status:
+    get:
+      summary: List network agent statuses
+      description: >
+        Returns the last-reported update status (SUCCESS / FAILURE) for
+        software, rules, and threat-intel for every device in the tenant.
+      operationId: listStatus
+      tags: [Status]
+      responses:
+        "200":
+          description: List of device statuses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceStatus'
+              example:
+                - device_id: "dev-sensor-001"
+                  tenant_id: 1
+                  software: "SUCCESS"
+                  rules: "SUCCESS"
+                  threatintel: "FAILURE"
+                  created_at: "2026-04-09T06:00:00Z"
+                  updated_at: "2026-04-10T06:00:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  # ── Users ───────────────────────────────────────────────────────────────────
+
+  /v1/ma/users:
+    get:
+      summary: List users
+      description: >
+        Returns all users for the calling user's tenant.
+        Requires `system_admin` role.
+      operationId: listUsers
+      tags: [Users]
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+              example:
+                - user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  tenant_id: 1
+                  email: "alice@acme.com"
+                  role: "system_admin"
+                  is_active: true
+                  created_at: "2026-01-10T09:00:00Z"
+                  updated_at: "2026-01-10T09:00:00Z"
+                - user_id: "b2c3d4e5-f6a7-8901-bcde-f01234567891"
+                  tenant_id: 1
+                  email: "bob@acme.com"
+                  role: "security_analyst"
+                  is_active: true
+                  created_at: "2026-02-15T14:00:00Z"
+                  updated_at: "2026-02-15T14:00:00Z"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      summary: Create user
+      description: >
+        Create a new user in the calling user's tenant.
+        Requires `system_admin` role. Password must be at least 12 characters.
+      operationId: createUser
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+            example:
+              email: "carol@acme.com"
+              password: "securepassword123"
+              role: "security_analyst"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedUser'
+              example:
+                user_id: "c3d4e5f6-a7b8-9012-cdef-012345678912"
+                email: "carol@acme.com"
+                role: "security_analyst"
+                tenant_id: 1
+                is_active: true
+        "400":
+          description: Validation error (missing fields, short password, invalid role)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "password must be at least 12 characters"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "failed to create user (email may already exist)"
+
+  /v1/ma/users/{user_id}:
+    delete:
+      summary: Delete user
+      description: >
+        Delete a user from the calling user's tenant. Cascades to refresh
+        tokens. A user cannot delete their own account.
+        Requires `system_admin` role.
+      operationId: deleteUser
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/UserID'
+      responses:
+        "204":
+          description: User deleted
+        "400":
+          description: Attempt to delete own account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "cannot delete your own account"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /v1/ma/users/{user_id}/password:
+    put:
+      summary: Reset user password
+      description: >
+        Reset a user's password. `system_admin` may reset any user's password.
+        `security_analyst` may only reset their own password. Also clears any
+        active account lockout. Password must be at least 12 characters.
+      operationId: resetPassword
+      tags: [Users]
+      parameters:
+        - $ref: '#/components/parameters/UserID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordRequest'
+            example:
+              password: "newpassword5678!"
+      responses:
+        "204":
+          description: Password updated
+        "400":
+          description: Password too short
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "password must be at least 12 characters"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+# ─── Components ──────────────────────────────────────────────────────────────
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    DeviceID:
+      name: device_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: "dev-sensor-001"
+
+    UserID:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "invalid or expired token"
+
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "forbidden"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "not found"
+
+  schemas:
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+      required: [email, password]
+
+    RefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required: [refresh_token]
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: Signed HS256 JWT, valid for access_token_ttl_minutes.
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+          description: Access token lifetime in seconds.
+        refresh_token:
+          type: string
+          description: Opaque 32-byte base64url token. SHA-256 digest stored in DB.
+
+    RefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          enum: [Bearer]
+        expires_in:
+          type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [system_admin, security_analyst]
+        tenant_id:
+          type: integer
+          format: int64
+
+    Device:
+      type: object
+      properties:
+        device_id:
+          type: string
+        tenant_id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        hndr_sw_version:
+          type: string
+        location:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeviceVersion:
+      type: object
+      description: Last-reported component versions for a device.
+      properties:
+        device_id:
+          type: string
+        tenant_id:
+          type: integer
+          format: int64
+        software:
+          type: string
+        rules:
+          type: string
+        threatintel:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    DeviceStatus:
+      type: object
+      description: Last-reported update status for each component of a device.
+      properties:
+        device_id:
+          type: string
+        tenant_id:
+          type: integer
+          format: int64
+        software:
+          type: string
+          description: "SUCCESS or FAILURE"
+        rules:
+          type: string
+          description: "SUCCESS or FAILURE"
+        threatintel:
+          type: string
+          description: "SUCCESS or FAILURE"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      description: User record returned in list/get responses (no password hash).
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [system_admin, security_analyst]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreatedUser:
+      type: object
+      description: Response body for POST /v1/ma/users.
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [system_admin, security_analyst]
+        tenant_id:
+          type: integer
+          format: int64
+        is_active:
+          type: boolean
+
+    CreateUserRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+        role:
+          type: string
+          enum: [system_admin, security_analyst]
+      required: [email, password, role]
+
+    ResetPasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+          minLength: 12
+      required: [password]
