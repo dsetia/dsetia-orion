@@ -47,6 +47,7 @@ func (s *Server) newMux() *http.ServeMux {
 	s.registerNetworkAgentRoutes(mux)
 	s.registerAuthRoutes(mux)
 	s.registerUserRoutes(mux)
+	s.registerResourceRoutes(mux)
 	return mux
 }
 
