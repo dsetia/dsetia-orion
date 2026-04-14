@@ -17,6 +17,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -138,15 +139,17 @@ func (s *Server) handleUpdates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var device Device
+	var swVersion sql.NullString
 	if err := s.db.QueryRow(`
 		SELECT device_id, tenant_id, device_name, hndr_sw_version
 		FROM devices
 		WHERE device_id = $1 AND tenant_id = $2
-	`, deviceID, tenantID).Scan(&device.ID, &device.TenantID, &device.Name, &device.HndrSwVersion); err != nil {
+	`, deviceID, tenantID).Scan(&device.ID, &device.TenantID, &device.Name, &swVersion); err != nil {
 		log.Printf("handleUpdates: device not found device=%s", deviceID)
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	device.HndrSwVersion = swVersion.String
 
 	resp := common.UpdateResponse{}
 

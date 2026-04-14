@@ -424,10 +424,13 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     var devices []Device
     for rows.Next() {
         var d Device
-        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt); err != nil {
-	    log.Printf("Error: %s", err.Error())
+        var swVersion, location sql.NullString
+        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &swVersion, &location, &d.CreatedAt, &d.UpdatedAt); err != nil {
+            log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan device: %w", err)
         }
+        d.HndrSwVersion = swVersion.String
+        d.Location = location.String
         devices = append(devices, d)
     }
     return devices, nil
@@ -514,7 +517,10 @@ func (db *DB) UpdateDeviceFields(deviceID string, tenantID int64, changes map[st
 func (db *DB) GetDeviceEntry(deviceID string, tenantID int64) (*Device, error) {
     query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at FROM devices WHERE device_id = $1 AND tenant_id = $2"
     var d Device
-    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt)
+    var swVersion, location sql.NullString
+    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &swVersion, &location, &d.CreatedAt, &d.UpdatedAt)
+    d.HndrSwVersion = swVersion.String
+    d.Location = location.String
     if err == sql.ErrNoRows {
         return nil, fmt.Errorf("device %s not found for tenant %d", deviceID, tenantID)
     }
