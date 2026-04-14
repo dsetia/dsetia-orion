@@ -641,12 +641,12 @@ func main() {
             fmt.Printf("Error: %v\n", err)
             os.Exit(1)
         }
-        fmt.Printf("%-38s %-35s %-20s %-10s %-25s\n",
-            "user_id", "email", "role", "active", "created_at")
-        fmt.Println("--------------------------------------------------------------------------------------------------------")
+        fmt.Printf("%-38s %-10s %-35s %-20s %-10s %-25s\n",
+            "user_id", "tenant_id", "email", "role", "active", "created_at")
+        fmt.Println("--------------------------------------------------------------------------------------------------------------------")
         for _, u := range users {
-            fmt.Printf("%-38s %-35s %-20s %-10v %-25s\n",
-                u.UserID, u.Email, u.Role, u.IsActive,
+            fmt.Printf("%-38s %-10d %-35s %-20s %-10v %-25s\n",
+                u.UserID, u.TenantID, u.Email, u.Role, u.IsActive,
                 u.CreatedAt.Format("2006-01-02 15:04:05"))
         }
 
