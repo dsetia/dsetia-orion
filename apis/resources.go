@@ -222,11 +222,19 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// ─── Shared helpers ──────────────────────────────────────────────────────────
+// registerUserRoutes mounts all /v1/ma/ management routes on mux.
+func (s *Server) registerUserRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("GET /v1/ma/me", s.requireJWT(s.handleMe))
 
-func writeJSON(w http.ResponseWriter, v interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.Printf("writeJSON: %v", err)
-	}
+	mux.HandleFunc("GET /v1/ma/devices",             s.requireJWT(s.handleListDevices))
+	mux.HandleFunc("GET /v1/ma/devices/{device_id}", s.requireJWT(s.handleGetDevice))
+
+	mux.HandleFunc("GET /v1/ma/versions", s.requireJWT(s.handleListVersions))
+
+	mux.HandleFunc("GET /v1/ma/status", s.requireJWT(s.handleListStatus))
+
+	mux.HandleFunc("GET    /v1/ma/users",                    s.requireJWT(s.handleListUsers))
+	mux.HandleFunc("POST   /v1/ma/users",                    s.requireJWT(s.handleCreateUser))
+	mux.HandleFunc("DELETE /v1/ma/users/{user_id}",          s.requireJWT(s.handleDeleteUser))
+	mux.HandleFunc("PUT    /v1/ma/users/{user_id}/password", s.requireJWT(s.handleResetPassword))
 }
