@@ -87,17 +87,3 @@ func (s *Server) handleListStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, statuses)
 }
-
-
-// registerUserRoutes mounts all /v1/ma/ management routes on mux.
-func (s *Server) registerResourceRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /v1/ma/me", s.requireJWT(s.handleMe))
-
-	mux.HandleFunc("GET /v1/ma/devices",             s.requireJWT(s.handleListDevices))
-	mux.HandleFunc("GET /v1/ma/devices/{device_id}", s.requireJWT(s.handleGetDevice))
-
-	mux.HandleFunc("GET /v1/ma/versions", s.requireJWT(s.handleListVersions))
-
-	mux.HandleFunc("GET /v1/ma/status", s.requireJWT(s.handleListStatus))
-
-}
