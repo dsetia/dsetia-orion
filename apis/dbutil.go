@@ -1357,7 +1357,7 @@ func (db *DB) InsertUser(tenantID int64, email, passwordHash, role string) (stri
         INSERT INTO users (tenant_id, email, password_hash, role)
         VALUES ($1, $2, $3, $4)
         RETURNING user_id
-    `, tenantID, email, passwordHash, role).Scan(&userID)
+    `, tenantID, strings.ToLower(email), passwordHash, role).Scan(&userID)
     if err != nil {
         return "", fmt.Errorf("failed to insert user: %w", err)
     }

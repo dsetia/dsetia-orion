@@ -183,7 +183,7 @@ ORDER BY conrelid::text, conname;
 CREATE TABLE IF NOT EXISTS users (
     user_id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       BIGINT      NOT NULL REFERENCES tenants(tenant_id) ON DELETE CASCADE,
-    email           TEXT        NOT NULL UNIQUE,
+    email           TEXT        NOT NULL,
     password_hash   TEXT        NOT NULL,
     role            TEXT        NOT NULL CHECK (role IN ('security_analyst', 'system_admin')),
     is_active       BOOLEAN     NOT NULL DEFAULT true,
@@ -193,8 +193,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_users_tenant      ON users(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
+CREATE INDEX IF NOT EXISTS        idx_users_tenant      ON users(tenant_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_lower ON users(LOWER(email));
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     token_id     UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -139,6 +139,12 @@ do_curl POST /v1/ma/auth/login \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}"
 expect_status "Valid admin login returns 200" 200
 
+ADMIN_EMAIL_UPPER=$(echo "$ADMIN_EMAIL" | tr '[:lower:]' '[:upper:]')
+do_curl POST /v1/ma/auth/login \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$ADMIN_EMAIL_UPPER\",\"password\":\"$ADMIN_PASSWORD\"}"
+expect_status "Login is case-insensitive for email" 200
+
 if [[ "$STATUS" == "200" ]]; then
     ADMIN_ACCESS=$(echo "$BODY"  | jq -r '.access_token')
     ADMIN_REFRESH=$(echo "$BODY" | jq -r '.refresh_token')
@@ -222,6 +228,13 @@ do_curl POST /v1/ma/users \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ANALYST_EMAIL\",\"password\":\"$ANALYST_PASSWORD\",\"role\":\"security_analyst\"}"
 expect_status "Duplicate email returns 409" 409
+
+ANALYST_EMAIL_UPPER=$(echo "$ANALYST_EMAIL" | tr '[:lower:]' '[:upper:]')
+do_curl POST /v1/ma/users \
+    -H "Authorization: Bearer $ADMIN_ACCESS" \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$ANALYST_EMAIL_UPPER\",\"password\":\"$ANALYST_PASSWORD\",\"role\":\"security_analyst\"}"
+expect_status "Duplicate email (different case) returns 409" 409
 
 do_curl POST /v1/ma/users \
     -H "Authorization: Bearer $ADMIN_ACCESS" \
