@@ -263,5 +263,60 @@ else
     exit 1
 fi
 
+# ─── User / Auth (end-to-end through nginx) ──────────────────────────────────
+ADMIN_EMAIL="test-admin-$$@example.com"
+ADMIN_PASSWORD="testadminpassword123"
+
+echo "Creating test admin user..."
+DBTOOL_OUT=$(echo "$ADMIN_PASSWORD" | dbtool -db "$DBPATH" \
+    -op insert-user \
+    -tenant-id "$TENANT_ID" \
+    -email "$ADMIN_EMAIL" \
+    -role system_admin 2>&1)
+ADMIN_USER_ID=$(echo "$DBTOOL_OUT" | sed -n 's/.*user_id=\([^ ]*\).*/\1/p')
+[ -n "$ADMIN_USER_ID" ]
+print_status $? "Test admin user created (user_id=$ADMIN_USER_ID)"
+
+echo "Testing user login (nginx)..."
+LOGIN_RESP=$(curl -k -s -X POST \
+    -H "Content-Type: application/json" \
+    -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}" \
+    "https://localhost:$NGINX_SSL_PORT/v1/ma/auth/login")
+ACCESS_TOKEN=$(echo "$LOGIN_RESP"  | jq -r '.access_token  // empty')
+REFRESH_TOKEN=$(echo "$LOGIN_RESP" | jq -r '.refresh_token // empty')
+[ -n "$ACCESS_TOKEN" ]
+print_status $? "Login returns access_token (nginx)"
+[ -n "$REFRESH_TOKEN" ]
+print_status $? "Login returns refresh_token (nginx)"
+
+echo "Testing /me endpoint (nginx)..."
+curl -k -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "https://localhost:$NGINX_SSL_PORT/v1/ma/me" | grep -q 200
+print_status $? "GET /v1/ma/me returns 200 (nginx)"
+
+echo "Testing token refresh (nginx)..."
+curl -k -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" \
+    "https://localhost:$NGINX_SSL_PORT/v1/ma/auth/refresh" | grep -q 200
+print_status $? "POST /v1/ma/auth/refresh returns 200 (nginx)"
+
+echo "Testing logout (nginx)..."
+curl -k -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Authorization: Bearer $ACCESS_TOKEN" \
+    "https://localhost:$NGINX_SSL_PORT/v1/ma/auth/logout" | grep -q 204
+print_status $? "POST /v1/ma/auth/logout returns 204 (nginx)"
+
+echo "Verifying refresh token revoked after logout..."
+curl -k -s -o /dev/null -w "%{http_code}" \
+    -X POST \
+    -H "Content-Type: application/json" \
+    -d "{\"refresh_token\":\"$REFRESH_TOKEN\"}" \
+    "https://localhost:$NGINX_SSL_PORT/v1/ma/auth/refresh" | grep -q 401
+print_status $? "Refresh token rejected after logout (nginx)"
+
 echo -e "${GREEN}All sanity tests passed!${NC}"
 exit 0
