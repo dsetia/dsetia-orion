@@ -126,10 +126,15 @@ All new endpoints live under /v1/ma/. Sensor endpoints under /v1/authenticate/, 
 | Method | Path | Description |
 | :---- | :---- | :---- |
 | POST | /v1/ma/auth/login | Validate credentials, issue access JWT \+ refresh token |
+
+## 5.2 Auth Endpoints (authenticated)
+
+| Method | Path | Description |
+| :---- | :---- | :---- |
 | POST | /v1/ma/auth/refresh | Exchange a valid refresh token for a new access JWT |
 | POST | /v1/ma/auth/logout | Revoke the caller's refresh token (requires valid access JWT) |
 
-## 5.2 Authenticated Endpoints
+## 5.3 Application Endpoints
 
 All routes below require a valid Authorization: Bearer \<access\_jwt\> header. Tenant scoping is enforced by middleware (§6).
 
