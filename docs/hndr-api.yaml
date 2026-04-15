@@ -128,9 +128,10 @@ paths:
     get:
       summary: Get current user profile
       description: >
-        Returns the calling user's identity decoded from the JWT. No database
-        hit is required. Useful for confirming session state and loading user
-        context on the frontend.
+        Returns the calling user's identity and tenant context. User fields
+        (user_id, email, role, tenant_id) are decoded from the JWT; tenant_name
+        requires a single DB lookup. Useful for confirming session state and
+        loading user context on the frontend.
       operationId: getMe
       tags: [Identity]
       responses:
@@ -145,6 +146,7 @@ paths:
                 email: "alice@acme.com"
                 role: "system_admin"
                 tenant_id: 1
+                tenant_name: "acme-corp"
         "401":
           $ref: '#/components/responses/Unauthorized'
 
@@ -551,6 +553,9 @@ components:
         tenant_id:
           type: integer
           format: int64
+        tenant_name:
+          type: string
+          description: Human-readable tenant name, looked up from the tenants table.
 
     Device:
       type: object
