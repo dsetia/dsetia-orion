@@ -457,12 +457,15 @@ JWT validation is handled entirely within the Go layer. No auth\_request sub-blo
 | db/schema\_pg\_v3.sql | New schema version — adds users, refresh\_tokens, and login\_audit\_log tables |
 | db/migrate\_v2\_to\_v3.sh | Migration script from schema v2 to v3 |
 | common/types.go | New shared config and claims types: AuthConfig (JWT secret, TTLs) and UserClaims (JWT payload) |
-| apis/auth.go | New — login, token refresh, and logout handlers; JWT signing helpers; lockout and TTL constants |
 | apis/auth\_db.go | New — DB access functions used exclusively by auth handlers (user lookup, refresh token CRUD, lockout tracking) |
-| apis/resources.go | New — all /v1/ma/ resource handlers; role enforcement per operation |
+| apis/handlers_auth.go | New — login, token refresh, and logout handlers; JWT signing helpers; lockout and TTL constants |
+| apis/handlers_network_agents.go | Sensor-facing API handlers: authenticate, updates, status, healthcheck |
+| apis/handlers_resources.go | New — all /v1/ma/ resource handlers; role enforcement per operation |
+| apis/handlers_users.go | New — user CRUD handlers |
+| apis/main.go | New —  Entry point: loads config, wires up the server, starts the HTTP listener.|
 | apis/middleware.go | New — JWT validation middleware and context helpers |
 | apis/dbutil.go | Extended — user/audit types and DB functions shared with dbtool (user CRUD, audit log, refresh token listing) |
-| apis/apis.go | Extended — \-auth-config flag; register all /v1/ma/ routes with JWT middleware |
+| apis/server.go | Server struct, initialisation, route wiring, and shared HTTP helpers |
 | apis/auth\_test.go | New — unit tests covering login, lockout, token refresh, logout, /me, and role enforcement |
 | apis/go.mod / apis/go.sum | Add github.com/golang-jwt/jwt/v5, golang.org/x/crypto |
 | db/dbtool.go | Extended — user management and audit log operations (insert, list, delete, reset password, deactivate, list audit log, list refresh tokens) |
