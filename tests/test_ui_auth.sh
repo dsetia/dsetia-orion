@@ -171,12 +171,14 @@ expect_status "Invalid token returns 401" 401
 do_curl GET /v1/ma/me -H "Authorization: Bearer $ADMIN_ACCESS"
 expect_status "Valid token returns 200" 200
 if [[ "$STATUS" == "200" ]]; then
-    me_email=$(echo "$BODY" | jq -r '.email')
-    me_role=$(echo "$BODY"  | jq -r '.role')
-    me_user_id=$(echo "$BODY" | jq -r '.user_id')
-    [[ "$me_email"   == "$ADMIN_EMAIL"  ]] && pass "/me email matches"        || fail "/me email mismatch (got $me_email)"
-    [[ "$me_role"    == "system_admin"  ]] && pass "/me role is system_admin" || fail "/me role mismatch (got $me_role)"
-    [[ "$me_user_id" == "$ADMIN_USER_ID" ]] && pass "/me user_id matches dbtool" || fail "/me user_id mismatch (got $me_user_id)"
+    me_email=$(echo "$BODY"       | jq -r '.email')
+    me_role=$(echo "$BODY"        | jq -r '.role')
+    me_user_id=$(echo "$BODY"     | jq -r '.user_id')
+    me_tenant_name=$(echo "$BODY" | jq -r '.tenant_name')
+    [[ "$me_email"       == "$ADMIN_EMAIL"   ]] && pass "/me email matches"              || fail "/me email mismatch (got $me_email)"
+    [[ "$me_role"        == "system_admin"   ]] && pass "/me role is system_admin"       || fail "/me role mismatch (got $me_role)"
+    [[ "$me_user_id"     == "$ADMIN_USER_ID" ]] && pass "/me user_id matches dbtool"     || fail "/me user_id mismatch (got $me_user_id)"
+    [[ -n "$me_tenant_name" && "$me_tenant_name" != "null" ]] && pass "/me tenant_name present" || fail "/me tenant_name missing"
 fi
 
 # =============================================================================

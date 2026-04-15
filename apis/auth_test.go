@@ -446,6 +446,9 @@ func TestUIMe(t *testing.T) {
 		if int64(resp["tenant_id"].(float64)) != tenantID {
 			t.Errorf("expected tenant_id %d, got %v", tenantID, resp["tenant_id"])
 		}
+		if resp["tenant_name"] != "test-tenant" {
+			t.Errorf("expected tenant_name test-tenant, got %v", resp["tenant_name"])
+		}
 		if resp["user_id"] == "" {
 			t.Error("expected non-empty user_id")
 		}

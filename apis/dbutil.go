@@ -273,6 +273,16 @@ func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
     return insertedID, nil
 }
 
+// GetTenantName returns the tenant_name for the given tenant_id.
+func (db *DB) GetTenantName(tenantID int64) (string, error) {
+    var name string
+    err := db.QueryRow("SELECT tenant_name FROM tenants WHERE tenant_id = $1", tenantID).Scan(&name)
+    if err != nil {
+        return "", fmt.Errorf("tenant %d not found: %w", tenantID, err)
+    }
+    return name, nil
+}
+
 // ValidateTenant checks if a tenant exists by ID
 func (db *DB) ValidateTenant(id int64) (bool, error) {
     var count int

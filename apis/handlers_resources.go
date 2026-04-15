@@ -29,12 +29,19 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
+	tenantName, err := s.db.GetTenantName(claims.TenantID)
+	if err != nil {
+		log.Printf("handleMe: GetTenantName: %v", err)
+		jsonError(w, "internal error", http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"user_id":   claims.UserID,
-		"email":     claims.Email,
-		"role":      claims.Role,
-		"tenant_id": claims.TenantID,
+		"user_id":     claims.UserID,
+		"email":       claims.Email,
+		"role":        claims.Role,
+		"tenant_id":   claims.TenantID,
+		"tenant_name": tenantName,
 	})
 }
 
