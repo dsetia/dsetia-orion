@@ -45,12 +45,11 @@ const (
 )
 
 func timeStrColor(utcTime time.Time) string {
-    duration := time.Since(utcTime)
     var color string
-    switch {
-    case duration < 5*time.Minute:
+    switch common.DeviceLiveness(&utcTime) {
+    case common.LivenessGreen:
         color = green
-    case duration < 30*time.Minute:
+    case common.LivenessYellow:
         color = yellow
     default:
         color = red

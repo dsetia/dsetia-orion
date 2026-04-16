@@ -33,7 +33,7 @@ func DescriptiveError(err error) {
 func FileCreate(file string) (*os.File, error) {
     outFile, err := os.Create(file)
     if err != nil {
-        log.Printf("Error: creating file %s: %w", file, err)
+        log.Printf("Error: creating file %s: %v", file, err)
         DescriptiveError(err)
         return outFile, err
     }
@@ -45,7 +45,7 @@ func FileChmod(file string, mode uint32) error {
     filePermissions := os.FileMode(mode) 
     err := os.Chmod(file, filePermissions)
     if err != nil {
-        log.Printf("Error: chmod file %s: %w", file, err)
+        log.Printf("Error: chmod file %s: %v", file, err)
         DescriptiveError(err)
         return err
     }
@@ -57,7 +57,7 @@ func FileChmod(file string, mode uint32) error {
 func FileExists(file string) error {
     fileInfo, err := os.Stat(file)
     if err != nil {
-        log.Printf("Error: stat file %s: %w", file, err)
+        log.Printf("Error: stat file %s: %v", file, err)
         DescriptiveError(err)
         return err
     }
@@ -69,7 +69,7 @@ func FileExists(file string) error {
 func FileRemove(file string) error {
     err := os.Remove(file)
     if err != nil {
-        log.Printf("Error: remove file %s: %w", file, err)
+        log.Printf("Error: remove file %s: %v", file, err)
         DescriptiveError(err)
         return err
     }
