@@ -697,6 +697,44 @@ func TestUITenantScoped(t *testing.T) {
 	})
 }
 
+// ─── TestAuthDBFailure ────────────────────────────────────────────────────────
+
+// TestAuthDBFailure verifies that DB errors produce 500, not 401.
+// Each sub-test closes the underlying DB connection before the request so that
+// every SQL query returns a driver error (not sql.ErrNoRows). The handler must
+// distinguish the two cases: unknown identity → 401, DB unavailable → 500.
+func TestAuthDBFailure(t *testing.T) {
+	t.Run("login with DB down returns 500 not 401", func(t *testing.T) {
+		s, _ := setupAuthServer(t)
+		s.db.Close() // force all subsequent queries to fail
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/login",
+			strings.NewReader(`{"email":"admin@test.com","password":"adminpassword123"}`))
+		rr := httptest.NewRecorder()
+		s.handleUserLogin(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500 on DB failure, got %d (body: %s)", rr.Code, rr.Body.String())
+		}
+	})
+
+	t.Run("refresh with DB down returns 500 not 401", func(t *testing.T) {
+		s, _ := setupAuthServer(t)
+		// Obtain a valid refresh token before closing the DB.
+		_, refresh := mustLogin(t, s, testAdminEmail, testAdminPassword)
+		s.db.Close() // force all subsequent queries to fail
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/ma/auth/refresh",
+			strings.NewReader(`{"refresh_token":"`+refresh+`"}`))
+		rr := httptest.NewRecorder()
+		s.handleAccessTokenRefresh(rr, req)
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Errorf("expected 500 on DB failure, got %d (body: %s)", rr.Code, rr.Body.String())
+		}
+	})
+}
+
 // ─── TestUIJWTIsolation ───────────────────────────────────────────────────────
 
 // TestUIJWTIsolation verifies that an admin from tenant A cannot access resources

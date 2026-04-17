@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,6 +32,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"orion/common"
 )
+
+// ErrNotFound is returned by DB lookup functions when the requested row does
+// not exist. Handlers use errors.Is(err, ErrNotFound) to distinguish a
+// legitimate "not found" (→ 401) from an unexpected DB failure (→ 500).
+var ErrNotFound = errors.New("not found")
 
 // ─── Lockout constants ───────────────────────────────────────────────────────
 
@@ -116,8 +122,13 @@ func (s *Server) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 	// Step 1 — look up user by email.
 	user, err := s.db.GetUserByEmail(req.Email)
 	if err != nil {
-		s.db.InsertLoginAuditLog(nil, req.Email, ip, "unknown_user", false)
-		jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		if errors.Is(err, ErrNotFound) {
+			s.db.InsertLoginAuditLog(nil, req.Email, ip, "unknown_user", false)
+			jsonError(w, "invalid credentials", http.StatusUnauthorized)
+		} else {
+			log.Printf("handleUserLogin: GetUserByEmail: %v", err)
+			jsonError(w, "internal error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -195,7 +206,12 @@ func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request
 	// Step 1 — look up by hash.
 	rt, err := s.db.GetRefreshToken(req.RefreshToken)
 	if err != nil {
-		jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
+		if errors.Is(err, ErrNotFound) {
+			jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
+		} else {
+			log.Printf("handleAccessTokenRefresh: GetRefreshToken: %v", err)
+			jsonError(w, "internal error", http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -207,7 +223,16 @@ func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request
 
 	// Step 3 — load user and check is_active.
 	u, err := s.db.GetUserByUserID(rt.UserID)
-	if err != nil || !u.IsActive {
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
+		} else {
+			log.Printf("handleAccessTokenRefresh: GetUserByUserID: %v", err)
+			jsonError(w, "internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+	if !u.IsActive {
 		jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
 		return
 	}
@@ -270,7 +295,7 @@ func (db *DB) GetUserByUserID(userID string) (*User, error) {
 		&u.IsActive, &u.FailedAttempts, &lockoutUntil, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("user not found: %w", ErrNotFound)
 	}
 	if err != nil {
 		log.Printf("GetUserByUserID: %v", err)
@@ -297,7 +322,7 @@ func (db *DB) GetUserByEmail(email string) (*User, error) {
 		&u.IsActive, &u.FailedAttempts, &lockoutUntil, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("user not found")
+		return nil, fmt.Errorf("user not found: %w", ErrNotFound)
 	}
 	if err != nil {
 		log.Printf("GetUserByEmail: %v", err)
@@ -381,7 +406,7 @@ func (db *DB) GetRefreshToken(raw string) (*RefreshToken, error) {
 		&rt.ExpiresAt, &rt.Revoked, &rt.CreatedAt, &lastUsedAt,
 	)
 	if err == sql.ErrNoRows {
-		return nil, fmt.Errorf("refresh token not found")
+		return nil, fmt.Errorf("refresh token not found: %w", ErrNotFound)
 	}
 	if err != nil {
 		log.Printf("GetRefreshToken: %v", err)
