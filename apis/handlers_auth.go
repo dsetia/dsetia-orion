@@ -92,7 +92,7 @@ func (s *Server) verifyJWT(tokenStr string) (*common.UserClaims, error) {
 // ─── Login ───────────────────────────────────────────────────────────────────
 
 func (s *Server) handleUserLogin(w http.ResponseWriter, r *http.Request) {
-	log.Printf("auth: method=%s path=%s client=%s", r.Method, r.URL.Path, r.RemoteAddr)
+	log.Printf("auth: method=%s path=%s client=%s", r.Method, r.URL.Path, clientIP(r))
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -111,7 +111,7 @@ func (s *Server) handleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ip := r.RemoteAddr
+	ip := clientIP(r)
 
 	// Step 1 — look up user by email.
 	user, err := s.db.GetUserByEmail(req.Email)

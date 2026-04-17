@@ -22,8 +22,10 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"strings"
 
 	"orion/common"
 )
@@ -86,6 +88,28 @@ func respondJSON(w http.ResponseWriter, status int, payload any) {
 	_ = json.NewEncoder(w).Encode(payload)
 }
 
+// clientIP extracts the real client IP from the request. When running behind
+// nginx, the real IP is in X-Real-IP (set by nginx from $remote_addr).
+// X-Forwarded-For is checked as a fallback (first entry = originating client).
+// r.RemoteAddr is the last resort, used when there is no proxy (e.g. tests).
+func clientIP(r *http.Request) string {
+	if ip := r.Header.Get("X-Real-IP"); ip != "" {
+		return ip
+	}
+	if fwd := r.Header.Get("X-Forwarded-For"); fwd != "" {
+		// X-Forwarded-For may be "client, proxy1, proxy2"; take the first.
+		if i := strings.IndexByte(fwd, ','); i != -1 {
+			return strings.TrimSpace(fwd[:i])
+		}
+		return strings.TrimSpace(fwd)
+	}
+	// Strip port from r.RemoteAddr ("host:port" or "[::1]:port").
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
 // logRequestBody logs the request body for debugging, then resets it so
 // downstream handlers can read it again.
 func (s *Server) logRequestBody(r *http.Request) {
@@ -107,7 +131,7 @@ func (s *Server) logRequestBody(r *http.Request) {
 
 func main() {
 	configPath     := flag.String("config",      "config.json", "Path to DB config file")
-	authConfigPath := flag.String("auth-config", "auth.json",   "Path to auth config file")
+	authConfigPath := flag.String("config-auth", "auth.json",   "Path to auth config file")
 	flag.Parse()
 
 	// Load DB config.
