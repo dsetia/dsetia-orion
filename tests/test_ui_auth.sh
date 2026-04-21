@@ -84,6 +84,29 @@ do_curl() {
 # ─── State ───────────────────────────────────────────────────────────────────
 ADMIN_ACCESS=""; ADMIN_REFRESH=""; ADMIN_USER_ID=""
 ANALYST_ACCESS=""; ANALYST_USER_ID=""
+TENANT_CREATED=0
+
+# =============================================================================
+section "Setup — create tenant via dbtool"
+# =============================================================================
+
+TENANT_NAME="test-tenant-$$"
+echo -e "  ${DIM}tenant_name=$TENANT_NAME  tenant_id=$TENANT_ID${RESET}"
+
+tenant_out=""
+tenant_rc=0
+tenant_out=$("$DBTOOL" -db "$DB_CONFIG" -op insert-tenant \
+    -tenant-name "$TENANT_NAME" \
+    -tenant-id "$TENANT_ID" 2>&1) || tenant_rc=$?
+
+if [[ $tenant_rc -ne 0 ]]; then
+    echo -e "${RED}dbtool insert-tenant failed (exit $tenant_rc):${RESET}"
+    echo "$tenant_out"
+    exit 1
+fi
+
+TENANT_CREATED=1
+pass "Tenant created (tenant_id=$TENANT_ID)"
 
 # =============================================================================
 section "Setup — create admin user via dbtool"
@@ -370,6 +393,18 @@ if [[ -n "$ADMIN_USER_ID" ]]; then
         pass "Admin user deleted via dbtool"
     else
         fail "Admin user deletion via dbtool failed (exit $teardown_rc): $teardown_out"
+    fi
+fi
+
+if [[ "$TENANT_CREATED" -eq 1 ]]; then
+    tenant_del_out=""
+    tenant_del_rc=0
+    tenant_del_out=$("$DBTOOL" -db "$DB_CONFIG" -op delete-tenant \
+        -tenant-id "$TENANT_ID" 2>&1) || tenant_del_rc=$?
+    if [[ $tenant_del_rc -eq 0 ]]; then
+        pass "Tenant deleted via dbtool (tenant_id=$TENANT_ID)"
+    else
+        fail "Tenant deletion via dbtool failed (exit $tenant_del_rc): $tenant_del_out"
     fi
 fi
 
