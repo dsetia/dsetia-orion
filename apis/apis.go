@@ -339,7 +339,10 @@ func isUpdateNeeded(manifestVersion, deviceVersion, manifestDigest, deviceDigest
     if vManifest.GreaterThan(vDevice) {
         return true
     }
-    if vManifest.Equal(vDevice) {
+    // Only compare digests when versions are equal AND the sensor actually
+    // reported a digest. A missing device digest means the sensor is not
+    // tracking integrity, so we rely solely on the version number.
+    if vManifest.Equal(vDevice) && deviceDigest != "" {
         return manifestDigest != deviceDigest
     }
     return false

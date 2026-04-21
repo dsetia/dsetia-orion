@@ -244,7 +244,7 @@ func TestUpdate(t *testing.T) {
             ),
         },
         {
-            name:           "Valid jason with incorrect fields",
+            name:           "Valid json with incorrect fields",
             apiKey:         "valid-key",
             deviceID:       "dev1",
             tenantID:       "1",
@@ -352,6 +352,39 @@ func TestUpdate(t *testing.T) {
 	        `{"software":{"version":"v1.2.3","size":1024,"digest":"sw-sha256","source":"device","download_url":%q}}` + "\n",
                 DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
 	    ),
+        },
+        // ---- digest-comparison guard: version reported, digest omitted ----
+        {
+            // When the sensor reports a matching version but omits the digest,
+            // the server must not trigger a re-download.  Comparing against an
+            // empty device digest would always produce a mismatch, so the
+            // digest check is skipped entirely when deviceDigest == "".
+            name:           "no update when version matches and digest not reported",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            tenantID:       "1",
+            body:           `{"software": {"version":"v1.2.3"},"rules": {"version":"r1.2.3"},"threatintel":{"version":"2025.04.10.153010"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody:   `{}` + "\n",
+        },
+        // ---- no-version guard: sensor omits version for a subset of artifacts ----
+        {
+            // When the sensor omits its version for some artifacts (bootstrapping
+            // path), those artifacts are force-updated.  Artifacts with a
+            // reported version are compared normally; only stale or missing
+            // versions trigger a download.
+            name:           "partial version report - missing version force-updated, stale version updated",
+            apiKey:         "valid-key",
+            deviceID:       "dev1",
+            tenantID:       "1",
+            // software: old version -> update; rules: no version -> force update; threatintel: newer than manifest -> no update
+            body:           `{"software": {"version":"v1.2.2"},"rules": {},"threatintel":{"version":"2025.04.10.153020"}}`,
+            expectedStatus: http.StatusOK,
+            expectedBody: fmt.Sprintf(
+                `{"software":{"version":"v1.2.3","size":1024,"digest":"sw-sha256","source":"device","download_url":%q},"rules":{"version":"r1.2.3","size":512,"digest":"rules-sha256","download_url":%q}}` + "\n",
+                DownloadURLFormat(1, "software", "hndr-sw", "v1.2.3"),
+                DownloadURLFormatRules(1, "rules", "hndr-rules", "r1.2.3"),
+            ),
         },
 
     }
