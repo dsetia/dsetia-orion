@@ -3,13 +3,16 @@ package main
 import (
     "context"
     "os"
+    "strings"
     "testing"
     "database/sql"
 
     "github.com/google/uuid"
     "github.com/stretchr/testify/assert"
+    "github.com/stretchr/testify/require"
     "github.com/testcontainers/testcontainers-go"
     "github.com/testcontainers/testcontainers-go/modules/postgres"
+    "orion/common"
 )
 
 func TestMain(m *testing.M) {
@@ -677,4 +680,170 @@ func TestDeviceLocation(t *testing.T) {
     changes["tenant_id"] = 1001
     err = db.UpdateDeviceFields(deviceID, tenantID, changes)
     assert.Error(t, err)
+}
+
+// TestStringLengthValidation verifies that string length limits are enforced
+// at both the Go layer (validateStringField) and the DB layer (CHECK constraints).
+//
+// The "OverLimitRejectedByDB" sub-tests intentionally bypass Go validation and
+// insert oversized strings via raw SQL. If someone updates a Max* constant in
+// orion/common/types.go without updating the corresponding CHECK constraint in
+// schema_pg_v3.sql (or vice versa), those sub-tests will fail in CI immediately,
+// catching the mismatch before it reaches production.
+func TestStringLengthValidation(t *testing.T) {
+    db, cleanup := setupTestDB(t)
+    defer cleanup()
+
+    // str produces a string of exactly n bytes (all 'a').
+    str := func(n int) string { return strings.Repeat("a", n) }
+
+    // Create a tenant to anchor device tests; use require so the whole test
+    // fails fast if setup itself is broken.
+    tenantID, err := db.GetOrInsertTenant("length-test-tenant")
+    require.NoError(t, err)
+
+    // -------------------------------------------------------------------------
+    // Tenant name
+    // -------------------------------------------------------------------------
+
+    t.Run("TenantName/EmptyIsRejected", func(t *testing.T) {
+        _, err := db.GetOrInsertTenant("")
+        assert.Error(t, err)
+    })
+
+    t.Run("TenantName/ExactlyMaxLengthIsAccepted", func(t *testing.T) {
+        id, err := db.GetOrInsertTenant(str(common.MaxTenantNameLen))
+        assert.NoError(t, err)
+        assert.True(t, id > 0)
+    })
+
+    t.Run("TenantName/OverLimitRejectedByGo", func(t *testing.T) {
+        _, err := db.GetOrInsertTenant(str(common.MaxTenantNameLen + 1))
+        assert.Error(t, err)
+    })
+
+    // Bypass Go validation and write directly. Fails if types.go constant and
+    // schema CHECK constraint disagree on the limit.
+    t.Run("TenantName/OverLimitRejectedByDB", func(t *testing.T) {
+        _, err := db.Exec(
+            `INSERT INTO tenants (tenant_id, tenant_name, environment)
+             VALUES (500, $1, 'private-staging')`,
+            str(common.MaxTenantNameLen+1),
+        )
+        assert.Error(t, err,
+            "DB CHECK constraint should reject tenant_name longer than %d chars", common.MaxTenantNameLen)
+    })
+
+    // -------------------------------------------------------------------------
+    // Device name
+    // -------------------------------------------------------------------------
+
+    t.Run("DeviceName/EmptyIsRejected", func(t *testing.T) {
+        _, err := db.GetOrInsertDevice(DeviceParams{TenantID: tenantID})
+        assert.Error(t, err)
+    })
+
+    t.Run("DeviceName/ExactlyMaxLengthIsAccepted", func(t *testing.T) {
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: str(common.MaxDeviceNameLen),
+        })
+        assert.NoError(t, err)
+        assert.NotEmpty(t, id)
+    })
+
+    t.Run("DeviceName/OverLimitRejectedByGo", func(t *testing.T) {
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: str(common.MaxDeviceNameLen + 1),
+        })
+        assert.Error(t, err)
+    })
+
+    t.Run("DeviceName/OverLimitRejectedByDB", func(t *testing.T) {
+        _, err := db.Exec(
+            `INSERT INTO devices (device_id, tenant_id, device_name)
+             VALUES ($1, $2, $3)`,
+            uuid.New().String(), tenantID, str(common.MaxDeviceNameLen+1),
+        )
+        assert.Error(t, err,
+            "DB CHECK constraint should reject device_name longer than %d chars", common.MaxDeviceNameLen)
+    })
+
+    // -------------------------------------------------------------------------
+    // Location (optional field — empty string is valid)
+    // -------------------------------------------------------------------------
+
+    t.Run("Location/EmptyIsAccepted", func(t *testing.T) {
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: "loc-empty-device",
+            Location:   "",
+        })
+        assert.NoError(t, err)
+        assert.NotEmpty(t, id)
+    })
+
+    t.Run("Location/ExactlyMaxLengthIsAccepted", func(t *testing.T) {
+        id, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: "loc-max-device",
+            Location:   str(common.MaxLocationLen),
+        })
+        assert.NoError(t, err)
+        assert.NotEmpty(t, id)
+    })
+
+    t.Run("Location/OverLimitRejectedByGo", func(t *testing.T) {
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            TenantID:   tenantID,
+            DeviceName: "loc-toolong-device",
+            Location:   str(common.MaxLocationLen + 1),
+        })
+        assert.Error(t, err)
+    })
+
+    t.Run("Location/OverLimitRejectedByDB", func(t *testing.T) {
+        _, err := db.Exec(
+            `INSERT INTO devices (device_id, tenant_id, device_name, location)
+             VALUES ($1, $2, 'db-bypass-loc-device', $3)`,
+            uuid.New().String(), tenantID, str(common.MaxLocationLen+1),
+        )
+        assert.Error(t, err,
+            "DB CHECK constraint should reject location longer than %d chars", common.MaxLocationLen)
+    })
+
+    // -------------------------------------------------------------------------
+    // Location via UpdateDeviceFields
+    // -------------------------------------------------------------------------
+
+    t.Run("UpdateLocation/OverLimitRejectedByGo", func(t *testing.T) {
+        deviceID := uuid.New().String()
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID:   deviceID,
+            TenantID:   tenantID,
+            DeviceName: "update-loc-device",
+        })
+        require.NoError(t, err)
+
+        err = db.UpdateDeviceFields(deviceID, tenantID, map[string]interface{}{
+            "location": str(common.MaxLocationLen + 1),
+        })
+        assert.Error(t, err)
+    })
+
+    t.Run("UpdateLocation/ExactlyMaxLengthIsAccepted", func(t *testing.T) {
+        deviceID := uuid.New().String()
+        _, err := db.GetOrInsertDevice(DeviceParams{
+            DeviceID:   deviceID,
+            TenantID:   tenantID,
+            DeviceName: "update-loc-max-device",
+        })
+        require.NoError(t, err)
+
+        err = db.UpdateDeviceFields(deviceID, tenantID, map[string]interface{}{
+            "location": str(common.MaxLocationLen),
+        })
+        assert.NoError(t, err)
+    })
 }

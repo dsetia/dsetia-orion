@@ -2,8 +2,18 @@
 set -euo pipefail
 
 # =============================================================================
-# Migrate: Add 'location' column to devices table (idempotent)
-# Reads DB connection from JSON config file
+# Migrate V2 -> V3: schema changes applied by this script (all idempotent):
+#
+#   1. devices:  ADD COLUMN location TEXT
+#   2. devices:  ADD CONSTRAINT chk_device_name_length
+#                  CHECK (char_length(device_name) BETWEEN 1 AND 128)
+#   3. devices:  ADD CONSTRAINT chk_location_length
+#                  CHECK (char_length(location) <= 255)
+#   4. tenants:  ADD CONSTRAINT chk_tenant_name_length
+#                  CHECK (char_length(tenant_name) BETWEEN 1 AND 128)
+#
+# Constraint names match what schema_pg_v3.sql produces for fresh installs.
+# Reads DB connection parameters from a JSON config file.
 # =============================================================================
 
 SCRIPT_NAME=$(basename "$0")
@@ -91,28 +101,82 @@ echo "Connecting to: $USER@$HOST:$PORT/$DBNAME (sslmode=$SSLMODE)"
 psql -h "$HOST" -p "$PORT" -U "$USER" -d "$DBNAME" --set=sslmode="$SSLMODE" <<'EOF'
 DO $$
 BEGIN
+    -- -----------------------------------------------------------------
+    -- Step 1: Add location column to devices (original v2->v3 change)
+    -- -----------------------------------------------------------------
     IF NOT EXISTS (
         SELECT 1
         FROM information_schema.columns
         WHERE table_schema = 'public'
-          AND table_name = 'devices'
-          AND column_name = 'location'
+          AND table_name   = 'devices'
+          AND column_name  = 'location'
+    ) THEN
+        ALTER TABLE devices ADD COLUMN location TEXT;
+        RAISE NOTICE 'Step 1: Added column "location" to table "devices"';
+    ELSE
+        RAISE NOTICE 'Step 1: Column "location" already exists in "devices" — skipped';
+    END IF;
+
+    -- -----------------------------------------------------------------
+    -- Step 2: devices.device_name length constraint (1-128 chars)
+    -- -----------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname   = 'chk_device_name_length'
+          AND conrelid  = 'devices'::regclass
     ) THEN
         ALTER TABLE devices
-            ADD COLUMN location TEXT;
-        RAISE NOTICE 'Added column "location" to table "devices"';
+            ADD CONSTRAINT chk_device_name_length
+            CHECK (char_length(device_name) BETWEEN 1 AND 128);
+        RAISE NOTICE 'Step 2: Added constraint "chk_device_name_length" to "devices"';
     ELSE
-        RAISE NOTICE 'Column "location" already exists in table "devices" — no change needed';
+        RAISE NOTICE 'Step 2: Constraint "chk_device_name_length" already exists — skipped';
+    END IF;
+
+    -- -----------------------------------------------------------------
+    -- Step 3: devices.location length constraint (<= 255 chars)
+    -- -----------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname   = 'chk_location_length'
+          AND conrelid  = 'devices'::regclass
+    ) THEN
+        ALTER TABLE devices
+            ADD CONSTRAINT chk_location_length
+            CHECK (char_length(location) <= 255);
+        RAISE NOTICE 'Step 3: Added constraint "chk_location_length" to "devices"';
+    ELSE
+        RAISE NOTICE 'Step 3: Constraint "chk_location_length" already exists — skipped';
+    END IF;
+
+    -- -----------------------------------------------------------------
+    -- Step 4: tenants.tenant_name length constraint (1-128 chars)
+    -- -----------------------------------------------------------------
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname   = 'chk_tenant_name_length'
+          AND conrelid  = 'tenants'::regclass
+    ) THEN
+        ALTER TABLE tenants
+            ADD CONSTRAINT chk_tenant_name_length
+            CHECK (char_length(tenant_name) BETWEEN 1 AND 128);
+        RAISE NOTICE 'Step 4: Added constraint "chk_tenant_name_length" to "tenants"';
+    ELSE
+        RAISE NOTICE 'Step 4: Constraint "chk_tenant_name_length" already exists — skipped';
     END IF;
 END $$;
 
--- Optional: show current schema of devices table for verification
-\dt+ devices
+-- Show final constraint state for verification
+SELECT conname, contype, pg_get_constraintdef(oid) AS definition
+FROM   pg_constraint
+WHERE  conrelid IN ('devices'::regclass, 'tenants'::regclass)
+  AND  conname  IN ('chk_device_name_length', 'chk_location_length', 'chk_tenant_name_length')
+ORDER BY conrelid::text, conname;
 EOF
 
 if [[ $? -eq 0 ]]; then
     echo ""
-    echo "Migration completed successfully."
+    echo "Migration completed successfully (4 steps applied)."
 else
     echo ""
     echo "Migration failed. Check the output above for errors."
