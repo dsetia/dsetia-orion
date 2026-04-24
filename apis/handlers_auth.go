@@ -11,7 +11,10 @@
 // File Owner:       deepinder@securite.world
 // Created On:       04/10/2026
 //
-// user auth related apis handlers
+// UI authentication handlers and supporting DB helpers: login (POST /v1/ma/auth/login),
+// token refresh (POST /v1/ma/auth/refresh), logout (POST /v1/ma/auth/logout).
+// Also contains JWT sign/verify helpers, account lockout logic, and all
+// refresh-token and user-lookup DB operations used by the auth flow.
 
 package main
 

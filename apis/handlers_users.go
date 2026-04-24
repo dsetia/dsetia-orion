@@ -11,6 +11,11 @@
 // File Owner:       deepinder@securite.world
 // Created On:       04/12/2026
 //
+// UI user-management handlers: list users (GET /v1/ma/users),
+// create user (POST /v1/ma/users), delete user (DELETE /v1/ma/users/{user_id}),
+// and password reset (PUT /v1/ma/users/{user_id}/password).
+// Role enforcement: system_admin for list/create/delete; analysts may only
+// reset their own password.
 
 package main
 
