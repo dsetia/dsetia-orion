@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -49,6 +50,13 @@ const (
 )
 
 // ─── JWT helpers ─────────────────────────────────────────────────────────────
+//
+// maxJWTLen is the upper bound on the compact JWT string length this server
+// will accept. Our tokens carry a fixed claim set (sub/email/role/tenant_id/
+// iat/exp). With the maximum email length (255 chars) the encoded token tops
+// out at ~629 characters. 2048 provides comfortable headroom while guarding
+// against oversized inputs before any crypto work is done.
+const maxJWTLen = 2048
 
 // jwtClaims is the internal JWT payload type.  It embeds RegisteredClaims for
 // standard fields (sub, iat, exp) and adds the application-specific fields.
@@ -78,18 +86,45 @@ func (s *Server) signJWT(user *User) (string, error) {
 }
 
 // verifyJWT validates the token string and returns the extracted claims.
-// Returns an error for any invalid token (expired, bad signature, wrong alg).
+//
+// Validation layers applied (RFC 7519 + library defaults):
+//   - Compact serialisation: exactly three dot-separated segments (§7.2)
+//   - Algorithm:            HS256 only — rejects alg:none, RS*, ES* (§8)
+//   - Signature:            HMAC-SHA256 verified against the configured secret
+//   - exp claim:            required and must be in the future (§4.1.4)
+//   - iat claim:            must be ≤ now when present (§4.1.6)
+//   - Application claims:   sub, email, role, tenant_id must all be present
+//                           and role must be a known value
 func (s *Server) verifyJWT(tokenStr string) (*common.UserClaims, error) {
+	// Fast structural checks before any crypto work.
+	if len(tokenStr) > maxJWTLen {
+		return nil, fmt.Errorf("invalid token format")
+	}
+	if strings.Count(tokenStr, ".") != 2 {
+		return nil, fmt.Errorf("invalid token format")
+	}
+
 	c := &jwtClaims{}
-	token, err := jwt.ParseWithClaims(tokenStr, c, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
-		}
+	parser := jwt.NewParser(
+		jwt.WithValidMethods([]string{"HS256"}), // reject alg:none and asymmetric algs
+		jwt.WithExpirationRequired(),            // exp must be present, not just valid if present
+		jwt.WithIssuedAt(),                      // iat must be <= now
+	)
+	token, err := parser.ParseWithClaims(tokenStr, c, func(*jwt.Token) (interface{}, error) {
 		return []byte(s.authConfig.JWTSecret), nil
 	})
 	if err != nil || !token.Valid {
 		return nil, fmt.Errorf("invalid token")
 	}
+
+	// Application-level claims must be non-empty after a valid signature.
+	if c.Subject == "" || c.Email == "" || c.Role == "" || c.TenantID == 0 {
+		return nil, fmt.Errorf("token missing required claims")
+	}
+	if c.Role != "system_admin" && c.Role != "security_analyst" {
+		return nil, fmt.Errorf("token contains unknown role")
+	}
+
 	return &common.UserClaims{
 		UserID:   c.Subject,
 		Email:    c.Email,
@@ -206,7 +241,14 @@ func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Step 1 — look up by hash.
+	// Step 1 — fast format check before hashing or hitting the DB.
+	// Refresh tokens are base64url-encoded 32 random bytes = exactly 44 chars.
+	if len(req.RefreshToken) != 44 {
+		jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
+		return
+	}
+
+	// Step 2 — look up by hash.
 	rt, err := s.db.GetRefreshToken(req.RefreshToken)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -218,13 +260,13 @@ func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Step 2 — check revocation and expiry.
+	// Step 3 — check revocation and expiry.
 	if rt.Revoked || time.Now().After(rt.ExpiresAt) {
 		jsonError(w, "invalid or expired refresh token", http.StatusUnauthorized)
 		return
 	}
 
-	// Step 3 — load user and check is_active.
+	// Step 4 — load user and check is_active.
 	u, err := s.db.GetUserByUserID(rt.UserID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
@@ -240,10 +282,10 @@ func (s *Server) handleAccessTokenRefresh(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Step 4 — record last_used_at.
+	// Step 5 — record last_used_at.
 	s.db.UpdateRefreshTokenLastUsed(rt.TokenID)
 
-	// Step 5 — issue new access JWT.
+	// Step 6 — issue new access JWT.
 	accessToken, err := s.signJWT(u)
 	if err != nil {
 		log.Printf("handleAccessTokenRefresh: signJWT: %v", err)
