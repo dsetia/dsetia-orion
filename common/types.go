@@ -102,3 +102,20 @@ type MinioConfig struct {
     SecretKey string `json:"password"`
     UseSSL    bool   `json:"usessl"`
 }
+
+// AuthConfig holds JWT key material and token lifetime settings.
+// Loaded from config/auth.json at server startup.
+type AuthConfig struct {
+    JWTSecret           string `json:"jwt_secret"`
+    AccessTokenTTLMins  int    `json:"access_token_ttl_minutes"`
+    RefreshTokenTTLDays int    `json:"refresh_token_ttl_days"`
+}
+
+// UserClaims holds the identity fields extracted from a validated JWT.
+// Stored in request context by requireJWT; read by all UI handlers.
+type UserClaims struct {
+    UserID   string `json:"sub"`
+    Email    string `json:"email"`
+    Role     string `json:"role"`
+    TenantID int64  `json:"tenant_id"`
+}

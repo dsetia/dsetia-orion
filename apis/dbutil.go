@@ -10,6 +10,8 @@
 //
 // File Owner:       deepinder@securite.world
 // Created On:       05/26/2025
+//
+// holds functions shared between apis and dbtool via symlink with the db module.
 
 package main
 
@@ -271,6 +273,16 @@ func (db *DB) InsertTenantWithSpecificID(name string, id int64) (int64, error) {
     return insertedID, nil
 }
 
+// GetTenantName returns the tenant_name for the given tenant_id.
+func (db *DB) GetTenantName(tenantID int64) (string, error) {
+    var name string
+    err := db.QueryRow("SELECT tenant_name FROM tenants WHERE tenant_id = $1", tenantID).Scan(&name)
+    if err != nil {
+        return "", fmt.Errorf("tenant %d not found: %w", tenantID, err)
+    }
+    return name, nil
+}
+
 // ValidateTenant checks if a tenant exists by ID
 func (db *DB) ValidateTenant(id int64) (bool, error) {
     var count int
@@ -422,10 +434,13 @@ func (db *DB) ListDevices(tenantID int64) ([]Device, error) {
     var devices []Device
     for rows.Next() {
         var d Device
-        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt); err != nil {
-	    log.Printf("Error: %s", err.Error())
+        var swVersion, location sql.NullString
+        if err := rows.Scan(&d.ID, &d.TenantID, &d.Name, &swVersion, &location, &d.CreatedAt, &d.UpdatedAt); err != nil {
+            log.Printf("Error: %s", err.Error())
             return nil, fmt.Errorf("failed to scan device: %w", err)
         }
+        d.HndrSwVersion = swVersion.String
+        d.Location = location.String
         devices = append(devices, d)
     }
     return devices, nil
@@ -512,7 +527,10 @@ func (db *DB) UpdateDeviceFields(deviceID string, tenantID int64, changes map[st
 func (db *DB) GetDeviceEntry(deviceID string, tenantID int64) (*Device, error) {
     query := "SELECT device_id, tenant_id, device_name, hndr_sw_version, location, created_at, updated_at FROM devices WHERE device_id = $1 AND tenant_id = $2"
     var d Device
-    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &d.HndrSwVersion, &d.Location, &d.CreatedAt, &d.UpdatedAt)
+    var swVersion, location sql.NullString
+    err := db.QueryRow(query, deviceID, tenantID).Scan(&d.ID, &d.TenantID, &d.Name, &swVersion, &location, &d.CreatedAt, &d.UpdatedAt)
+    d.HndrSwVersion = swVersion.String
+    d.Location = location.String
     if err == sql.ErrNoRows {
         return nil, fmt.Errorf("device %s not found for tenant %d", deviceID, tenantID)
     }
@@ -930,7 +948,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to create status: "+err.Error())
+            return fmt.Errorf("failed to create status: %w", err)
         }
     } else {
         // update existing row
@@ -954,7 +972,7 @@ func (db *DB) InsertStatus(deviceID string, tenantID int64, sSoftware string, sR
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to update status: "+err.Error())
+            return fmt.Errorf("failed to update status: %w", err)
         }
     }
 
@@ -1012,6 +1030,32 @@ func (db *DB) ListStatus() ([]Status, error) {
     return ti, nil
 }
 
+// ListStatusByTenant returns all status rows for a given tenant.
+func (db *DB) ListStatusByTenant(tenantID int64) ([]Status, error) {
+	rows, err := db.Query(`
+		SELECT device_id, tenant_id, software, rules, threatintel, created_at, updated_at
+		FROM status
+		WHERE tenant_id = $1
+		ORDER BY device_id
+	`, tenantID)
+	if err != nil {
+		log.Printf("ListStatusByTenant: %v", err)
+		return nil, fmt.Errorf("failed to list status: %w", err)
+	}
+	defer rows.Close()
+
+	var results []Status
+	for rows.Next() {
+		var s Status
+		if err := rows.Scan(&s.DeviceID, &s.TenantID, &s.Software, &s.Rules,
+			&s.ThreatIntel, &s.CreatedAt, &s.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan status: %w", err)
+		}
+		results = append(results, s)
+	}
+	return results, nil
+}
+
 func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, vRules string, vThreatIntel string) (error) {
     exists, err := db.ValidateDevice(deviceID, tenantID)
     if err != nil {
@@ -1039,7 +1083,7 @@ func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, 
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to create version: "+err.Error())
+            return fmt.Errorf("failed to create version: %w", err)
         }
     } else {
         // update existing row
@@ -1063,7 +1107,7 @@ func (db *DB) InsertVersions(deviceID string, tenantID int64, vSoftware string, 
         )
         if err != nil {
 	    log.Printf("Error: %s", err.Error())
-            return fmt.Errorf("Failed to update status: "+err.Error())
+            return fmt.Errorf("failed to update versions: %w", err)
         }
     }
 
@@ -1089,6 +1133,32 @@ func (db *DB) ListVersions() ([]Version, error) {
         ti = append(ti, t)
     }
     return ti, nil
+}
+
+// ListVersionsByTenant returns all version rows for a given tenant.
+func (db *DB) ListVersionsByTenant(tenantID int64) ([]Version, error) {
+	rows, err := db.Query(`
+		SELECT device_id, tenant_id, software, rules, threatintel, created_at, updated_at
+		FROM version
+		WHERE tenant_id = $1
+		ORDER BY device_id
+	`, tenantID)
+	if err != nil {
+		log.Printf("ListVersionsByTenant: %v", err)
+		return nil, fmt.Errorf("failed to list versions: %w", err)
+	}
+	defer rows.Close()
+
+	var results []Version
+	for rows.Next() {
+		var v Version
+		if err := rows.Scan(&v.DeviceID, &v.TenantID, &v.Software, &v.Rules,
+			&v.ThreatIntel, &v.CreatedAt, &v.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan version: %w", err)
+		}
+		results = append(results, v)
+	}
+	return results, nil
 }
 
 // DeleteDevice deletes a device by ID and tenant ID
@@ -1211,4 +1281,254 @@ func (db *DB) DeleteStatus(deviceID string, tenantID int64) error {
         return fmt.Errorf("no status found for device %s and tenant %d", deviceID, tenantID)
     }
     return nil
+}
+
+// ─── users ────────────────────────────────────────────────────────────────
+
+// User represents a row in the users table.
+type User struct {
+    UserID         string
+    TenantID       int64
+    Email          string
+    PasswordHash   string
+    Role           string
+    IsActive       bool
+    FailedAttempts int
+    LockoutUntil   *time.Time
+    CreatedAt      time.Time
+    UpdatedAt      time.Time
+}
+
+// RefreshToken represents a row in the refresh_tokens table.
+type RefreshToken struct {
+    TokenID    string
+    UserID     string
+    TokenHash  string
+    ExpiresAt  time.Time
+    Revoked    bool
+    CreatedAt  time.Time
+    LastUsedAt *time.Time
+}
+
+// ListRefreshTokens returns refresh tokens optionally filtered by userID.
+// If userID is empty all tokens are returned. Results are ordered by
+// created_at descending and capped at limit rows (0 = no limit).
+func (db *DB) ListRefreshTokens(userID string, limit int) ([]RefreshToken, error) {
+    query := `
+        SELECT token_id, user_id, token_hash, expires_at, revoked, created_at, last_used_at
+        FROM refresh_tokens
+    `
+    args := []interface{}{}
+    if userID != "" {
+        query += " WHERE user_id = $1"
+        args = append(args, userID)
+    }
+    query += " ORDER BY created_at DESC"
+    if limit > 0 {
+        args = append(args, limit)
+        query += fmt.Sprintf(" LIMIT $%d", len(args))
+    }
+
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        log.Printf("ListRefreshTokens: %v", err)
+        return nil, fmt.Errorf("failed to list refresh tokens: %w", err)
+    }
+    defer rows.Close()
+
+    var tokens []RefreshToken
+    for rows.Next() {
+        var rt RefreshToken
+        var lastUsedAt sql.NullTime
+        if err := rows.Scan(
+            &rt.TokenID, &rt.UserID, &rt.TokenHash,
+            &rt.ExpiresAt, &rt.Revoked, &rt.CreatedAt, &lastUsedAt,
+        ); err != nil {
+            return nil, fmt.Errorf("ListRefreshTokens scan: %w", err)
+        }
+        if lastUsedAt.Valid {
+            rt.LastUsedAt = &lastUsedAt.Time
+        }
+        tokens = append(tokens, rt)
+    }
+    return tokens, rows.Err()
+}
+
+// LoginAuditEntry represents a row in the login_audit_log table.
+type LoginAuditEntry struct {
+    ID            int64
+    UserID        *string
+    Email         string
+    Success       bool
+    IPAddress     string
+    FailureReason string
+    CreatedAt     time.Time
+}
+
+// InsertUser creates a new user. passwordHash must already be a bcrypt digest.
+// Returns the new user_id UUID.
+func (db *DB) InsertUser(tenantID int64, email, passwordHash, role string) (string, error) {
+    var userID string
+    err := db.QueryRow(`
+        INSERT INTO users (tenant_id, email, password_hash, role)
+        VALUES ($1, $2, $3, $4)
+        RETURNING user_id
+    `, tenantID, strings.ToLower(email), passwordHash, role).Scan(&userID)
+    if err != nil {
+        return "", fmt.Errorf("failed to insert user: %w", err)
+    }
+    return userID, nil
+}
+
+// ListUsers returns users for the given tenant. If tenantID is 0 all users
+// across all tenants are returned (admin/dbtool use only).
+func (db *DB) ListUsers(tenantID int64) ([]User, error) {
+    var rows *sql.Rows
+    var err error
+    if tenantID == 0 {
+        rows, err = db.Query(`
+            SELECT user_id, tenant_id, email, role, is_active, created_at, updated_at
+            FROM users
+            ORDER BY tenant_id, email
+        `)
+    } else {
+        rows, err = db.Query(`
+            SELECT user_id, tenant_id, email, role, is_active, created_at, updated_at
+            FROM users
+            WHERE tenant_id = $1
+            ORDER BY email
+        `, tenantID)
+    }
+    if err != nil {
+        log.Printf("ListUsers: %v", err)
+        return nil, fmt.Errorf("failed to list users: %w", err)
+    }
+    defer rows.Close()
+
+    var users []User
+    for rows.Next() {
+        var u User
+        if err := rows.Scan(&u.UserID, &u.TenantID, &u.Email, &u.Role,
+            &u.IsActive, &u.CreatedAt, &u.UpdatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan user: %w", err)
+        }
+        users = append(users, u)
+    }
+    return users, nil
+}
+
+// DeleteUser deletes a user and cascades to their refresh tokens.
+func (db *DB) DeleteUser(userID string, tenantID int64) error {
+    res, err := db.Exec(
+        `DELETE FROM users WHERE user_id = $1 AND tenant_id = $2`,
+        userID, tenantID,
+    )
+    if err != nil {
+        log.Printf("DeleteUser: %v", err)
+        return fmt.Errorf("failed to delete user: %w", err)
+    }
+    n, _ := res.RowsAffected()
+    if n == 0 {
+        return fmt.Errorf("user %s not found for tenant %d", userID, tenantID)
+    }
+    return nil
+}
+
+// ResetUserPassword updates the stored bcrypt hash for a user.
+func (db *DB) ResetUserPassword(userID string, tenantID int64, newPasswordHash string) error {
+    res, err := db.Exec(`
+        UPDATE users
+        SET password_hash = $1, updated_at = NOW()
+        WHERE user_id = $2 AND tenant_id = $3
+    `, newPasswordHash, userID, tenantID)
+    if err != nil {
+        log.Printf("ResetUserPassword: %v", err)
+        return fmt.Errorf("failed to reset password: %w", err)
+    }
+    n, _ := res.RowsAffected()
+    if n == 0 {
+        return fmt.Errorf("user %s not found for tenant %d", userID, tenantID)
+    }
+    return nil
+}
+
+// DeactivateUser sets is_active = false without deleting the user.
+func (db *DB) DeactivateUser(userID string, tenantID int64) error {
+    res, err := db.Exec(`
+        UPDATE users SET is_active = false, updated_at = NOW()
+        WHERE user_id = $1 AND tenant_id = $2
+    `, userID, tenantID)
+    if err != nil {
+        log.Printf("DeactivateUser: %v", err)
+        return fmt.Errorf("failed to deactivate user: %w", err)
+    }
+    n, _ := res.RowsAffected()
+    if n == 0 {
+        return fmt.Errorf("user %s not found for tenant %d", userID, tenantID)
+    }
+    return nil
+}
+
+// InsertLoginAuditLog records a login attempt. userID may be nil for
+// unknown-email attempts. failureReason is empty on success.
+func (db *DB) InsertLoginAuditLog(userID *string, email, ip, failureReason string, success bool) {
+    // Pass the UUID as a plain string value (not *string) so the pq driver
+    // sends it as text which PostgreSQL implicitly casts to UUID.
+    // A nil *string becomes a nil interface{} which pq correctly stores as NULL.
+    var uid interface{}
+    if userID != nil && *userID != "" {
+        uid = *userID
+    }
+    _, err := db.Exec(`
+        INSERT INTO login_audit_log (user_id, email, success, ip_address, failure_reason)
+        VALUES ($1, $2, $3, $4, $5)
+    `, uid, email, success, ip, failureReason)
+    if err != nil {
+        log.Printf("InsertLoginAuditLog: %v", err)
+    }
+}
+
+// ListLoginAuditLog retrieves audit entries filtered by userID or email. Capped at limit rows.
+func (db *DB) ListLoginAuditLog(userID *string, email *string, limit int) ([]LoginAuditEntry, error) {
+    query := `
+        SELECT id, user_id, email, success, ip_address, failure_reason, created_at
+        FROM login_audit_log
+    `
+    args := []interface{}{}
+    argIdx := 1
+
+    if userID != nil {
+        query += fmt.Sprintf(" WHERE user_id = $%d", argIdx)
+        args = append(args, *userID)
+        argIdx++
+    } else if email != nil {
+        query += fmt.Sprintf(" WHERE LOWER(email) = LOWER($%d)", argIdx)
+        args = append(args, *email)
+        argIdx++
+    }
+
+    query += fmt.Sprintf(" ORDER BY created_at DESC LIMIT $%d", argIdx)
+    args = append(args, limit)
+
+    rows, err := db.Query(query, args...)
+    if err != nil {
+        log.Printf("ListLoginAuditLog: %v", err)
+        return nil, fmt.Errorf("failed to list audit log: %w", err)
+    }
+    defer rows.Close()
+
+    var entries []LoginAuditEntry
+    for rows.Next() {
+        var e LoginAuditEntry
+        var nullUserID sql.NullString
+        if err := rows.Scan(&e.ID, &nullUserID, &e.Email, &e.Success,
+            &e.IPAddress, &e.FailureReason, &e.CreatedAt); err != nil {
+            return nil, fmt.Errorf("failed to scan audit entry: %w", err)
+        }
+        if nullUserID.Valid {
+            e.UserID = &nullUserID.String
+        }
+        entries = append(entries, e)
+    }
+    return entries, nil
 }

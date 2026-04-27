@@ -14,6 +14,7 @@
 package main
 
 import (
+    "bufio"
     "encoding/json"
     "time"
     "flag"
@@ -21,7 +22,10 @@ import (
     "os"
     "log"
     "io/ioutil"
+    "strings"
 
+    "golang.org/x/crypto/bcrypt"
+    "golang.org/x/term"
     "orion/common"
     _ "github.com/lib/pq"
 )
@@ -41,12 +45,11 @@ const (
 )
 
 func timeStrColor(utcTime time.Time) string {
-    duration := time.Since(utcTime)
     var color string
-    switch {
-    case duration < 5*time.Minute:
+    switch common.DeviceLiveness(&utcTime) {
+    case common.LivenessGreen:
         color = green
-    case duration < 30*time.Minute:
+    case common.LivenessYellow:
         color = yellow
     default:
         color = red
@@ -55,6 +58,22 @@ func timeStrColor(utcTime time.Time) string {
 }
 
 // Command-line interface
+// readPassword prints prompt and reads a password.
+// When stdin is a terminal it disables echo (secure interactive use).
+// When stdin is a pipe or redirected file it reads a plain line, allowing
+// scripted / automated callers to supply the password via stdin.
+func readPassword(prompt string) ([]byte, error) {
+    fmt.Print(prompt)
+    if term.IsTerminal(int(os.Stdin.Fd())) {
+        pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+        fmt.Println()
+        return pw, err
+    }
+    line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+    fmt.Println()
+    return []byte(strings.TrimRight(line, "\r\n")), err
+}
+
 func main() {
     // Common flags
     configPath := flag.String("db", "", "Path to postgres database config file")
@@ -94,6 +113,12 @@ func main() {
     sRules := flag.String("status-rules", "", "Rules status")
     sThreatIntel := flag.String("status-threatintel", "", "ThreatIntel status")
 
+    // User management flags
+    userID := flag.String("user-id", "", "user UUID")
+    email  := flag.String("email", "", "user email address")
+    role   := flag.String("role", "", "user role (security_analyst or system_admin)")
+    limit  := flag.Int("limit", 50, "Max rows to return for list operations")
+
     flag.Parse()
 
     // Populate providedFlags with flags that were explicitly set
@@ -114,6 +139,8 @@ func main() {
         fmt.Println("  Status: insert-status, list-status, delete-status")
         fmt.Println("  Tenant ID Blocks: list-tenant-blocks")
         fmt.Println("  Version: list-versions")
+        fmt.Println("  Users: insert-user, list-users, delete-user, reset-user-password, deactivate-user")
+        fmt.Println("  Audit: list-login-audit, list-refresh-tokens")
         os.Exit(1)
     }
 
@@ -573,6 +600,150 @@ func main() {
             os.Exit(1)
         }
         fmt.Printf("Status deleted for device %s and tenant %d\n", *deviceID, *tenantID)
+
+    // ─── User management ─────────────────────────────────────────────────────
+
+    case "insert-user":
+        if *tenantID == 0 || *email == "" || *role == "" {
+            fmt.Println("Error: -tenant-id, -email, and -role are required for insert-user")
+            os.Exit(1)
+        }
+        if *role != "security_analyst" && *role != "system_admin" {
+            fmt.Println("Error: -role must be security_analyst or system_admin")
+            os.Exit(1)
+        }
+        pwBytes, err := readPassword("Password: ")
+        if err != nil {
+            fmt.Printf("Error reading password: %v\n", err)
+            os.Exit(1)
+        }
+        if len(pwBytes) < 12 {
+            fmt.Println("Error: password must be at least 12 characters")
+            os.Exit(1)
+        }
+        hash, err := bcrypt.GenerateFromPassword(pwBytes, bcrypt.DefaultCost)
+        if err != nil {
+            fmt.Printf("Error hashing password: %v\n", err)
+            os.Exit(1)
+        }
+        id, err := db.InsertUser(*tenantID, *email, string(hash), *role)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User created: user_id=%s email=%s role=%s tenant_id=%d\n",
+            id, *email, *role, *tenantID)
+
+    case "list-users":
+        users, err := db.ListUsers(*tenantID)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-38s %-10s %-35s %-20s %-10s %-25s\n",
+            "user_id", "tenant_id", "email", "role", "active", "created_at")
+        fmt.Println("--------------------------------------------------------------------------------------------------------------------")
+        for _, u := range users {
+            fmt.Printf("%-38s %-10d %-35s %-20s %-10v %-25s\n",
+                u.UserID, u.TenantID, u.Email, u.Role, u.IsActive,
+                u.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
+
+    case "delete-user":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for delete-user")
+            os.Exit(1)
+        }
+        if err := db.DeleteUser(*userID, *tenantID); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User %s deleted from tenant %d\n", *userID, *tenantID)
+
+    case "reset-user-password":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for reset-user-password")
+            os.Exit(1)
+        }
+        pwBytes, err := readPassword("New password: ")
+        if err != nil {
+            fmt.Printf("Error reading password: %v\n", err)
+            os.Exit(1)
+        }
+        if len(pwBytes) < 12 {
+            fmt.Println("Error: password must be at least 12 characters")
+            os.Exit(1)
+        }
+        hash, err := bcrypt.GenerateFromPassword(pwBytes, bcrypt.DefaultCost)
+        if err != nil {
+            fmt.Printf("Error hashing password: %v\n", err)
+            os.Exit(1)
+        }
+        if err := db.ResetUserPassword(*userID, *tenantID, string(hash)); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("Password reset for user %s\n", *userID)
+
+    case "deactivate-user":
+        if *userID == "" || *tenantID == 0 {
+            fmt.Println("Error: -user-id and -tenant-id are required for deactivate-user")
+            os.Exit(1)
+        }
+        if err := db.DeactivateUser(*userID, *tenantID); err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("User %s deactivated\n", *userID)
+
+    case "list-login-audit":
+        var filterUserID *string
+        var filterEmail *string
+        if *userID != "" {
+            filterUserID = userID
+        } else if *email != "" {
+            filterEmail = email
+        }
+        entries, err := db.ListLoginAuditLog(filterUserID, filterEmail, *limit)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-6s %-38s %-35s %-8s %-20s %-20s %-25s\n",
+            "id", "user_id", "email", "success", "ip_address", "failure_reason", "created_at")
+        fmt.Println("--------------------------------------------------------------------------------------------------------------------------------------------------------")
+        for _, e := range entries {
+            uid := "<nil>"
+            if e.UserID != nil {
+                uid = *e.UserID
+            }
+            fmt.Printf("%-6d %-38s %-35s %-8v %-20s %-20s %-25s\n",
+                e.ID, uid, e.Email, e.Success, e.IPAddress, e.FailureReason,
+                e.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
+
+    case "list-refresh-tokens":
+        // Optional: filter by -user-id; use -limit to cap rows.
+        tokens, err := db.ListRefreshTokens(*userID, *limit)
+        if err != nil {
+            fmt.Printf("Error: %v\n", err)
+            os.Exit(1)
+        }
+        fmt.Printf("%-38s %-38s %-8s %-8s %-25s %-25s %-25s\n",
+            "token_id", "user_id", "revoked", "expired", "expires_at", "last_used_at", "created_at")
+        fmt.Println("------------------------------------------------------------------------------------------------------------------------------------------------------------")
+        for _, t := range tokens {
+            expired := time.Now().After(t.ExpiresAt)
+            lastUsed := "<never>"
+            if t.LastUsedAt != nil {
+                lastUsed = t.LastUsedAt.Format("2006-01-02 15:04:05")
+            }
+            fmt.Printf("%-38s %-38s %-8v %-8v %-25s %-25s %-25s\n",
+                t.TokenID, t.UserID, t.Revoked, expired,
+                t.ExpiresAt.Format("2006-01-02 15:04:05"),
+                lastUsed,
+                t.CreatedAt.Format("2006-01-02 15:04:05"))
+        }
 
     default:
         fmt.Printf("Error: Unknown operation: %s\n", *op)

@@ -1,8 +1,6 @@
 module dbutil
 
-go 1.21
-
-toolchain go1.22.2
+go 1.25.0
 
 require github.com/lib/pq v1.10.9
 
@@ -46,8 +44,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	golang.org/x/exp v0.0.0-20230510235704-dd950f8aeaea // indirect
-	golang.org/x/sys v0.21.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/sys v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231002182017-d307bd883b97 // indirect
 	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
@@ -59,6 +56,8 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.26.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.26.0
+	golang.org/x/crypto v0.50.0
+	golang.org/x/term v0.42.0
 )
 
 replace orion/common => ../common
