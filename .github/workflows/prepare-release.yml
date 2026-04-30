@@ -1,0 +1,8 @@
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without v"
+        required: true
+        type: string
+
