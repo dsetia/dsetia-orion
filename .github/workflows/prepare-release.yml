@@ -1,8 +1,93 @@
+name: Prepare Orion Release
+
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, without v"
+        description: "Version to prepare, without leading v."
         required: true
         type: string
 
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: prepare-orion-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Create release branch and PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout master
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Validate release version
+        id: version
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $VERSION" >&2
+            exit 1
+          fi
+
+          tag="v$VERSION"
+          branch="release/$tag"
+
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "Remote branch $branch already exists" >&2
+            exit 1
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin" >&2
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+      - name: Create release branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          branch="${{ steps.version.outputs.branch }}"
+          version="${{ steps.version.outputs.version }}"
+          tag="${{ steps.version.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$branch"
+          printf '%s\n' "$version" > VERSION
+          git add VERSION
+          git commit -m "chore: release $tag"
+          git push -u origin "$branch"
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${{ steps.version.outputs.tag }}"
+          branch="${{ steps.version.outputs.branch }}"
+
+          gh pr create \
+            --title "Release $tag" \
+            --body "Bump VERSION to \`$tag\`. After this PR is merged, the release workflow will tag the merged commit, build the archive, and publish the GitHub release." \
+            --base master \
+            --head "$branch"
