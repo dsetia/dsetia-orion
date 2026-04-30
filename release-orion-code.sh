@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Prepare Orion releases and build deterministic release archives.
+# Prepare Orion release PRs and build deterministic release archives.
 #
-# Long-term release flow:
+# Release flow:
 #   1. ./release-orion-code.sh prepare 1.2.3
 #   2. Review and merge the generated release PR.
 #   3. The GitHub release workflow tags the merged commit, builds the archive,

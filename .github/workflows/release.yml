@@ -1,0 +1,113 @@
+name: Release Orion
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - VERSION
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without leading v. Defaults to VERSION."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-orion
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag, build, and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          REQUESTED_VERSION: ${{ github.event.inputs.version || '' }}
+        run: |
+          set -euo pipefail
+
+          version="$REQUESTED_VERSION"
+          if [[ -z "$version" ]]; then
+            version="$(tr -d '[:space:]' < VERSION)"
+          fi
+
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version: $version" >&2
+            exit 1
+          fi
+
+          file_version="$(tr -d '[:space:]' < VERSION)"
+          if [[ "$version" != "$file_version" ]]; then
+            echo "Requested version $version does not match VERSION file $file_version" >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "archive=orion-v$version.tar.gz" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag does not already exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Tag $tag already exists on origin" >&2
+            exit 1
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build release archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./release-orion-code.sh build "${{ steps.version.outputs.version }}"
+
+      - name: Verify archive exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "dist/${{ steps.version.outputs.archive }}"
+          tar -tzf "dist/${{ steps.version.outputs.archive }}" >/dev/null
+
+      - name: Create and push release tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.version.outputs.tag }}"
+          archive="dist/${{ steps.version.outputs.archive }}"
+
+          gh release create "$tag" "$archive" \
+            --title "Orion $tag" \
+            --generate-notes

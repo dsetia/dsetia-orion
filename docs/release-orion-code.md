@@ -1,63 +1,109 @@
-# release-orion-code.sh - Design and Usage
+# Orion Code Archive Release Design
 
 ## Overview
 
-`release-orion-code.sh` is the long-term release helper for Orion. It replaces
-the older local build-and-publish flow with a safer design:
+Orion code archives are released through a reviewed version-bump PR and a
+GitHub Actions release workflow. A developer prepares the release request
+locally, reviewers approve the version change, and CI builds and publishes the
+archive from the merged commit.
 
-1. A local developer prepares a version-bump PR.
-2. The PR is reviewed and merged into `master`.
-3. GitHub Actions builds and publishes the release from the merged commit.
+The release source of truth is:
 
-The important design choice is that release artifacts are produced in CI from a
-clean checkout, not from a developer workstation. The merged `VERSION` file is
-the release request, the Git tag is the immutable release anchor, and the GitHub
-release asset is built from that exact commit.
+1. `VERSION` records the requested release version.
+2. The merged commit on `master` records the reviewed release request.
+3. The annotated Git tag `vX.Y.Z` identifies the exact released commit.
+4. The GitHub release asset is built from that tagged commit.
 
-`build-orion-code.sh` is intentionally left in place for the older workflow.
-New releases should use `release-orion-code.sh` and
-`.github/workflows/release.yml`.
+This keeps release publication out of local workstation state. Local tooling can
+prepare a release PR or build an archive for inspection, but the official
+published archive is created by GitHub Actions.
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `release-orion-code.sh` | Local helper for preparing release PRs and building release archives. |
-| `.github/workflows/release.yml` | CI workflow that validates `VERSION`, creates the release tag, builds the archive, and publishes the GitHub release. |
-| `VERSION` | Source-controlled release version in bare `X.Y.Z` format. |
-| `dist/orion-vX.Y.Z.tar.gz` | Release archive produced by the build command or workflow. |
+| `release-orion-code.sh` | Local helper for release PR preparation and archive builds. |
+| `.github/workflows/release.yml` | CI workflow that validates the merged release request, creates the tag, builds the archive, and publishes the GitHub release. |
+| `VERSION` | Source-controlled version in bare `X.Y.Z` format. |
+| `dist/orion-vX.Y.Z.tar.gz` | Archive produced by local builds and by CI. |
 
-## Design goals
+## Release Flow
 
-The new release design is meant to address weaknesses in the older script:
+### 1. Prepare the release PR
 
-- Keep build and publish separate from version preparation.
-- Require human review before a release is published.
-- Build in a clean, repeatable Linux environment.
-- Avoid publishing archives that contain local uncommitted files.
-- Anchor every release to an annotated Git tag.
-- Make the release archive more deterministic.
-- Keep GitHub authentication out of plain local archive builds.
+Run from a clean working tree:
 
-## Version tracking
-
-The repository root contains a `VERSION` file holding the current release
-version as a bare `X.Y.Z` string:
-
-```text
-1.0.6
+```bash
+./release-orion-code.sh prepare 1.3.0
 ```
 
-The tag and archive names derive from this value:
+The prepare command:
 
-| VERSION | Tag | Archive |
-|---------|-----|---------|
-| `1.3.0` | `v1.3.0` | `orion-v1.3.0.tar.gz` |
+1. Validates that the version is in `X.Y.Z` format.
+2. Requires `gh` and verifies `gh auth status`.
+3. Requires a clean working tree.
+4. Updates local `master` from `origin/master` with a fast-forward pull.
+5. Verifies that `release/vX.Y.Z` does not already exist locally or remotely.
+6. Verifies that tag `vX.Y.Z` does not already exist on `origin`.
+7. Creates branch `release/vX.Y.Z`.
+8. Writes the new version to `VERSION`.
+9. Commits the version bump.
+10. Pushes the release branch.
+11. Opens a PR against `master`.
 
-The `v` prefix is used only for Git tags and release names. It is not stored in
-`VERSION`.
+No official archive is published by this command.
 
-## Commands
+### 2. Review and merge
+
+Review the PR normally. The release branch should contain the `VERSION` bump.
+If the team wants release notes or changelog updates in source control, include
+them in the same PR and review them together.
+
+Merging the PR to `master` is the release approval step.
+
+### 3. CI tags, builds, and publishes
+
+When the `VERSION` change lands on `master`, `.github/workflows/release.yml`
+runs automatically.
+
+The workflow:
+
+1. Checks out the repository with full Git history.
+2. Reads `VERSION`.
+3. Validates `X.Y.Z` format.
+4. Confirms that a manually supplied workflow version, if present, matches
+   `VERSION`.
+5. Confirms that tag `vX.Y.Z` does not already exist on `origin`.
+6. Sets up Go.
+7. Runs `./release-orion-code.sh build X.Y.Z`.
+8. Verifies that `dist/orion-vX.Y.Z.tar.gz` exists and can be read.
+9. Creates annotated tag `vX.Y.Z` on the merged commit.
+10. Pushes the tag.
+11. Creates the GitHub release.
+12. Uploads the archive.
+13. Generates release notes from GitHub history.
+
+## Versioning
+
+`VERSION` contains a bare semantic version:
+
+```text
+1.3.0
+```
+
+Derived names:
+
+| Item | Value |
+|------|-------|
+| Release branch | `release/v1.3.0` |
+| Git tag | `v1.3.0` |
+| GitHub release title | `Orion v1.3.0` |
+| Archive | `orion-v1.3.0.tar.gz` |
+
+The `v` prefix is used for branch names, tags, release names, and archive names.
+It is not stored in `VERSION`.
+
+## Local Commands
 
 ```bash
 ./release-orion-code.sh prepare <version>
@@ -66,105 +112,35 @@ The `v` prefix is used only for Git tags and release names. It is not stored in
 
 | Command | Description |
 |---------|-------------|
-| `prepare <version>` | Creates `release/vX.Y.Z`, writes `VERSION`, commits it, pushes the branch, and opens a PR against `master`. |
-| `build [version]` | Builds `dist/orion-vX.Y.Z.tar.gz` from the current checkout. If omitted, `version` is read from `VERSION`. |
+| `prepare <version>` | Creates the release branch, commits `VERSION`, pushes the branch, and opens the PR. |
+| `build [version]` | Builds `dist/orion-vX.Y.Z.tar.gz` from the current checkout. If omitted, the version is read from `VERSION`. |
 
 ## Prerequisites
 
 | Tool | Purpose | Required for |
 |------|---------|--------------|
-| `git` | Branch, tag, and repository state checks | Always |
-| `make` | Builds all Go binaries via the root `Makefile` | `build`, CI release |
-| GNU `tar` | Creates deterministic archives | `build`, CI release |
-| `gh` CLI | Opens release PRs locally and creates GitHub releases in CI | `prepare`, CI release |
+| `git` | Repository state, branch, and tag checks | Always |
+| `make` | Builds Go binaries through the root `Makefile` | `build`, CI |
+| GNU `tar` | Creates deterministic archives | `build`, CI |
+| `gh` CLI | Opens PRs locally and creates releases in CI | `prepare`, CI |
 
-Local macOS builds require GNU tar as `gtar`, usually installed with:
+Local macOS archive builds require GNU tar as `gtar`:
 
 ```bash
 brew install gnu-tar
 ```
 
-`gh` must be authenticated before running `prepare`:
+Local PR preparation requires GitHub CLI authentication:
 
 ```bash
 gh auth login
 ```
 
-Plain archive builds do not require GitHub authentication.
+Local archive builds do not require GitHub authentication.
 
-## Recommended release workflow
+## Archive Contents
 
-### Step 1 - Prepare the release PR
-
-Run from a clean working tree:
-
-```bash
-./release-orion-code.sh prepare 1.3.0
-```
-
-This will:
-
-1. Validate that `1.3.0` matches `X.Y.Z`.
-2. Require `gh` and verify `gh auth status`.
-3. Require a clean working tree.
-4. Fetch and fast-forward local `master` from `origin/master`.
-5. Check that `release/v1.3.0` does not already exist locally or remotely.
-6. Check that tag `v1.3.0` does not already exist on `origin`.
-7. Create branch `release/v1.3.0`.
-8. Write `1.3.0` to `VERSION`.
-9. Commit `VERSION` as `chore: release v1.3.0`.
-10. Push the branch.
-11. Open a GitHub PR titled `Release v1.3.0` against `master`.
-
-No archive is built and no release is published in this step.
-
-### Step 2 - Review and merge
-
-Review the generated PR in the normal way. The release decision happens when
-the PR is merged into `master`.
-
-The release branch should contain only the `VERSION` bump unless the team
-explicitly decides to include release-note or changelog updates in the same PR.
-
-### Step 3 - GitHub Actions publishes the release
-
-When the `VERSION` change lands on `master`, `.github/workflows/release.yml`
-runs automatically.
-
-The workflow will:
-
-1. Check out the repository with full Git history.
-2. Read the merged `VERSION`.
-3. Validate `X.Y.Z` format.
-4. Confirm that a manually supplied workflow version, if any, matches
-   `VERSION`.
-5. Check that `vX.Y.Z` does not already exist on `origin`.
-6. Set up Go.
-7. Run `./release-orion-code.sh build X.Y.Z`.
-8. Verify that `dist/orion-vX.Y.Z.tar.gz` exists and is readable.
-9. Create annotated tag `vX.Y.Z` on the merged commit.
-10. Push the tag.
-11. Create the GitHub release.
-12. Upload `dist/orion-vX.Y.Z.tar.gz`.
-13. Generate release notes from GitHub history.
-
-## Manual release workflow dispatch
-
-The release workflow also supports `workflow_dispatch`.
-
-Manual dispatch is useful if:
-
-- The automatic workflow was disabled.
-- The release workflow file changed and needs a deliberate run.
-- A release needs to be retried after fixing CI infrastructure.
-
-If a version is supplied in the workflow input, it must match the repository
-`VERSION` file at the selected commit. This prevents accidentally publishing
-`v1.3.0` from a commit whose source says `1.2.9`.
-
-## Archive layout
-
-The release archive is named `orion-vX.Y.Z.tar.gz` and written to `dist/`.
+The archive is written to `dist/orion-vX.Y.Z.tar.gz`.
 
 It unpacks to:
 
@@ -184,12 +160,12 @@ opt/
     docker-compose.yml
 ```
 
-The archive intentionally copies named Go binaries instead of every file in the
-Go binary directory. Shell scripts and SQL files are copied in sorted order.
+The build copies named Go binaries from `${GOBIN:-$HOME/go/bin}`. Shell scripts
+and SQL files are discovered from the repository and copied in sorted order.
 
-## Deterministic archive behavior
+## Deterministic Archive Settings
 
-The build command uses GNU tar with:
+Archive creation uses GNU tar with stable metadata:
 
 ```text
 --sort=name
@@ -200,69 +176,51 @@ The build command uses GNU tar with:
 ```
 
 By default, `<source_date_epoch>` is the timestamp of the current Git commit.
-It can be overridden with `SOURCE_DATE_EPOCH`.
+Set `SOURCE_DATE_EPOCH` to override it.
 
-This reduces differences between archives built from the same commit. It does
-not make the build fully reproducible if the compiled Go binaries themselves
-include non-deterministic data.
+These settings reduce archive drift between builds from the same commit. Full
+binary reproducibility still depends on the Go build inputs and toolchain.
 
-## Build only
+## Build Only
 
-To build the current version locally:
+Build the version in `VERSION`:
 
 ```bash
 ./release-orion-code.sh build
 ```
 
-To build a specific version from the current checkout:
+Build an explicit version from the current checkout:
 
 ```bash
 ./release-orion-code.sh build 1.3.0
 ```
 
-The build command:
-
-1. Reads or validates the version.
-2. Creates a temporary package root using `mktemp -d`.
-3. Runs `make all`.
-4. Copies the expected binaries from `${GOBIN:-$HOME/go/bin}`.
-5. Copies release shell scripts and SQL files.
-6. Writes the archive to `${DIST_DIR:-<repo>/dist}`.
-7. Cleans up the temporary package root.
-
 Useful environment overrides:
 
 | Variable | Description |
 |----------|-------------|
-| `DIST_DIR` | Output directory for the archive. Defaults to `<repo>/dist`. |
+| `DIST_DIR` | Archive output directory. Defaults to `<repo>/dist`. |
 | `DEPLOY_ROOT` | Temporary package root. Defaults to a `mktemp` directory. |
 | `GOBIN` | Directory containing built Go binaries. Defaults to `$HOME/go/bin`. |
-| `SOURCE_DATE_EPOCH` | Timestamp used for archive file mtimes. Defaults to current Git commit time. |
+| `SOURCE_DATE_EPOCH` | Archive file timestamp. Defaults to the current Git commit time. |
 
-## Why build and publish are separate
+## Manual Workflow Dispatch
 
-Release preparation and release publication have different risk profiles.
+The release workflow supports manual `workflow_dispatch`.
 
-The local `prepare` command changes source control state by creating a PR. It
-needs GitHub authentication, but it should not build or publish anything.
+Manual dispatch is useful when a release needs to be retried after an
+infrastructure failure. If a version input is supplied, it must match the
+selected commit's `VERSION` file. This prevents publishing one version label
+from a different source revision.
 
-The CI release workflow publishes an artifact. It should run only after review,
-from a clean checkout, and from the exact merged commit. This prevents a release
-asset from including local files, stale binaries, or unreviewed changes.
+If a workflow run already created the remote tag but failed while creating the
+GitHub release, treat the tag as release identity. Prefer creating or uploading
+the release asset for that existing tag instead of deleting and recreating it.
 
-## Why `gh auth` is required only for prepare
+## Error Handling
 
-`prepare` uses `gh pr create`, so local GitHub authentication is required.
-
-`build` is intentionally offline with respect to GitHub. A developer should be
-able to build and inspect an archive without any GitHub credentials.
-
-In GitHub Actions, the workflow uses the built-in `GITHUB_TOKEN` through
-`GH_TOKEN` to create the release.
-
-## Error handling
-
-The script runs with `set -euo pipefail` and aborts on the first failure.
+`release-orion-code.sh` runs with `set -euo pipefail` and stops on the first
+failure.
 
 Common failures:
 
@@ -271,41 +229,9 @@ Common failures:
 | `version must be in X.Y.Z format` | The supplied version is missing or malformed. |
 | `working tree is not clean` | Commit or stash local changes before `prepare`. |
 | `gh is not authenticated` | Run `gh auth login` before `prepare`. |
-| `local branch 'release/vX.Y.Z' already exists` | A previous prepare run created the branch. |
-| `remote branch 'release/vX.Y.Z' already exists` | A release PR already exists or was not cleaned up. |
-| `tag 'vX.Y.Z' already exists on origin` | The version was already released or partially released. |
+| `local branch 'release/vX.Y.Z' already exists` | A local release branch already exists. |
+| `remote branch 'release/vX.Y.Z' already exists` | A release PR branch already exists on origin. |
+| `tag 'vX.Y.Z' already exists on origin` | That version has already been released or partially released. |
 | `GNU tar is required` | Install GNU tar locally, usually as `gtar` on macOS. |
 | `required release file is missing` | `make all` did not produce an expected binary or a required package file is absent. |
-
-## Recovery notes
-
-If `prepare` fails before pushing the branch, inspect the local branch and either
-continue manually or delete it:
-
-```bash
-git branch -D release/v1.3.0
-```
-
-If the GitHub workflow creates the tag but fails while creating the GitHub
-release, do not rerun blindly. Either:
-
-1. Create/upload the release asset manually for the existing tag, or
-2. Delete the failed remote tag and rerun only if the team agrees the tag was
-   never consumed.
-
-Tags are release identity. Treat tag deletion as an exceptional operation.
-
-## Comparison with build-orion-code.sh
-
-| Area | Older `build-orion-code.sh` | New `release-orion-code.sh` plus workflow |
-|------|-----------------------------|-------------------------------------------|
-| Version bump | Local script can update `VERSION` and optionally open PR | Local script only prepares a reviewed PR |
-| Build location | Developer machine | GitHub Actions runner |
-| Publish location | Developer machine | GitHub Actions runner |
-| GitHub auth | Required for PR and publish flags | Required locally only for PR creation |
-| Release source | Current local checkout | Merged commit on `master` |
-| Tag creation | Local publish path | CI after validation |
-| Archive output | Repository root | `dist/` |
-| Temporary directory | Fixed `/tmp/deploy` | Per-run `mktemp` directory |
-| Archive contents | Broad copy from `$HOME/go/bin`, `utils`, and `db` | Named binaries plus sorted script/schema copies |
 
